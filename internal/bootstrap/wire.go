@@ -9,6 +9,7 @@ import (
 	"github.com/tunsuy/claude-code-go/internal/agentctx"
 	"github.com/tunsuy/claude-code-go/internal/agenttype"
 	"github.com/tunsuy/claude-code-go/internal/api"
+	cmengine "github.com/tunsuy/claude-code-go/internal/codemode"
 	"github.com/tunsuy/claude-code-go/internal/config"
 	"github.com/tunsuy/claude-code-go/internal/coordinator"
 	"github.com/tunsuy/claude-code-go/internal/engine"
@@ -20,6 +21,7 @@ import (
 	"github.com/tunsuy/claude-code-go/internal/permissions"
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/tools"
+	cmtool "github.com/tunsuy/claude-code-go/internal/tools/codemode"
 	"github.com/tunsuy/claude-code-go/internal/tools/interact"
 	"github.com/tunsuy/claude-code-go/internal/tools/misc"
 	"github.com/tunsuy/claude-code-go/pkg/types"
@@ -198,6 +200,8 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 			return store.GetState().ToolPermissionContext.Mode
 		},
 	})
+	// CM-01: CodeMode sandbox tool — every inner call goes through permChecker.
+	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime()))
 
 	// ── Phase 7.5: StopHook registry (memory extraction) ────────────────────
 	stopHooks := engine.NewStopHookRegistry()
@@ -334,6 +338,8 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 			return store.GetState().ToolPermissionContext.Mode
 		},
 	})
+	// CM-01: CodeMode sandbox tool — every inner call goes through permChecker.
+	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime()))
 
 	// ── Phase 7.5: StopHook registry ─────────────────────────────────────────
 	stopHooksTest := engine.NewStopHookRegistry()
