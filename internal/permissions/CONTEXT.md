@@ -2,7 +2,7 @@
 package: permissions
 import_path: internal/permissions
 layer: services
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T05:05:54Z
 source_files: [ask.go, checker.go, denial.go, filesystem.go, persist.go]
 ---
 
@@ -27,7 +27,7 @@ type Checker interface {
 
 - **AskRequest** — 8 fields: ID, ToolName, ToolUseID, Message, Input, Suggestions, BlockedPath, ProjectPath
 - **AskResponse** — 4 fields: ID, Decision, AlwaysAllow, UserModified
-- **CheckerConfig** — 6 fields: PermCtx, Dispatcher, Registry, AskCh, RespCh, Persist
+- **CheckerConfig** — 7 fields: PermCtx, Dispatcher, Registry, AskCh, RespCh, Persist, ModeFn
 - **DangerousPathResult** — 3 fields: Dangerous, Matched, Reason
 - **DenialLimits** — 2 fields: MaxConsecutive, MaxTotal
 - **DenialRecord** — 4 fields: ToolName, ToolUseID, Reason, DeniedAt
@@ -63,3 +63,4 @@ type Checker interface {
 ## Design Notes
 
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
+- **2026-11-18 BF-09/BF-21 ModeFn**：CheckerConfig.ModeFn 可选 live mode 来源（覆盖 PermCtx.Mode 快照）；currentMode() 于 bypass 与 mode-switch 两处消费；nil 时行为不变。锁序 checker.mu→store.mu 无死锁。Checker 接口零变更。

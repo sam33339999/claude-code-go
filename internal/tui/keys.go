@@ -8,6 +8,8 @@ import (
 
 	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/claude-code-go/internal/msgqueue"
+	"github.com/tunsuy/claude-code-go/internal/state"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // handleKey dispatches keyboard events based on the active dialog and loading state.
@@ -201,6 +203,9 @@ func (m AppModel) handleIdleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyTab:
 		return m.handleTabCompletion()
+
+	case tea.KeyShiftTab:
+		return m.cyclePermissionMode()
 
 	case tea.KeyPgUp:
 		m.pinnedToBottom = false
@@ -477,5 +482,49 @@ func (m AppModel) handleQuestionKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		q.answer += text
 		q.selected = -1
 	}
+	return m, nil
+}
+
+// nextPermissionMode advances the Shift+Tab mode carousel (BF-09/BF-21),
+// following the oracle order (getNextPermissionMode.ts):
+// default → acceptEdits → plan → bypassPermissions (YOLO) → default.
+// Divergence (documented in tui.md): the oracle gates YOLO behind
+// --dangerously-skip-permissions; here it is reachable from the cycle by
+// explicit user request, with a prominent status-bar warning.
+func nextPermissionMode(mode types.PermissionMode) types.PermissionMode {
+	switch mode {
+	case types.PermissionModeDefault, "":
+		return types.PermissionModeAcceptEdits
+	case types.PermissionModeAcceptEdits:
+		return types.PermissionModePlan
+	case types.PermissionModePlan:
+		return types.PermissionModeBypassPermissions
+	default:
+		return types.PermissionModeDefault
+	}
+}
+
+// cyclePermissionMode advances the permission mode in AppState (the checker
+// reads it live via CheckerConfig.ModeFn) and surfaces the change both in the
+// conversation and the status bar.
+func (m AppModel) cyclePermissionMode() (tea.Model, tea.Cmd) {
+	next := nextPermissionMode(m.appState.GetState().ToolPermissionContext.Mode)
+	m.appState.SetState(func(prev state.AppState) state.AppState {
+		prev.ToolPermissionContext.Mode = next
+		return prev
+	})
+	var note string
+	switch next {
+	case types.PermissionModeAcceptEdits:
+		note = "Permission mode: accept edits — file edits auto-approved."
+	case types.PermissionModePlan:
+		note = "Permission mode: plan — read-only research, writes blocked."
+	case types.PermissionModeBypassPermissions:
+		note = "⚠ YOLO mode (bypassPermissions): ALL permission checks skipped. Use with care."
+	default:
+		note = "Permission mode: normal — permission rules apply."
+	}
+	m.messages = append(m.messages, newSystemMessage(note))
+	m.syncViewportContent()
 	return m, nil
 }

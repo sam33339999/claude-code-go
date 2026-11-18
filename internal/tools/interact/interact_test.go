@@ -229,53 +229,22 @@ func TestAskUserQuestionTool_EmptyQuestion(t *testing.T) {
 	}
 }
 
-// ── EnterPlanModeTool ─────────────────────────────────────────────────────────
+// ── EnterPlanModeTool / ExitPlanModeTool（BF-09）─────────────────────────────
 
-func TestEnterPlanModeTool_Name(t *testing.T) {
-	if interact.EnterPlanModeTool.Name() != "EnterPlanMode" {
-		t.Errorf("expected EnterPlanMode, got %q", interact.EnterPlanModeTool.Name())
+func TestPlanModeTools_Metadata(t *testing.T) {
+	store := state.NewAppStateStore(state.AppState{})
+	enter := interact.NewEnterPlanModeTool(store)
+	exit := interact.NewExitPlanModeTool(store)
+	if enter.Name() != "EnterPlanMode" || exit.Name() != "ExitPlanMode" {
+		t.Errorf("names: %q / %q", enter.Name(), exit.Name())
 	}
-}
-
-func TestEnterPlanModeTool_IsConcurrencySafe_False(t *testing.T) {
-	if interact.EnterPlanModeTool.IsConcurrencySafe(nil) {
-		t.Error("EnterPlanModeTool must not be concurrency-safe")
+	if enter.IsConcurrencySafe(nil) || exit.IsConcurrencySafe(nil) {
+		t.Error("plan mode tools must not be concurrency-safe")
 	}
-}
-
-func TestEnterPlanModeTool_IsReadOnly_True(t *testing.T) {
-	if !interact.EnterPlanModeTool.IsReadOnly(nil) {
-		t.Error("EnterPlanModeTool should be read-only")
+	if !enter.IsReadOnly(nil) || !exit.IsReadOnly(nil) {
+		t.Error("plan mode tools should be read-only")
 	}
-}
-
-func TestEnterPlanModeTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(interact.EnterPlanModeInput{Plan: "step 1, step 2"})
-	result, err := interact.EnterPlanModeTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
-	}
-	if !result.IsError {
-		t.Error("expected IsError=true for stub tool")
-	}
-}
-
-// ── ExitPlanModeTool ──────────────────────────────────────────────────────────
-
-func TestExitPlanModeTool_Name(t *testing.T) {
-	if interact.ExitPlanModeTool.Name() != "ExitPlanMode" {
-		t.Errorf("expected ExitPlanMode, got %q", interact.ExitPlanModeTool.Name())
-	}
-}
-
-func TestExitPlanModeTool_IsConcurrencySafe_False(t *testing.T) {
-	if interact.ExitPlanModeTool.IsConcurrencySafe(nil) {
-		t.Error("ExitPlanModeTool must not be concurrency-safe")
-	}
-}
-
-func TestExitPlanModeTool_InputSchema(t *testing.T) {
-	schema := interact.ExitPlanModeTool.InputSchema()
+	schema := exit.InputSchema()
 	if _, ok := schema.Properties["approved"]; !ok {
 		t.Error("schema missing 'approved'")
 	}
@@ -284,14 +253,54 @@ func TestExitPlanModeTool_InputSchema(t *testing.T) {
 	}
 }
 
-func TestExitPlanModeTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(interact.ExitPlanModeInput{Approved: true})
-	result, err := interact.ExitPlanModeTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
+func TestPlanModeTools_SwitchLiveMode(t *testing.T) {
+	store := state.NewAppStateStore(state.AppState{})
+	enter := interact.NewEnterPlanModeTool(store)
+	exit := interact.NewExitPlanModeTool(store)
+
+	in, _ := json.Marshal(interact.EnterPlanModeInput{Plan: "step 1, step 2"})
+	result, err := enter.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("enter: err=%v result=%+v", err, result)
 	}
-	if !result.IsError {
-		t.Error("expected IsError=true for stub tool")
+	if got := store.GetState().ToolPermissionContext.Mode; got != types.PermissionModePlan {
+		t.Errorf("expected plan mode, got %q", got)
+	}
+	if !strings.Contains(result.Content.(string), "step 1, step 2") {
+		t.Error("plan summary should be echoed in the result")
+	}
+
+	in, _ = json.Marshal(interact.ExitPlanModeInput{Approved: true})
+	result, err = exit.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("exit: err=%v result=%+v", err, result)
+	}
+	if got := store.GetState().ToolPermissionContext.Mode; got != types.PermissionModeDefault {
+		t.Errorf("expected default mode after exit, got %q", got)
+	}
+	if !strings.Contains(result.Content.(string), "approved") {
+		t.Error("approval should be reflected in the result")
+	}
+
+	// Unapproved exit also returns to default but instructs not to execute.
+	store.SetState(func(prev state.AppState) state.AppState {
+		prev.ToolPermissionContext.Mode = types.PermissionModePlan
+		return prev
+	})
+	in, _ = json.Marshal(interact.ExitPlanModeInput{Approved: false})
+	result, _ = exit.Call(in, nil, nil)
+	if !strings.Contains(result.Content.(string), "without approval") {
+		t.Errorf("expected non-approval text, got %v", result.Content)
+	}
+}
+
+func TestPlanModeTools_NilStore(t *testing.T) {
+	for _, tool := range []tools.Tool{interact.NewEnterPlanModeTool(nil), interact.NewExitPlanModeTool(nil)} {
+		in, _ := json.Marshal(map[string]any{"approved": true})
+		result, err := tool.Call(in, nil, nil)
+		if err != nil || !result.IsError {
+			t.Errorf("%s: nil store must report honest error, got %+v", tool.Name(), result)
+		}
 	}
 }
 
@@ -388,8 +397,8 @@ func TestExitWorktreeTool_Call_ReturnsError(t *testing.T) {
 func TestAllInteractTools_ImplementToolInterface(t *testing.T) {
 	var _ tools.Tool = interact.NewTodoWriteTool(nil)
 	var _ tools.Tool = interact.NewAskUserQuestionTool(nil, nil)
-	var _ tools.Tool = interact.EnterPlanModeTool
-	var _ tools.Tool = interact.ExitPlanModeTool
+	var _ tools.Tool = interact.NewEnterPlanModeTool(nil)
+	var _ tools.Tool = interact.NewExitPlanModeTool(nil)
 	var _ tools.Tool = interact.EnterWorktreeTool
 	var _ tools.Tool = interact.ExitWorktreeTool
 }

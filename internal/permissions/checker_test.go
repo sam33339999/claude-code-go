@@ -340,3 +340,37 @@ func TestRequestPermission_AskUserApproves(t *testing.T) {
 		t.Errorf("expected Allow after user approval, got %q", result.Behavior)
 	}
 }
+
+// TestChecker_ModeFnLiveOverride proves BF-09/BF-21: a checker wired with
+// ModeFn observes mid-session mode changes without reconstruction — YOLO
+// (bypassPermissions) allows everything, plan denies writes.
+func TestChecker_ModeFnLiveOverride(t *testing.T) {
+	mode := types.PermissionModeDefault
+	c := NewChecker(CheckerConfig{
+		PermCtx: types.ToolPermissionContext{Mode: types.PermissionModeDefault},
+		ModeFn:  func() types.PermissionMode { return mode },
+	})
+
+	// default mode: unknown tool → Ask (no rules, no registry).
+	res, err := c.CanUseTool(context.Background(), "SomeTool", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Behavior != tools.PermissionAsk {
+		t.Fatalf("default: expected Ask, got %v", res.Behavior)
+	}
+
+	// YOLO: unconditional allow, live.
+	mode = types.PermissionModeBypassPermissions
+	res, err = c.CanUseTool(context.Background(), "SomeTool", nil, nil)
+	if err != nil || res.Behavior != tools.PermissionAllow {
+		t.Errorf("bypass: expected Allow, got %v err=%v", res.Behavior, err)
+	}
+
+	// Back to default: Ask again (no stale snapshot).
+	mode = types.PermissionModeDefault
+	res, _ = c.CanUseTool(context.Background(), "SomeTool", nil, nil)
+	if res.Behavior != tools.PermissionAsk {
+		t.Errorf("default again: expected Ask, got %v", res.Behavior)
+	}
+}

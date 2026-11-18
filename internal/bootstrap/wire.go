@@ -154,6 +154,9 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	// BF-07: TodoWrite needs the live store; registered here (not in
 	// RegisterBuiltinTools) because the store is built after tool registration.
 	reg.Register(interact.NewTodoWriteTool(store))
+	// BF-09: plan-mode tools mutate the live permission mode via the store.
+	reg.Register(interact.NewEnterPlanModeTool(store))
+	reg.Register(interact.NewExitPlanModeTool(store))
 
 	// ── Phase 7: Permission checker (HIL support) ────────────────────────────
 	// Create permission channels for TUI ↔ Engine communication.
@@ -179,6 +182,10 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 		AskCh:      askCh,
 		RespCh:     respCh,
 		Persist:    &permissions.PersistConfig{ProjectDir: opts.WorkingDir},
+		// BF-09/BF-21: live mode from AppState (Shift+Tab cycle / plan tools).
+		ModeFn: func() types.PermissionMode {
+			return store.GetState().ToolPermissionContext.Mode
+		},
 	})
 
 	// ── Phase 7.5: StopHook registry (memory extraction) ────────────────────
@@ -277,6 +284,9 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	// BF-07: TodoWrite needs the live store; registered here (not in
 	// RegisterBuiltinTools) because the store is built after tool registration.
 	reg.Register(interact.NewTodoWriteTool(store))
+	// BF-09: plan-mode tools mutate the live permission mode via the store.
+	reg.Register(interact.NewEnterPlanModeTool(store))
+	reg.Register(interact.NewExitPlanModeTool(store))
 
 	// ── Phase 7: Permission checker (HIL support) ────────────────────────────
 	askCh := make(chan permissions.AskRequest, 1)
@@ -298,6 +308,10 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 		AskCh:      askCh,
 		RespCh:     respCh,
 		Persist:    &permissions.PersistConfig{ProjectDir: opts.WorkingDir},
+		// BF-09/BF-21: live mode from AppState (Shift+Tab cycle / plan tools).
+		ModeFn: func() types.PermissionMode {
+			return store.GetState().ToolPermissionContext.Mode
+		},
 	})
 
 	// ── Phase 7.5: StopHook registry ─────────────────────────────────────────

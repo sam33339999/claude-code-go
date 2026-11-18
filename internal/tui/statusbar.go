@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // TokenUsage holds token counts for the current session.
@@ -23,6 +24,9 @@ type StatusBar struct {
 	tokenUsage  TokenUsage
 	cost        float64
 	coordinator bool
+	// mode is the live permission mode (BF-09/BF-21); rendered as a visible
+	// indicator so the user always knows the current mode (YOLO warned).
+	mode types.PermissionMode
 }
 
 // View renders the status bar to a string.
@@ -46,6 +50,15 @@ func (s StatusBar) View(width int, theme Theme) string {
 	if s.coordinator {
 		left = left + mutedStyle(theme).Render(" | ") +
 			accentStyle(theme).Render("Coordinator")
+	}
+	// Permission mode indicator (BF-09/BF-21): always visible when not normal.
+	switch s.mode {
+	case types.PermissionModeAcceptEdits:
+		left += mutedStyle(theme).Render(" | ") + accentStyle(theme).Render("⏵⏵ accept edits")
+	case types.PermissionModePlan:
+		left += mutedStyle(theme).Render(" | ") + accentStyle(theme).Render("⏸ plan")
+	case types.PermissionModeBypassPermissions:
+		left += mutedStyle(theme).Render(" | ") + warningStyle(theme).Bold(true).Render("⚠ YOLO")
 	}
 
 	// Show effort level with icon

@@ -53,6 +53,7 @@ func (m AppModel) View() string {
 	}
 
 	// --- Status bar ---
+	m.statusBar.mode = m.appState.GetState().ToolPermissionContext.Mode
 	sb.WriteString(m.statusBar.View(m.termWidth, m.theme))
 	sb.WriteString("\n")
 

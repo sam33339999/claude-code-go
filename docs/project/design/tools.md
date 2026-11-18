@@ -754,6 +754,12 @@ type TodoWriteInput struct {
 
 #### EnterPlanMode / ExitPlanMode
 
+> **BF-09 已实现（2026-11-18）**：`NewEnterPlanModeTool(store)`／`NewExitPlanModeTool(store)`
+> 构造注入，切换 `AppState.ToolPermissionContext.Mode`（plan／default）；checker 经
+> `CheckerConfig.ModeFn` 读 live mode（plan 拒写允读既有逻辑）。wire.go 于 store 后注册
+> （RegisterBuiltinTools 余 30）。分歧：ExitPlanMode 无交互式计划批准对话框，
+> approved=false 仅退出并指示不执行。Shift+Tab 模式循环见 tui.md v1.8（BF-21 YOLO）。
+
 ```go
 // 通过修改 ToolPermissionContext.Mode 实现模式切换
 // EnterPlanMode → mode = "plan" （只允许只读工具，写操作全部拒绝）
@@ -1028,4 +1034,5 @@ FileEdit 要求 `old_string` 在文件中唯一出现一次。实现：
 | v1.2 | 2026-11-18 | 主会话 | 内核搬回（反转 PR #31）：agtkeel/* import 路径恢复 internal/*、pkg/types；Tool 框架回到 internal/tools 根包。零接口签名变更，仅 import 路径。 |
 | v1.3 | 2026-11-18 | 主会话 | BF-07 TodoWrite 实现：NewTodoWriteTool(store) 构造注入（wire.go 于 store 后注册）；AppState.Todos＋pkg/types.TodoItem；oracle 语义（全 completed 清空、固定文案、整表替换）；分歧文档化（单会话列表、无持久化）。RegisterBuiltinTools 33 工具（TodoWrite 移出）。 |
 | v1.4 | 2026-11-18 | 主会话 | BF-08 AskUserQuestion 实现：HIL channel 对（pkg/types.QuestionRequest/Response）构造注入，权限对话框管线同构；headless nil channel 诚实报错（ContainerOptions.Headless）；ctx/abort 取消路径。RegisterBuiltinTools 32 工具（AskUserQuestion 移出至 wire.go Phase 7）。 |
+| v1.5 | 2026-11-18 | 主会话 | BF-09 plan-mode 工具实现：NewEnterPlanModeTool/NewExitPlanModeTool(store) 切换 live mode（checker ModeFn）；ExitPlanMode 无批准对话框（分歧文档化）。RegisterBuiltinTools 30 工具。 |
 | v1.0 | 2026-04-02 | Agent-Tools | 初稿 |
