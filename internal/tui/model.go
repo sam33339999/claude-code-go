@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/glamour"
 	"github.com/tunsuy/claude-code-go/internal/commands"
 	"github.com/tunsuy/claude-code-go/internal/coordinator"
@@ -229,7 +229,7 @@ func newAppModel(
 		welcomeHeader:  NewWelcomeHeader(model, cwd),
 		pinnedToBottom: true,
 		memoryStore:    memoryStore,
-		viewport:       viewport.New(80, 20),
+		viewport:       viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)),
 		permAskCh:      permAskCh,
 		permRespCh:     permRespCh,
 		agentEventCh:   agentEventCh,

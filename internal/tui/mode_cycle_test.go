@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/pkg/types"
 )
@@ -36,7 +36,7 @@ func TestShiftTab_CyclesModeAndShowsIndicator(t *testing.T) {
 	}
 	wantIndicators := []string{"accept edits", "plan", "YOLO", ""}
 	for i, want := range wantModes {
-		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
 		m = updated.(AppModel)
 		if got := m.appState.GetState().ToolPermissionContext.Mode; got != want {
 			t.Fatalf("cycle %d: mode=%q, want %q", i, got, want)
@@ -76,8 +76,8 @@ func TestShiftTab_PlanModeBlocksWritesViaLiveChecker(t *testing.T) {
 	}
 	m := newTestModel()
 	m.appState = store
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})      // acceptEdits
-	updated, _ = updated.Update(tea.KeyMsg{Type: tea.KeyShiftTab}) // plan
+	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})      // acceptEdits
+	updated, _ = updated.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}) // plan
 	m = updated.(AppModel)
 	if modeFn() != types.PermissionModePlan {
 		t.Errorf("ModeFn must observe plan mode live, got %q", modeFn())

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
@@ -33,7 +33,7 @@ func TestQuestionDialog_OpensAndRenders(t *testing.T) {
 	if cmd == nil {
 		t.Error("expected listener re-arm Cmd")
 	}
-	view := m.View()
+	view := m.View().Content
 	for _, want := range []string{"which database?", "1. postgres", "2. sqlite", "Esc dismiss"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("expected %q in question dialog view", want)
@@ -50,12 +50,12 @@ func TestQuestionDialog_NumberSelectAndSubmit(t *testing.T) {
 		RespFn: func(answer string, dismissed bool) { gotAnswer, gotDismissed = answer, dismissed },
 	})
 	m = updated.(AppModel)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: '2', Text: "2"})
 	m = updated.(AppModel)
 	if m.questionReq.selected != 1 {
 		t.Errorf("expected option 2 selected, got %d", m.questionReq.selected)
 	}
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m = updated.(AppModel)
 	if gotAnswer != "b" || gotDismissed {
 		t.Errorf("expected answer b via RespFn, got %q dismissed=%v", gotAnswer, gotDismissed)
@@ -74,12 +74,12 @@ func TestQuestionDialog_FreeTextAndSubmit(t *testing.T) {
 	})
 	m = updated.(AppModel)
 	for _, r := range "because" {
-		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		updated, _ = m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
 		m = updated.(AppModel)
 	}
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
 	m = updated.(AppModel)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m = updated.(AppModel)
 	if gotAnswer != "becaus" {
 		t.Errorf("expected free-text answer with backspace, got %q", gotAnswer)
@@ -94,7 +94,7 @@ func TestQuestionDialog_EscDismisses(t *testing.T) {
 		RespFn: func(_ string, dismissed bool) { gotDismissed = dismissed },
 	})
 	m = updated.(AppModel)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	m = updated.(AppModel)
 	if !gotDismissed {
 		t.Error("Esc must dismiss via RespFn")

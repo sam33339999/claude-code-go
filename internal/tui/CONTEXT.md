@@ -2,7 +2,7 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-18T05:05:54Z
+generated_at: 2026-11-18T06:08:29Z
 source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, spinner.go, statusbar.go, styles.go, theme.go, update.go, view.go, welcome.go]
 ---
 
@@ -99,3 +99,4 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **2026-11-18 BF-07 Todo 面板**：renderTodoPanel 于 View 输入区上方渲染 AppState.Todos（[x] completed／[>] in_progress／[ ] pending），空列表不渲染。读 mutex 保护 store，纯展示（cache gate 三问全否）。
 - **2026-11-18 BF-08 问答对话框**：questionAskCh/questionRespCh 字段＋New/newAppModel 参数；listenForQuestionRequest（RespFn callback 回传，权限 listener 同构）；dialogQuestion 状态机 questionState（选项 selected＋自由文本 answer）；handleQuestionKey（1-9/ runes/backspace/enter/esc）；renderQuestionDialog。
 - **2026-11-18 BF-21 Shift+Tab 模式循环**：nextPermissionMode（default→acceptEdits→plan→bypassPermissions→default，空 Mode 视为 default；oracle 顺序，YOLO 纳入循环为人类明确要求之分歧）；cyclePermissionMode 更新 AppState＋系统訊息（YOLO 警告）；StatusBar.mode 指示器（⏵⏵ accept edits／⏸ plan／⚠ YOLO warning bold），View 每次读 live mode。
+- **2026-11-18 UPD-01 Bubble Tea v2 迁移**：charm.land/bubbletea/v2 v2.1.1＋bubbles/v2＋lipgloss/v2＋glamour v1.0.0（Go 1.25）。View()→tea.View（screenView 设 AltScreen/MouseModeCellMotion）；KeyPressMsg（Code/Text/Mod 匹配；ctrl=字母+ModCtrl、shift+tab=Tab+ModShift、printable=Text!=""）；MouseWheelMsg 独立类型；viewport New(WithWidth/WithHeight)/SetWidth/ScrollUp/ScrollDown/HalfPageUp/Down；Theme 欄位 image/color.Color（lipgloss.Color 为函数）；textarea New() 零参兼容。自研 spinner 零影响。v2 守护测试×3。

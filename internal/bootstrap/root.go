@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/tunsuy/claude-code-go/internal/tui"
@@ -242,7 +242,9 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 		container.QuestionAskCh,
 		container.QuestionRespCh,
 	)
-	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	// v2: alt-screen and mouse mode are set on the View (AppModel.screenView),
+	// not via program options.
+	p := tea.NewProgram(m)
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("tui: %w", err)
 	}

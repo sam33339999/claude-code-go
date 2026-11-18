@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
@@ -21,9 +22,9 @@ func (m AppModel) viewportHeight() int {
 }
 
 // View is the BubbleTea View method. It renders the entire TUI to a string.
-func (m AppModel) View() string {
+func (m AppModel) View() tea.View {
 	if m.termWidth == 0 {
-		return ""
+		return m.screenView("")
 	}
 
 	var sb strings.Builder
@@ -94,7 +95,16 @@ func (m AppModel) View() string {
 		sb.WriteString(renderQuestionDialog(m.questionReq, m.theme))
 	}
 
-	return sb.String()
+	return m.screenView(sb.String())
+}
+
+// screenView wraps rendered content in a tea.View with the program's screen
+// options (v2: alt-screen and mouse mode live on the View, not program options).
+func (m AppModel) screenView(content string) tea.View {
+	v := tea.NewView(content)
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
 }
 
 // syncViewportContent re-renders the message list into the viewport content

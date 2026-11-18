@@ -3,7 +3,7 @@ package tui
 import (
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/internal/commands"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/claude-code-go/internal/msgqueue"
@@ -20,8 +20,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termHeight = msg.Height
 		m.input = m.input.SetWidth(msg.Width - 2)
 		// Resize the viewport to fill available space.
-		m.viewport.Width = msg.Width
-		m.viewport.Height = m.viewportHeight()
+		m.viewport.SetWidth(msg.Width)
+		m.viewport.SetHeight(m.viewportHeight())
 		m.syncViewportContent()
 		return m, nil
 
@@ -311,11 +311,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleSlashCommand(msg.Text)
 
 	// --- Mouse events (scroll wheel) ---
-	case tea.MouseMsg:
+	case tea.MouseWheelMsg:
 		return m.handleMouse(msg)
 
 	// --- Keyboard / input ---
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 	}
 

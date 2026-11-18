@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/claude-code-go/internal/msgqueue"
@@ -13,19 +13,22 @@ import (
 )
 
 // handleKey dispatches keyboard events based on the active dialog and loading state.
-func (m AppModel) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m AppModel) handleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// --- Global shortcuts that work in all states ---
-	switch key.Type {
-	case tea.KeyCtrlC:
-		if m.isLoading {
-			return m.doAbort()
+	// v2: ctrl+letter arrives as Code=letter with ModCtrl (no KeyCtrlX constants).
+	if key.Mod.Contains(tea.ModCtrl) {
+		switch key.Code {
+		case 'c':
+			if m.isLoading {
+				return m.doAbort()
+			}
+			return m, tea.Quit
+		case 'd':
+			return m, tea.Quit
+		case 'o':
+			// Toggle all tool results expansion
+			return m.toggleAllToolResults()
 		}
-		return m, tea.Quit
-	case tea.KeyCtrlD:
-		return m, tea.Quit
-	case tea.KeyCtrlO:
-		// Toggle all tool results expansion
-		return m.toggleAllToolResults()
 	}
 
 	// --- Route to the active dialog ---
@@ -37,7 +40,7 @@ func (m AppModel) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case dialogExit:
 		return m.handleExitKey(key)
 	case dialogConfig:
-		if key.Type == tea.KeyEsc {
+		if key.Code == tea.KeyEsc {
 			m.activeDialog = dialogNone
 		}
 		return m, nil
@@ -52,7 +55,7 @@ func (m AppModel) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handlePermissionKey handles keys while the permission dialog is open.
 // Supports: arrow keys (Up/Down), j/k (Vim), number keys (1/2/3), y/n shortcuts,
 // Enter to confirm, Esc to cancel.
-func (m AppModel) handlePermissionKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m AppModel) handlePermissionKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.permReq == nil {
 		m.activeDialog = dialogNone
 		return m, nil
@@ -77,8 +80,8 @@ func (m AppModel) handlePermissionKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.denyPermission()
 	}
 
-	// Also check key.Type as fallback.
-	switch key.Type {
+	// Also check key.Code as fallback.
+	switch key.Code {
 	case tea.KeyUp:
 		d := m.permReq.Up()
 		m.permReq = &d
@@ -147,7 +150,7 @@ func (m AppModel) denyPermission() (tea.Model, tea.Cmd) {
 }
 
 // handleCompactKey handles keys while the compact confirmation dialog is open.
-func (m AppModel) handleCompactKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m AppModel) handleCompactKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.String() == "y" || key.String() == "Y":
 		m.activeDialog = dialogNone
@@ -166,26 +169,30 @@ func (m AppModel) handleCompactKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return CompactDoneMsg{Summary: "Conversation history cleared."}
 		}
-	case key.String() == "n" || key.String() == "N" || key.Type == tea.KeyEsc:
+	case key.String() == "n" || key.String() == "N" || key.Code == tea.KeyEsc:
 		m.activeDialog = dialogNone
 	}
 	return m, nil
 }
 
 // handleExitKey handles keys in the exit confirmation dialog.
-func (m AppModel) handleExitKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m AppModel) handleExitKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.String() == "y" || key.String() == "Y":
 		return m, tea.Quit
-	case key.String() == "n" || key.String() == "N" || key.Type == tea.KeyEsc:
+	case key.String() == "n" || key.String() == "N" || key.Code == tea.KeyEsc:
 		m.activeDialog = dialogNone
 	}
 	return m, nil
 }
 
 // handleIdleKey handles keys when no dialog is open.
-func (m AppModel) handleIdleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.Type {
+func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// v2: shift+tab arrives as Tab with ModShift (no dedicated KeyShiftTab).
+	if key.Code == tea.KeyTab && key.Mod.Contains(tea.ModShift) {
+		return m.cyclePermissionMode()
+	}
+	switch key.Code {
 	case tea.KeyEsc:
 		if m.isLoading {
 			return m.doAbort()
@@ -193,7 +200,7 @@ func (m AppModel) handleIdleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyEnter:
-		if key.Alt {
+		if key.Mod.Contains(tea.ModAlt) {
 			// Alt-Enter inserts a newline; delegate to input.
 			var cmd tea.Cmd
 			m.input, cmd = m.input.Update(key)
@@ -204,16 +211,13 @@ func (m AppModel) handleIdleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyTab:
 		return m.handleTabCompletion()
 
-	case tea.KeyShiftTab:
-		return m.cyclePermissionMode()
-
 	case tea.KeyPgUp:
 		m.pinnedToBottom = false
-		m.viewport.HalfViewUp()
+		m.viewport.HalfPageUp()
 		return m, nil
 
 	case tea.KeyPgDown:
-		m.viewport.HalfViewDown()
+		m.viewport.HalfPageDown()
 		if m.viewport.AtBottom() {
 			m.pinnedToBottom = true
 		}
@@ -221,11 +225,11 @@ func (m AppModel) handleIdleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyUp:
 		m.pinnedToBottom = false
-		m.viewport.LineUp(3)
+		m.viewport.ScrollUp(3)
 		return m, nil
 
 	case tea.KeyDown:
-		m.viewport.LineDown(3)
+		m.viewport.ScrollDown(3)
 		if m.viewport.AtBottom() {
 			m.pinnedToBottom = true
 		}
@@ -237,10 +241,10 @@ func (m AppModel) handleIdleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch key.String() {
 		case "k":
 			m.pinnedToBottom = false
-			m.viewport.LineUp(3)
+			m.viewport.ScrollUp(3)
 			return m, nil
 		case "j":
-			m.viewport.LineDown(3)
+			m.viewport.ScrollDown(3)
 			if m.viewport.AtBottom() {
 				m.pinnedToBottom = true
 			}
@@ -262,19 +266,16 @@ func (m AppModel) handleIdleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// handleMouse handles mouse events (scroll wheel).
-func (m AppModel) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	switch msg.Action {
-	case tea.MouseActionPress:
-		switch msg.Button {
-		case tea.MouseButtonWheelUp:
-			m.pinnedToBottom = false
-			m.viewport.LineUp(3)
-		case tea.MouseButtonWheelDown:
-			m.viewport.LineDown(3)
-			if m.viewport.AtBottom() {
-				m.pinnedToBottom = true
-			}
+// handleMouse handles mouse wheel events (v2: dedicated MouseWheelMsg).
+func (m AppModel) handleMouse(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	switch msg.Button {
+	case tea.MouseWheelUp:
+		m.pinnedToBottom = false
+		m.viewport.ScrollUp(3)
+	case tea.MouseWheelDown:
+		m.viewport.ScrollDown(3)
+		if m.viewport.AtBottom() {
+			m.pinnedToBottom = true
 		}
 	}
 	return m, nil
@@ -356,7 +357,7 @@ func (m AppModel) handleTabCompletion() (tea.Model, tea.Cmd) {
 	prefix := m.input.SlashPrefix()
 	if prefix == "" {
 		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(tea.KeyMsg{Type: tea.KeyTab})
+		m.input, cmd = m.input.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 		return m, cmd
 	}
 	// Find completions.
@@ -437,7 +438,7 @@ func (m AppModel) collectToolUseIDs() []string {
 // (BF-08): number keys pick an option, runes edit a free-text answer,
 // Enter submits, Esc dismisses. The response travels through the HIL
 // callback (same side-effect pattern as the permission dialog).
-func (m AppModel) handleQuestionKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m AppModel) handleQuestionKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	q := m.questionReq
 	if q == nil {
 		m.activeDialog = dialogNone
@@ -469,8 +470,8 @@ func (m AppModel) handleQuestionKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	if key.Type == tea.KeyRunes {
-		text := string(key.Runes)
+	if key.Text != "" {
+		text := key.Text
 		if len(text) == 1 && text[0] >= '1' && text[0] <= '9' {
 			idx := int(text[0] - '1')
 			if idx < len(q.options) {

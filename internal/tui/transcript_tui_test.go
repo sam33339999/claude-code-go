@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/internal/session"
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/transcript"
@@ -155,7 +155,7 @@ func TestView_RendersTodoPanel(t *testing.T) {
 		}
 		return prev
 	})
-	view := m.View()
+	view := m.View().Content
 	for _, want := range []string{"Todos", "[x] finished task", "[>] active task", "[ ] later task"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("expected %q in view with todos", want)
@@ -165,7 +165,7 @@ func TestView_RendersTodoPanel(t *testing.T) {
 		prev.Todos = nil
 		return prev
 	})
-	if strings.Contains(m.View(), "[x] finished task") {
+	if strings.Contains(m.View().Content, "[x] finished task") {
 		t.Error("cleared todo list must not render")
 	}
 }

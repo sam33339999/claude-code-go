@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
@@ -22,14 +22,14 @@ func TestSlashConfig_OpensDialogAndEscCloses(t *testing.T) {
 	if updated.activeDialog != dialogConfig {
 		t.Fatalf("expected dialogConfig, got %v", updated.activeDialog)
 	}
-	view := updated.View()
+	view := updated.View().Content
 	for _, want := range []string{"Configuration", "test-model", "Esc to close"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("expected %q in config dialog view", want)
 		}
 	}
 
-	closed, _ := updated.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	closed, _ := updated.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	closedModel := closed.(AppModel)
 	if closedModel.activeDialog != dialogNone {
 		t.Errorf("Esc should close the config dialog, got %v", closedModel.activeDialog)
@@ -48,7 +48,7 @@ func TestSlashConfig_ShowsVimAndTheme(t *testing.T) {
 	m.darkMode = true
 
 	updated, _ := m.handleSlashCommand("/config")
-	view := updated.View()
+	view := updated.View().Content
 	if !strings.Contains(view, "on") || !strings.Contains(view, "dark") {
 		t.Errorf("expected vim=on and theme=dark in dialog, got:\n%s", view)
 	}
