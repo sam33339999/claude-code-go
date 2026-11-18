@@ -5,7 +5,6 @@ import (
 	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/tools/agent"
 	"github.com/tunsuy/claude-code-go/internal/tools/fileops"
-	"github.com/tunsuy/claude-code-go/internal/tools/interact"
 	"github.com/tunsuy/claude-code-go/internal/tools/mcp"
 	"github.com/tunsuy/claude-code-go/internal/tools/memory"
 	"github.com/tunsuy/claude-code-go/internal/tools/misc"
@@ -52,18 +51,17 @@ func RegisterBuiltinTools(reg *tools.Registry, pool *agtmcp.Pool) {
 	reg.Register(agent.GetAgentStatusTool)
 
 	// ── Interaction / plan mode ──────────────────────────────────────────────
-	// TodoWrite, AskUserQuestion, EnterPlanMode and ExitPlanMode are registered
-	// by wire.go after their dependencies exist (app state store / HIL
-	// channels); the rest are stateless singletons.
-	reg.Register(interact.EnterWorktreeTool)
-	reg.Register(interact.ExitWorktreeTool)
+	// TodoWrite, AskUserQuestion, EnterPlanMode, ExitPlanMode, EnterWorktree
+	// and ExitWorktree are registered by wire.go after their dependencies
+	// exist (app state store / HIL channels); the rest are stateless singletons.
 
 	// ── MCP meta-tools ───────────────────────────────────────────────────────
 	reg.Register(mcp.NewListMcpResourcesTool(pool))
 	reg.Register(mcp.NewReadMcpResourceTool(pool))
 
 	// ── Misc ─────────────────────────────────────────────────────────────────
-	reg.Register(misc.SkillTool)
+	// Skill is registered by wire.go (needs home + live WorkingDir for its
+	// search directories).
 	reg.Register(misc.BriefTool)
 	reg.Register(misc.NewToolSearchTool(reg))
 	reg.Register(misc.SleepTool)

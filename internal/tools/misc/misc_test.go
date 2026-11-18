@@ -3,6 +3,9 @@ package misc_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,58 +16,81 @@ import (
 	"github.com/tunsuy/claude-code-go/internal/tools/shell"
 )
 
-// ── SkillTool ─────────────────────────────────────────────────────────────────
+// ── SkillTool（BF-13）─────────────────────────────────────────────────────────
 
-func TestSkillTool_Name(t *testing.T) {
-	if misc.SkillTool.Name() != "Skill" {
-		t.Errorf("expected Skill, got %q", misc.SkillTool.Name())
-	}
+func newSkillTool(t *testing.T) (tools.Tool, string) {
+	t.Helper()
+	dir := t.TempDir()
+	return misc.NewSkillTool(func() []string { return []string{dir} }), dir
 }
 
-func TestSkillTool_IsConcurrencySafe_False(t *testing.T) {
-	if misc.SkillTool.IsConcurrencySafe(nil) {
-		t.Error("SkillTool must not be concurrency-safe")
+func TestSkillTool_Metadata(t *testing.T) {
+	tool, _ := newSkillTool(t)
+	if tool.Name() != "Skill" {
+		t.Errorf("expected Skill, got %q", tool.Name())
 	}
-}
-
-func TestSkillTool_IsReadOnly_False(t *testing.T) {
-	if misc.SkillTool.IsReadOnly(nil) {
-		t.Error("SkillTool must not be read-only")
+	if tool.IsConcurrencySafe(nil) {
+		t.Error("Skill must not be concurrency-safe")
 	}
-}
-
-func TestSkillTool_InputSchema(t *testing.T) {
-	schema := misc.SkillTool.InputSchema()
+	if tool.IsReadOnly(nil) {
+		t.Error("Skill must not be read-only")
+	}
+	schema := tool.InputSchema()
 	if _, ok := schema.Properties["skill"]; !ok {
 		t.Error("schema missing 'skill'")
 	}
-	if len(schema.Required) != 1 || schema.Required[0] != "skill" {
-		t.Errorf("expected Required=[skill], got %v", schema.Required)
-	}
-}
-
-func TestSkillTool_UserFacingName(t *testing.T) {
 	in, _ := json.Marshal(misc.SkillInput{Skill: "commit"})
-	name := misc.SkillTool.UserFacingName(in)
-	if name != "Skill(commit)" {
+	if name := tool.UserFacingName(in); name != "Skill(commit)" {
 		t.Errorf("unexpected name: %q", name)
 	}
-}
-
-func TestSkillTool_UserFacingName_NoInput(t *testing.T) {
-	if misc.SkillTool.UserFacingName(nil) != "Skill" {
+	if tool.UserFacingName(nil) != "Skill" {
 		t.Error("expected fallback Skill")
 	}
 }
 
-func TestSkillTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(misc.SkillInput{Skill: "commit"})
-	result, err := misc.SkillTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
+func TestSkillTool_LoadsSkillWithFrontmatter(t *testing.T) {
+	tool, dir := newSkillTool(t)
+	os.MkdirAll(filepath.Join(dir, "commit"), 0o755)
+	os.WriteFile(filepath.Join(dir, "commit", "SKILL.md"), []byte("---\nname: commit\ndescription: d\n---\nWrite a good commit message.\n"), 0o644)
+	in, _ := json.Marshal(misc.SkillInput{Skill: "commit", Args: "fix bug"})
+	result, err := tool.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("load failed: err=%v result=%+v", err, result)
 	}
-	if !result.IsError {
-		t.Error("expected IsError=true")
+	content := result.Content.(string)
+	if !strings.Contains(content, "Write a good commit message.") {
+		t.Errorf("skill body missing: %s", content)
+	}
+	if strings.Contains(content, "description: d") {
+		t.Error("frontmatter must be stripped")
+	}
+	if !strings.Contains(content, "Arguments: fix bug") {
+		t.Error("args must be appended")
+	}
+}
+
+func TestSkillTool_FlatFileAndNotFound(t *testing.T) {
+	tool, dir := newSkillTool(t)
+	os.WriteFile(filepath.Join(dir, "review.md"), []byte("Review the diff carefully."), 0o644)
+	in, _ := json.Marshal(misc.SkillInput{Skill: "review"})
+	result, _ := tool.Call(in, nil, nil)
+	if result.IsError || !strings.Contains(result.Content.(string), "Review the diff") {
+		t.Errorf("flat .md skill must load, got %+v", result)
+	}
+	in, _ = json.Marshal(misc.SkillInput{Skill: "absent"})
+	result, _ = tool.Call(in, nil, nil)
+	if !result.IsError || !strings.Contains(result.Content.(string), "review") {
+		t.Errorf("not-found must list available skills, got %+v", result)
+	}
+}
+
+func TestSkillTool_TraversalAndEmptyRejected(t *testing.T) {
+	tool, _ := newSkillTool(t)
+	for _, name := range []string{"../escape", "a/b", ""} {
+		in, _ := json.Marshal(misc.SkillInput{Skill: name})
+		if result, _ := tool.Call(in, nil, nil); !result.IsError {
+			t.Errorf("name %q must be rejected", name)
+		}
 	}
 }
 
@@ -95,14 +121,53 @@ func TestBriefTool_InputSchema(t *testing.T) {
 	}
 }
 
-func TestBriefTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(misc.BriefInput{Content: "some text"})
+func TestBriefTool_ShortContentKeptInFull(t *testing.T) {
+	in, _ := json.Marshal(misc.BriefInput{Content: "One sentence. Two sentences."})
 	result, err := misc.BriefTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
+	if err != nil || result.IsError {
+		t.Fatalf("unexpected failure: err=%v result=%+v", err, result)
 	}
+	content := result.Content.(string)
+	if !strings.Contains(content, "kept in full") || !strings.Contains(content, "Two sentences.") {
+		t.Errorf("short content must be kept in full, got: %s", content)
+	}
+}
+
+func TestBriefTool_LongContentCompressedInOrder(t *testing.T) {
+	var sb strings.Builder
+	for i := 0; i < 20; i++ {
+		fmt.Fprintf(&sb, "Sentence %d discusses the deployment pipeline and its verification steps in detail. ", i)
+	}
+	in, _ := json.Marshal(misc.BriefInput{Content: sb.String()})
+	result, err := misc.BriefTool.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("unexpected failure: err=%v result=%+v", err, result)
+	}
+	content := result.Content.(string)
+	if !strings.Contains(content, "sentences)") {
+		t.Errorf("expected compression header, got: %s", content)
+	}
+	// Kept sentences must appear in original order (Sentence 0 before Sentence 19 if both kept).
+	i0 := strings.Index(content, "Sentence 0 ")
+	i19 := strings.Index(content, "Sentence 19 ")
+	if i0 >= 0 && i19 >= 0 && i0 > i19 {
+		t.Error("kept sentences must preserve original order")
+	}
+	if len(content) >= len(sb.String()) {
+		t.Error("brief must be shorter than the input")
+	}
+	// Deterministic: same input → same output.
+	result2, _ := misc.BriefTool.Call(in, nil, nil)
+	if result2.Content != result.Content {
+		t.Error("extractive brief must be deterministic")
+	}
+}
+
+func TestBriefTool_EmptyContentRejected(t *testing.T) {
+	in, _ := json.Marshal(misc.BriefInput{Content: "   "})
+	result, _ := misc.BriefTool.Call(in, nil, nil)
 	if !result.IsError {
-		t.Error("expected IsError=true")
+		t.Error("empty content must be rejected")
 	}
 }
 
@@ -450,21 +515,39 @@ func TestSyntheticOutputTool_InputSchema(t *testing.T) {
 	}
 }
 
-func TestSyntheticOutputTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(misc.SyntheticOutputInput{Content: "test"})
+func TestSyntheticOutputTool_EchoesContent(t *testing.T) {
+	in, _ := json.Marshal(misc.SyntheticOutputInput{Content: "synthetic result payload"})
 	result, err := misc.SyntheticOutputTool.Call(in, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected hard error: %v", err)
 	}
-	if !result.IsError {
-		t.Error("expected IsError=true")
+	if result.IsError {
+		t.Error("normal synthetic output must not be an error")
+	}
+	if result.Content != "synthetic result payload" {
+		t.Errorf("content must be echoed verbatim, got %v", result.Content)
+	}
+}
+
+func TestSyntheticOutputTool_ErrorFlagPropagates(t *testing.T) {
+	in, _ := json.Marshal(misc.SyntheticOutputInput{Content: "failure detail", IsError: true})
+	result, _ := misc.SyntheticOutputTool.Call(in, nil, nil)
+	if !result.IsError || result.Content != "failure detail" {
+		t.Errorf("is_error must propagate with content, got %+v", result)
+	}
+}
+
+func TestSyntheticOutputTool_InvalidJSON(t *testing.T) {
+	result, err := misc.SyntheticOutputTool.Call([]byte("not-json"), nil, nil)
+	if err != nil || !result.IsError {
+		t.Errorf("invalid input must be an error result, got %+v err=%v", result, err)
 	}
 }
 
 // ── Interface compliance ──────────────────────────────────────────────────────
 
 func TestAllMiscTools_ImplementToolInterface(t *testing.T) {
-	var _ tools.Tool = misc.SkillTool
+	var _ tools.Tool = misc.NewSkillTool(nil)
 	var _ tools.Tool = misc.BriefTool
 	var _ tools.Tool = misc.NewToolSearchTool(nil)
 	var _ tools.Tool = misc.SleepTool

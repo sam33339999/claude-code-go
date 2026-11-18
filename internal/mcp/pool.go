@@ -30,6 +30,7 @@ type ServerConfig struct {
 	Stdio     *StdioTransportConfig
 	SSE       *SSETransportConfig
 	HTTP      *HTTPTransportConfig
+	WS        *WSTransportConfig
 	Scope     string // "local" | "user" | "project" | "enterprise"
 }
 
@@ -179,6 +180,11 @@ func dialServer(ctx context.Context, cfg ServerConfig) (MCPClient, error) {
 			return nil, fmt.Errorf("mcp: pool: http config is nil")
 		}
 		transport, err = NewTransport(TransportHTTP, *cfg.HTTP)
+	case TransportWS:
+		if cfg.WS == nil {
+			return nil, fmt.Errorf("mcp: pool: ws config is nil")
+		}
+		transport, err = newWSTransport(ctx, *cfg.WS)
 	default:
 		return nil, fmt.Errorf("mcp: pool: unsupported transport: %s", cfg.Transport)
 	}

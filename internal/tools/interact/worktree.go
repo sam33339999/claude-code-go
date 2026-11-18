@@ -3,10 +3,15 @@ package interact
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/claude-code-go/pkg/utils/ids"
 )
 
 // ── EnterPlanMode ─────────────────────────────────────────────────────────────
@@ -150,11 +155,19 @@ type EnterWorktreeInput struct {
 	Name string `json:"name,omitempty"`
 }
 
-// EnterWorktreeTool is the exported singleton instance.
-// TODO(dep): Requires Agent-Core worktree manager.
-var EnterWorktreeTool tools.Tool = &enterWorktreeTool{}
+// NewEnterWorktreeTool constructs the EnterWorktree tool backed by the app
+// state store (BF-10). It creates a git worktree under .claude/worktrees/
+// with a fresh branch from HEAD and switches the session WorkingDir to it.
+// Git operations are self-contained (os/exec — tools must not import the
+// shell tool). Registered by wire.go after the store exists.
+func NewEnterWorktreeTool(store *state.AppStateStore) tools.Tool {
+	return &enterWorktreeTool{store: store}
+}
 
-type enterWorktreeTool struct{ tools.BaseTool }
+type enterWorktreeTool struct {
+	tools.BaseTool
+	store *state.AppStateStore
+}
 
 func (t *enterWorktreeTool) Name() string { return "EnterWorktree" }
 
@@ -190,9 +203,76 @@ func (t *enterWorktreeTool) UserFacingName(input tools.Input) string {
 	return "EnterWorktree"
 }
 
-func (t *enterWorktreeTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement via Agent-Core worktree manager.
-	return &tools.Result{IsError: true, Content: "EnterWorktree not yet implemented (TODO(dep))"}, nil
+func (t *enterWorktreeTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	if t.store == nil {
+		return &tools.Result{IsError: true, Content: "EnterWorktree: no app state store configured"}, nil
+	}
+	var in EnterWorktreeInput
+	if len(input) > 0 {
+		if err := json.Unmarshal(input, &in); err != nil {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("EnterWorktree: invalid input: %v", err)}, nil
+		}
+	}
+	st := t.store.GetState()
+	if st.Worktree != nil {
+		return &tools.Result{IsError: true, Content: "EnterWorktree: already in a worktree session; call ExitWorktree first"}, nil
+	}
+	cwd := st.WorkingDir
+	root, err := gitOutput(cwd, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return &tools.Result{IsError: true, Content: "EnterWorktree: not inside a git repository"}, nil
+	}
+
+	name := in.Name
+	if name == "" {
+		name = "wt-" + string(ids.NewSessionId())[:8]
+	}
+	if !validWorktreeName(name) {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("EnterWorktree: invalid name %q (use letters, digits, . _ - /)", name)}, nil
+	}
+	branch := "worktree/" + name
+	wtPath := filepath.Join(root, ".claude", "worktrees", name)
+	if _, err := os.Stat(wtPath); err == nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("EnterWorktree: %s already exists", wtPath)}, nil
+	}
+	if _, err := gitOutput(cwd, "worktree", "add", "-b", branch, wtPath, "HEAD"); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("EnterWorktree: git worktree add failed: %v", err)}, nil
+	}
+
+	t.store.SetState(func(prev state.AppState) state.AppState {
+		prev.Worktree = &state.WorktreeState{OriginalDir: cwd, WorktreeDir: wtPath, Branch: branch}
+		prev.WorkingDir = wtPath
+		return prev
+	})
+	return &tools.Result{Content: fmt.Sprintf("Created worktree at %s (branch %s). Session working directory switched to it. Use ExitWorktree to return.", wtPath, branch)}, nil
+}
+
+// validWorktreeName restricts names to characters safe for git branch names
+// and filesystem paths.
+func validWorktreeName(name string) bool {
+	if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, "..") {
+		return false
+	}
+	for _, r := range name {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-' || r == '/') {
+			return false
+		}
+	}
+	return true
+}
+
+// gitOutput runs a git command in dir and returns trimmed stdout.
+func gitOutput(dir string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {
+			return "", fmt.Errorf("%s", strings.TrimSpace(string(ee.Stderr)))
+		}
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // ── ExitWorktree ──────────────────────────────────────────────────────────────
@@ -205,11 +285,18 @@ type ExitWorktreeInput struct {
 	DiscardChanges bool `json:"discard_changes,omitempty"`
 }
 
-// ExitWorktreeTool is the exported singleton instance.
-// TODO(dep): Requires Agent-Core worktree manager.
-var ExitWorktreeTool tools.Tool = &exitWorktreeTool{}
+// NewExitWorktreeTool constructs the ExitWorktree tool backed by the app
+// state store (BF-10). action=keep leaves the worktree on disk; action=remove
+// deletes it (refused with uncommitted changes unless discard_changes=true).
+// The branch is kept in both cases (documented divergence: no branch cleanup).
+func NewExitWorktreeTool(store *state.AppStateStore) tools.Tool {
+	return &exitWorktreeTool{store: store}
+}
 
-type exitWorktreeTool struct{ tools.BaseTool }
+type exitWorktreeTool struct {
+	tools.BaseTool
+	store *state.AppStateStore
+}
 
 func (t *exitWorktreeTool) Name() string { return "ExitWorktree" }
 
@@ -243,7 +330,47 @@ func (t *exitWorktreeTool) IsReadOnly(_ tools.Input) bool        { return false 
 func (t *exitWorktreeTool) IsDestructive(_ tools.Input) bool     { return true }
 func (t *exitWorktreeTool) UserFacingName(_ tools.Input) string  { return "ExitWorktree" }
 
-func (t *exitWorktreeTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement via Agent-Core worktree manager.
-	return &tools.Result{IsError: true, Content: "ExitWorktree not yet implemented (TODO(dep))"}, nil
+func (t *exitWorktreeTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	if t.store == nil {
+		return &tools.Result{IsError: true, Content: "ExitWorktree: no app state store configured"}, nil
+	}
+	var in ExitWorktreeInput
+	if err := json.Unmarshal(input, &in); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("ExitWorktree: invalid input: %v", err)}, nil
+	}
+	if in.Action != "keep" && in.Action != "remove" {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("ExitWorktree: action must be keep or remove, got %q", in.Action)}, nil
+	}
+	wt := t.store.GetState().Worktree
+	if wt == nil {
+		return &tools.Result{IsError: true, Content: "ExitWorktree: not in a worktree session"}, nil
+	}
+
+	if in.Action == "remove" {
+		status, err := gitOutput(wt.WorktreeDir, "status", "--porcelain")
+		if err != nil {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("ExitWorktree: cannot inspect worktree: %v", err)}, nil
+		}
+		if status != "" && !in.DiscardChanges {
+			return &tools.Result{IsError: true, Content: "ExitWorktree: worktree has uncommitted changes:\n" + status + "\nUse discard_changes=true to remove anyway, or action=keep to preserve it."}, nil
+		}
+		args := []string{"worktree", "remove"}
+		if in.DiscardChanges {
+			args = append(args, "--force")
+		}
+		args = append(args, wt.WorktreeDir)
+		if _, err := gitOutput(wt.OriginalDir, args...); err != nil {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("ExitWorktree: git worktree remove failed: %v", err)}, nil
+		}
+	}
+
+	t.store.SetState(func(prev state.AppState) state.AppState {
+		prev.WorkingDir = wt.OriginalDir
+		prev.Worktree = nil
+		return prev
+	})
+	if in.Action == "remove" {
+		return &tools.Result{Content: fmt.Sprintf("Removed worktree %s and returned to %s. Branch %s is kept.", wt.WorktreeDir, wt.OriginalDir, wt.Branch)}, nil
+	}
+	return &tools.Result{Content: fmt.Sprintf("Returned to %s. Worktree %s (branch %s) is kept on disk.", wt.OriginalDir, wt.WorktreeDir, wt.Branch)}, nil
 }

@@ -2,13 +2,13 @@
 package: interact
 import_path: internal/tools/interact
 layer: tools
-generated_at: 2026-11-18T05:05:54Z
+generated_at: 2026-11-18T05:27:09Z
 source_files: [doc.go, interact.go, worktree.go]
 ---
 
 # internal/tools/interact
 
-> Layer: **Tools** · Files: 3 · Interfaces: 0 · Structs: 6 · Functions: 4
+> Layer: **Tools** · Files: 3 · Interfaces: 0 · Structs: 6 · Functions: 6
 
 ## Structs
 
@@ -23,7 +23,9 @@ source_files: [doc.go, interact.go, worktree.go]
 
 - `NewAskUserQuestionTool(askCh chan<- types.QuestionRequest, respCh <-chan types.QuestionResponse) tools.Tool`
 - `NewEnterPlanModeTool(store *state.AppStateStore) tools.Tool`
+- `NewEnterWorktreeTool(store *state.AppStateStore) tools.Tool`
 - `NewExitPlanModeTool(store *state.AppStateStore) tools.Tool`
+- `NewExitWorktreeTool(store *state.AppStateStore) tools.Tool`
 - `NewTodoWriteTool(store *state.AppStateStore) tools.Tool`
 
 ## Dependencies
@@ -41,3 +43,4 @@ source_files: [doc.go, interact.go, worktree.go]
 - **2026-11-18 BF-07 TodoWrite 实现**：单例桩改为 NewTodoWriteTool(store *state.AppStateStore) 构造注入（tools→state 向下依赖合法）；列表存 AppState.Todos，整表替换；oracle 语义：全 completed 清空、固定确认文案（TodoWriteTool.ts）；校验 id/content 非空＋status 枚举，非法不改状态。schema 字节不变（cache gate）。分歧：单主会话列表、无磁盘持久化、无 verification nudge。
 - **2026-11-18 BF-08 AskUserQuestion 实现**：单例桩改为 NewAskUserQuestionTool(askCh, respCh) HIL channel 注入（pkg/types.QuestionRequest/Response）；Call 三段 select（送达/等待 × ctx/abort），dismiss 为正常结果非错误；nil channel（headless）诚实报错。权限对话框管线同构，schema 字节不变。
 - **2026-11-18 BF-09 plan-mode 工具**：EnterPlanMode/ExitPlanMode 单例桩改为 NewXxxTool(store) 构造注入；切换 ToolPermissionContext.Mode（plan/default），checker 经 ModeFn 读 live；ExitPlanMode approved=false 指示不执行（无批准对话框，分歧文档化）。schema 字节不变。
+- **2026-11-18 BF-10 Worktree 工具**：NewEnter/ExitWorktreeTool(store)；git 操作自包含（os/exec，不依赖 shell 工具）；EnterWorktree 建 .claude/worktrees/<name>＋worktree/<name> 分支（HEAD 基）＋切换 AppState.WorkingDir＋WorktreeState 記錄；ExitWorktree keep/remove（未提交變更拒絕 remove 除非 discard_changes；分支保留——分歧文档化）。名稱白名單校驗、非 git repo/重複進入/不在 session 誠實報錯。

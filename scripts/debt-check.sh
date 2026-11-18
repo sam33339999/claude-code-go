@@ -16,8 +16,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 BASELINE_FILE="scripts/debt-baseline.txt"
-COUNT_CMD='grep -rn "TODO(dep)" --include="*.go" . 2>/dev/null | grep -v "_test.go" | grep -v "/vendor/" | wc -l | tr -d " "'
-STUB_CMD='grep -rn "not yet implemented" --include="*.go" ./internal ./pkg ./cmd 2>/dev/null | grep -v "_test.go" | wc -l | tr -d " "'
+# `|| true` guards against pipefail when grep finds zero matches (the debt
+# reaching zero is the goal, not a script error).
+COUNT_CMD='grep -rn "TODO(dep)" --include="*.go" . 2>/dev/null | grep -v "_test.go" | grep -v "/vendor/" | wc -l | tr -d " " || true'
+STUB_CMD='grep -rn "not yet implemented" --include="*.go" ./internal ./pkg ./cmd 2>/dev/null | grep -v "_test.go" | wc -l | tr -d " " || true'
 
 if [[ "${1:-}" == "--update" ]]; then
   count=$(eval "$COUNT_CMD")

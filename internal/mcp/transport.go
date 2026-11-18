@@ -20,7 +20,7 @@ const (
 	TransportStdio TransportType = "stdio"
 	TransportSSE   TransportType = "sse"
 	TransportHTTP  TransportType = "http"
-	TransportWS    TransportType = "ws" // declared; implementation deferred
+	TransportWS    TransportType = "ws" // WebSocket (BF-16, gorilla/websocket)
 )
 
 // JSONRPCMessage is a generic JSON-RPC 2.0 message (request, response, or notification).
@@ -75,8 +75,7 @@ type HTTPTransportConfig struct {
 	OAuth   *MCPOAuthConfig
 }
 
-// WSTransportConfig corresponds to McpWSServerConfig.
-// WebSocket transport is declared but implementation is deferred.
+// WSTransportConfig corresponds to McpWSServerConfig (BF-16: implemented).
 type WSTransportConfig struct {
 	URL     string
 	Headers map[string]string
@@ -112,7 +111,11 @@ func NewTransport(t TransportType, cfg any) (Transport, error) {
 		}
 		return newHTTPTransport(c)
 	case TransportWS:
-		return nil, fmt.Errorf("mcp: WebSocket transport is not yet implemented")
+		c, ok := cfg.(WSTransportConfig)
+		if !ok {
+			return nil, fmt.Errorf("mcp: NewTransport: expected WSTransportConfig for ws transport")
+		}
+		return newWSTransport(context.Background(), c)
 	default:
 		return nil, fmt.Errorf("mcp: unknown transport type: %s", t)
 	}

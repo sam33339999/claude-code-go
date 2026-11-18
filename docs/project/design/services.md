@@ -453,6 +453,12 @@ type MCPResource struct {
 
 来源：`src/services/mcp/types.ts` Transport 枚举（`stdio | sse | http | ws | sdk`）。
 
+> **维护期更新（2026-11-18，BF-16）**：`TransportWS` 已实现（`transport_ws.go`，
+> gorilla/websocket v1.5.3）：背景 reader goroutine＋recvCh/errCh（stdio 先例）、
+> Recv 支持 ctx 取消、Send 写串行化＋write deadline、Close 幂等（close frame best-effort）。
+> `ServerConfig.WS`＋`dialServer` WS 分支；Pool 全链路握手测试钉住。
+> OAuth  handshake 各 transport 均未实现（config 字段保留）；指数退避自动重连待 BF-19 一并跟进。
+
 ```go
 // internal/mcp/transport.go
 
@@ -1033,4 +1039,4 @@ CannotRetryError（重试耗尽）/ FallbackTriggeredError（模型 fallback）
 
 ---
 
-*文档版本：v0.1 · 2026-04-02 · Agent-Services*
+*文档版本：v1.1 · 2026-11-18 · 主会话（BF-16 WS transport 实现注记）；v0.1 · 2026-04-02 · Agent-Services*

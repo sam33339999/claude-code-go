@@ -2,13 +2,13 @@
 package: mcp
 import_path: internal/mcp
 layer: services
-generated_at: 2026-11-18T03:53:13Z
-source_files: [adapter.go, client.go, jsonrpc.go, pool.go, transport.go]
+generated_at: 2026-11-18T05:38:06Z
+source_files: [adapter.go, client.go, jsonrpc.go, pool.go, transport.go, transport_ws.go]
 ---
 
 # internal/mcp
 
-> Layer: **Services** · Files: 5 · Interfaces: 2 · Structs: 17 · Functions: 4
+> Layer: **Services** · Files: 6 · Interfaces: 2 · Structs: 17 · Functions: 4
 
 ## Interfaces
 
@@ -52,7 +52,7 @@ type Transport interface {
 - **Pool** — 2 fields
 - **SSETransportConfig** — 3 fields: URL, Headers, OAuth
 - **ServerCapabilities** — 3 fields: Tools, Resources, Prompts
-- **ServerConfig** — 5 fields: Transport, Stdio, SSE, HTTP, Scope
+- **ServerConfig** — 6 fields: Transport, Stdio, SSE, HTTP, WS, Scope
 - **ServerConnection** — 6 fields: Name, Status, Config, Client, Error, ReconnectAttempt
 - **ServerInfo** — 4 fields: Name, Version, Capabilities, Instructions
 - **StdioTransportConfig** — 3 fields: Command, Args, Env
@@ -121,3 +121,4 @@ type Transport interface {
 
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
 - **已知限制与待办**：WebSocket transport 为桩（BF-16，搬回后进入 debt 扫描范围，基线 18→19 属 scope 变化）；jsonRPCClient 后台读协程绑定 initialize ctx、httpTransport.Close 仅置旗标——根因修复待 BF-19（Pool 快照式 GetAll＋reader 生命周期解耦，原跨仓任务现为同仓）。产品侧规避见 bootstrap/mcp_connect.go 有界不遗弃 boot 连接与 tools/mcp 会话钉住。
+- **2026-11-18 BF-16 WebSocket transport**：transport_ws.go（gorilla/websocket v1.5.3，Tech Lead 选型）；背景 reader＋recvCh/errCh（stdio 先例）、Recv ctx 取消、Send 写串行＋deadline、Close 幂等；ServerConfig.WS＋dialServer 分支（dial 用调用者 ctx）。测试：round-trip/取消/Close/dial 错误/Pool 全链路握手（initialize→tools/list）/nil config。自动重连待 BF-19（避免会话期后台 pool 变更）。

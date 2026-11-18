@@ -107,6 +107,17 @@ type ModelSetting struct {
 	Provider string `json:"provider,omitempty"` // anthropic | bedrock | vertex
 }
 
+// WorktreeState tracks an active EnterWorktree session (BF-10): where to
+// return on exit and which worktree/branch the session switched to.
+type WorktreeState struct {
+	// OriginalDir is the session working directory before entering.
+	OriginalDir string `json:"originalDir"`
+	// WorktreeDir is the created worktree path.
+	WorktreeDir string `json:"worktreeDir"`
+	// Branch is the branch created for the worktree.
+	Branch string `json:"branch"`
+}
+
 // TaskState represents the runtime status of a single Task (sub-agent).
 type TaskState struct {
 	AgentId   types.AgentId   `json:"agentId"`
@@ -143,6 +154,10 @@ type AppState struct {
 	// Todos is the session todo list maintained by the TodoWrite tool and
 	// rendered by the TUI panel (BF-07). Replaced wholesale via SetState.
 	Todos []types.TodoItem `json:"todos,omitempty"`
+
+	// Worktree tracks an active EnterWorktree session (BF-10); nil when the
+	// session runs in the original directory.
+	Worktree *WorktreeState `json:"worktree,omitempty"`
 
 	// Task tree (sub-agents).  Copy-on-write; clone before mutating.
 	Tasks map[string]TaskState `json:"tasks,omitempty"`
