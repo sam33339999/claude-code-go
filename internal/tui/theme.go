@@ -1,25 +1,29 @@
 // Package tui implements the BubbleTea TUI layer for claude-code-go.
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 // Theme holds semantic colour roles for the TUI.
 type Theme struct {
-	Primary   lipgloss.Color
-	Secondary lipgloss.Color
-	Accent    lipgloss.Color
-	Muted     lipgloss.Color
-	Error     lipgloss.Color
-	Warning   lipgloss.Color
-	Success   lipgloss.Color
+	Primary   color.Color
+	Secondary color.Color
+	Accent    color.Color
+	Muted     color.Color
+	Error     color.Color
+	Warning   color.Color
+	Success   color.Color
 
 	// Code block rendering
-	CodeBG lipgloss.Color
-	CodeFG lipgloss.Color
+	CodeBG color.Color
+	CodeFG color.Color
 
 	// Tool call display
-	ToolName  lipgloss.Color
-	ToolInput lipgloss.Color
+	ToolName  color.Color
+	ToolInput color.Color
 }
 
 // DefaultDarkTheme is the built-in dark theme.

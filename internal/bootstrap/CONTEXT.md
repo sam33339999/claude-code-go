@@ -2,7 +2,7 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-18T05:27:09Z
+generated_at: 2026-11-18T06:08:29Z
 source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, update_cmd.go, wire.go]
 ---
 
@@ -100,3 +100,4 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 - **2026-11-18 BF-08 AskUserQuestion 接线**：ContainerOptions.Headless（runHeadless 设 true）；Phase 7 question channel 对（headless nil→tool 诚实报错）＋注册；AppContainer.QuestionAskCh/RespCh；RegisterBuiltinTools 余 32（TodoWrite/AskUserQuestion 均 wire.go 注册）。
 - **2026-11-18 BF-09/BF-21**：plan-mode 工具 store 后注册（RegisterBuiltinTools 余 30）；CheckerConfig.ModeFn 接 store.GetState().ToolPermissionContext.Mode（两条路径）。
 - **2026-11-18 BF-10**：worktree 工具 store 後註冊；RegisterBuiltinTools 餘 28（interact 全數移出至 wire.go）。
+- **2026-11-18 UPD-01**：tea.NewProgram 移除 WithAltScreen/WithMouseCellMotion（v2 改在 AppModel.View 的 tea.View 上设置）。

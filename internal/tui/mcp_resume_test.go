@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/internal/mcp"
 	"github.com/tunsuy/claude-code-go/internal/session"
 	"github.com/tunsuy/claude-code-go/internal/state"

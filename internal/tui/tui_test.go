@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/internal/commands"
 	"github.com/tunsuy/claude-code-go/internal/engine"
 	"github.com/tunsuy/claude-code-go/internal/state"
@@ -84,8 +84,8 @@ func newTestModel() AppModel {
 	m := newAppModel(fe, appStore, false, true, reg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	m.termWidth = 80
 	m.termHeight = 24
-	m.viewport.Width = 80
-	m.viewport.Height = m.viewportHeight()
+	m.viewport.SetWidth(80)
+	m.viewport.SetHeight(m.viewportHeight())
 	return m
 }
 
@@ -637,7 +637,7 @@ func TestApplyCommandResult_DisplayError(t *testing.T) {
 func TestHandleKey_CtrlC_NotLoading(t *testing.T) {
 	m := newTestModel()
 	m.isLoading = false
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	if cmd == nil {
 		t.Error("expected tea.Quit on Ctrl+C when not loading")
 	}
@@ -645,7 +645,7 @@ func TestHandleKey_CtrlC_NotLoading(t *testing.T) {
 
 func TestHandleKey_CtrlD(t *testing.T) {
 	m := newTestModel()
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	if cmd == nil {
 		t.Error("expected tea.Quit on Ctrl+D")
 	}
@@ -656,7 +656,7 @@ func TestHandleKey_CtrlC_WhenLoading(t *testing.T) {
 	m.isLoading = true
 	m.streamCh = make(chan engine.Msg)
 	m.abortFn = func() {}
-	m2, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m2, _ := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	m2Model := m2.(AppModel)
 	if m2Model.isLoading {
 		t.Error("expected isLoading=false after abort")
@@ -674,7 +674,7 @@ func TestHandleKey_Esc_WhenLoading(t *testing.T) {
 	m.isLoading = true
 	m.streamCh = make(chan engine.Msg)
 	m.abortFn = func() {}
-	m2, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m2, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	m2Model := m2.(AppModel)
 	if m2Model.isLoading {
 		t.Error("expected isLoading=false after Esc abort")
@@ -690,13 +690,13 @@ func TestHandleKey_PageUpDown(t *testing.T) {
 	}
 	m.syncViewportContent()
 
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyPgUp})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: tea.KeyPgUp})
 	if m2.pinnedToBottom {
 		t.Error("expected pinnedToBottom=false after PgUp")
 	}
 
 	// PgDown should move back toward bottom.
-	m3 := applyMsg(m2, tea.KeyMsg{Type: tea.KeyPgDown})
+	m3 := applyMsg(m2, tea.KeyPressMsg{Code: tea.KeyPgDown})
 	_ = m3 // Verify no panic; exact offset depends on content height.
 }
 
@@ -714,7 +714,7 @@ func TestHandlePermissionKey_EnterAllow(t *testing.T) {
 	m.activeDialog = dialogPermission
 	m.permReq = &d
 
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyEnter})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m2.activeDialog != dialogNone {
 		t.Error("expected dialog closed after Enter")
 	}
@@ -733,7 +733,7 @@ func TestHandlePermissionKey_EscDeny(t *testing.T) {
 	m.activeDialog = dialogPermission
 	m.permReq = &d
 
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyEsc})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: tea.KeyEsc})
 	if m2.activeDialog != dialogNone {
 		t.Error("expected dialog closed after Esc")
 	}
@@ -749,13 +749,13 @@ func TestHandlePermissionKey_UpDown(t *testing.T) {
 	m.permReq = &d
 
 	// Move down to "No" option.
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyDown})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: tea.KeyDown})
 	if m2.permReq.cursor != 1 {
 		t.Errorf("expected cursor=1 after Down, got %d", m2.permReq.cursor)
 	}
 
 	// Move back up.
-	m3 := applyMsg(m2, tea.KeyMsg{Type: tea.KeyUp})
+	m3 := applyMsg(m2, tea.KeyPressMsg{Code: tea.KeyUp})
 	if m3.permReq.cursor != 0 {
 		t.Errorf("expected cursor=0 after Up, got %d", m3.permReq.cursor)
 	}
@@ -770,7 +770,7 @@ func TestHandleCompactKey_Yes(t *testing.T) {
 	m.activeDialog = dialogCompact
 	m.messages = []types.Message{newUserMessage("hello")}
 
-	m2, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	m2, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
 	m2Model := m2.(AppModel)
 	if m2Model.activeDialog != dialogNone {
 		t.Error("expected dialog closed")
@@ -787,7 +787,7 @@ func TestHandleCompactKey_No(t *testing.T) {
 	m := newTestModel()
 	m.activeDialog = dialogCompact
 
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: 'n', Text: "n"})
 	if m2.activeDialog != dialogNone {
 		t.Error("expected dialog closed after 'n'")
 	}
@@ -797,7 +797,7 @@ func TestHandleCompactKey_Esc(t *testing.T) {
 	m := newTestModel()
 	m.activeDialog = dialogCompact
 
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyEsc})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: tea.KeyEsc})
 	if m2.activeDialog != dialogNone {
 		t.Error("expected dialog closed after Esc")
 	}
@@ -810,7 +810,7 @@ func TestHandleCompactKey_Esc(t *testing.T) {
 func TestHandleExitKey_Yes(t *testing.T) {
 	m := newTestModel()
 	m.activeDialog = dialogExit
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
 	if cmd == nil {
 		t.Error("expected tea.Quit cmd")
 	}
@@ -819,7 +819,7 @@ func TestHandleExitKey_Yes(t *testing.T) {
 func TestHandleExitKey_No(t *testing.T) {
 	m := newTestModel()
 	m.activeDialog = dialogExit
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: 'n', Text: "n"})
 	if m2.activeDialog != dialogNone {
 		t.Error("expected dialog closed")
 	}
@@ -832,7 +832,7 @@ func TestHandleExitKey_No(t *testing.T) {
 func TestHandleSubmit_EmptyInput(t *testing.T) {
 	m := newTestModel()
 	m.input = m.input.SetValue("")
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyEnter})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m2.isLoading {
 		t.Error("empty input should not start query")
 	}
@@ -841,7 +841,7 @@ func TestHandleSubmit_EmptyInput(t *testing.T) {
 func TestHandleSubmit_SlashCommand(t *testing.T) {
 	m := newTestModel()
 	m.input = m.input.SetValue("/help")
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyEnter})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	if len(m2.messages) == 0 {
 		t.Error("expected /help to produce a system message")
 	}
@@ -853,7 +853,7 @@ func TestHandleSubmit_SlashCommand(t *testing.T) {
 func TestHandleSubmit_UnknownSlashCommand(t *testing.T) {
 	m := newTestModel()
 	m.input = m.input.SetValue("/unknownxyz")
-	m2 := applyMsg(m, tea.KeyMsg{Type: tea.KeyEnter})
+	m2 := applyMsg(m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	if len(m2.messages) != 1 {
 		t.Fatalf("expected 1 error message, got %d", len(m2.messages))
 	}
@@ -865,7 +865,7 @@ func TestHandleSubmit_UnknownSlashCommand(t *testing.T) {
 func TestHandleSubmit_NormalQuery(t *testing.T) {
 	m := newTestModel()
 	m.input = m.input.SetValue("hello claude")
-	m2, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m2, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m2Model := m2.(AppModel)
 	if !m2Model.isLoading {
 		t.Error("expected isLoading=true after submitting query")
@@ -1018,7 +1018,7 @@ func TestView_Empty(t *testing.T) {
 	m := newTestModel()
 	// termWidth=0 returns empty.
 	m.termWidth = 0
-	v := m.View()
+	v := m.View().Content
 	if v != "" {
 		t.Errorf("expected empty view when termWidth=0, got %q", v)
 	}
@@ -1030,7 +1030,7 @@ func TestView_WithMessages(t *testing.T) {
 		newUserMessage("hello"),
 		newSystemMessage("world"),
 	}
-	v := m.View()
+	v := m.View().Content
 	if v == "" {
 		t.Error("expected non-empty view")
 	}
@@ -1046,7 +1046,7 @@ func TestView_Scrolled(t *testing.T) {
 	m.pinnedToBottom = false
 	m.syncViewportContent()
 	m.viewport.SetYOffset(2)
-	v := m.View()
+	v := m.View().Content
 	if v == "" {
 		t.Error("expected non-empty view when scrolled")
 	}
@@ -1056,7 +1056,7 @@ func TestView_Loading(t *testing.T) {
 	m := newTestModel()
 	m.isLoading = true
 	m.showSpinner = true
-	v := m.View()
+	v := m.View().Content
 	if !strings.Contains(v, "Thinking") {
 		t.Errorf("expected spinner in loading view, got: %q", v)
 	}
@@ -1065,7 +1065,7 @@ func TestView_Loading(t *testing.T) {
 func TestView_DialogCompact(t *testing.T) {
 	m := newTestModel()
 	m.activeDialog = dialogCompact
-	v := m.View()
+	v := m.View().Content
 	if !strings.Contains(v, "Compact") {
 		t.Errorf("expected compact dialog in view, got: %q", v)
 	}
@@ -1074,7 +1074,7 @@ func TestView_DialogCompact(t *testing.T) {
 func TestView_DialogExit(t *testing.T) {
 	m := newTestModel()
 	m.activeDialog = dialogExit
-	v := m.View()
+	v := m.View().Content
 	if !strings.Contains(v, "Exit") {
 		t.Errorf("expected exit dialog in view, got: %q", v)
 	}
@@ -1085,7 +1085,7 @@ func TestView_DialogPermission(t *testing.T) {
 	d := newPermissionDialog(PermissionRequestMsg{ToolName: "bash", Message: "run cmd"})
 	m.activeDialog = dialogPermission
 	m.permReq = &d
-	v := m.View()
+	v := m.View().Content
 	// Check for new dialog format: "Bash command" title and options
 	if !strings.Contains(v, "Bash command") {
 		t.Errorf("expected 'Bash command' in permission dialog view, got: %q", v)

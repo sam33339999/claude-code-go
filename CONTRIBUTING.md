@@ -36,7 +36,7 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 ## Development Setup
 
 **Requirements:**
-- Go 1.21 or later
+- Go 1.25 or later (bubbles v2 requirement)
 - `git`
 - (Optional) [`golangci-lint`](https://golangci-lint.run/usage/install/) for linting
 

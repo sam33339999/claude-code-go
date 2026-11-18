@@ -3,8 +3,8 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // VimMode represents the current Vim editing mode.
@@ -91,7 +91,7 @@ func (m InputModel) updateNormal(msg tea.Msg) (InputModel, tea.Cmd) {
 
 // updateVim handles keys in Vim mode.
 func (m InputModel) updateVim(msg tea.Msg) (InputModel, tea.Cmd) {
-	keyMsg, ok := msg.(tea.KeyMsg)
+	keyMsg, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		var cmd tea.Cmd
 		m.textarea, cmd = m.textarea.Update(msg)
@@ -110,8 +110,8 @@ func (m InputModel) updateVim(msg tea.Msg) (InputModel, tea.Cmd) {
 	}
 }
 
-func (m InputModel) vimInsertKey(key tea.KeyMsg) (InputModel, tea.Cmd) {
-	if key.Type == tea.KeyEsc {
+func (m InputModel) vimInsertKey(key tea.KeyPressMsg) (InputModel, tea.Cmd) {
+	if key.Code == tea.KeyEsc {
 		m.vimMode = VimModeNormal
 		m.pendingKey = ""
 		return m, nil
@@ -121,7 +121,7 @@ func (m InputModel) vimInsertKey(key tea.KeyMsg) (InputModel, tea.Cmd) {
 	return m, cmd
 }
 
-func (m InputModel) vimNormalKey(key tea.KeyMsg) (InputModel, tea.Cmd) {
+func (m InputModel) vimNormalKey(key tea.KeyPressMsg) (InputModel, tea.Cmd) {
 	// Handle pending sequences first.
 	if m.pendingKey != "" {
 		seq := m.pendingKey + key.String()
@@ -144,31 +144,31 @@ func (m InputModel) vimNormalKey(key tea.KeyMsg) (InputModel, tea.Cmd) {
 	case "a":
 		m.vimMode = VimModeInsert
 		// Move cursor right.
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyRight})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	case "A":
 		m.vimMode = VimModeInsert
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyEnd})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
 	case "o":
 		m.vimMode = VimModeInsert
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyEnd})
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	case "h":
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
 	case "l":
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyRight})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	case "k":
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyUp})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	case "j":
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	case "0":
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyHome})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyHome})
 	case "$":
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyEnd})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
 	case "d", "y":
 		// Start two-key sequence.
 		m.pendingKey = key.String()
 	case "x":
-		m.textarea, _ = m.textarea.Update(tea.KeyMsg{Type: tea.KeyDelete})
+		m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyDelete})
 	case "p":
 		// Paste — no-op without clipboard integration.
 	}
