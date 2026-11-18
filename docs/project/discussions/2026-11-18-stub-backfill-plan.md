@@ -91,7 +91,7 @@
 | BF-03 | completed（评审通过，已合并） | bf-tui-b1 | 实现 286e0c7＋修复＋复核 4b38842；P1 全关闭；CR-BF03-2 升级条件已解除；已合并 feat/impl |
 | BF-20 | completed | reinternalize-kernel | 全仓 gofmt 50 檔，随内核搬回提交 59b589e 一并了结；gofmt -l 全仓 0 |
 | ARCH-01 | completed（已合并） | reinternalize-kernel | 内核搬回（反转 PR #31）：13 包 87 檔恢复原始路径＋89 檔 import 改写＋go.mod 去 agtkeel＋OpenAI 增强正式入库；59b589e→合并 b1c0e68；40 包 -race 全绿；debt 基线 44/19（WS 桩 scope 变化）；BF-08/16/19 改为同仓任务 |
-| BF-19 | pending（同仓技术债） | 待建 | CR-BF03-2 根因修复：internal/mcp Pool 快照式 GetAll API（现返回共享可变指针）。**已非合并阻塞**——BF-01-F1 消除会话期 pool 写入后回落为潜在隐患＋约束文档化；内核搬回后根治在同仓做。併案 CR-BF01-7（jsonRPC reader 绑定 initialize ctx、HTTP Close 语义）。API 形态由 Tech Lead 裁决 |
+| BF-19 | pending（同仓技术债） | 待建 | CR-BF03-2 根因修复：internal/mcp Pool 快照式 GetAll API（现返回共享可变指针）。**已非合并阻塞**——BF-01-F1 消除会话期 pool 写入后回落为潜在隐患＋约束文档化；内核搬回后根治在同仓做。併案 CR-BF01-7（jsonRPC reader 绑定 initialize ctx、HTTP Close 语义）。API 形态由 Tech Lead 裁决。**GitHub issue 草稿已备**：discussions/2026-11-18-bf-19-issue-draft.md（待人类建立后回填编号） |
 | BF-18 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 a75c1c7；internal/transcript Recorder＋TUI turn 边界落盘＋headless 收尾＋/resume 换文件；已合并 feat/impl，合并后全仓 -race 复验绿；正式评审留待人类 PR |
 | BF-05 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 e7411d4；/config 只读面板＋/terminal-setup 检测；已合并 feat/impl；正式评审留待人类 PR |
 | BF-06 | completed（已合并） | bf-cli-b2 | 提交 d629d14；agents 对齐 oracle 单一命令形态＋--setting-sources；update＋upgrade 别名（GitHub releases 检查）；install [target] 平台 archive 原子安装；cases.md B8/B9/B10 关闭＋二级缺口剩 1；debt 19→13；全仓 -race 绿；实机 `claude agents` ✓ |
