@@ -21,6 +21,7 @@ import (
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/tools/interact"
+	"github.com/tunsuy/claude-code-go/internal/tools/misc"
 	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
@@ -160,6 +161,13 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	// BF-10: worktree tools switch the session WorkingDir via the store.
 	reg.Register(interact.NewEnterWorktreeTool(store))
 	reg.Register(interact.NewExitWorktreeTool(store))
+	// BF-13: Skill searches project (live cwd) then user skill directories.
+	reg.Register(misc.NewSkillTool(func() []string {
+		return []string{
+			filepath.Join(store.GetState().WorkingDir, ".claude", "skills"),
+			filepath.Join(opts.HomeDir, ".claude", "skills"),
+		}
+	}))
 
 	// ── Phase 7: Permission checker (HIL support) ────────────────────────────
 	// Create permission channels for TUI ↔ Engine communication.
@@ -293,6 +301,13 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	// BF-10: worktree tools switch the session WorkingDir via the store.
 	reg.Register(interact.NewEnterWorktreeTool(store))
 	reg.Register(interact.NewExitWorktreeTool(store))
+	// BF-13: Skill searches project (live cwd) then user skill directories.
+	reg.Register(misc.NewSkillTool(func() []string {
+		return []string{
+			filepath.Join(store.GetState().WorkingDir, ".claude", "skills"),
+			filepath.Join(opts.HomeDir, ".claude", "skills"),
+		}
+	}))
 
 	// ── Phase 7: Permission checker (HIL support) ────────────────────────────
 	askCh := make(chan permissions.AskRequest, 1)

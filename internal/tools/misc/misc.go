@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -22,12 +24,22 @@ type SkillInput struct {
 	Args string `json:"args,omitempty"`
 }
 
-// SkillTool_ is the exported singleton instance.
-// (Trailing underscore avoids collision with the 'tool' package import alias.)
-// TODO(dep): Requires Agent-Core skill registry and loader.
-var SkillTool tools.Tool = &skillTool{}
+// NewSkillTool constructs the Skill tool (BF-13). dirsFn supplies the skill
+// search directories live (user ~/.claude/skills + project .claude/skills,
+// project wins on name collision); wired by bootstrap to home + the session
+// WorkingDir so worktree switches are respected.
+//
+// Divergence (documented in tools.md): the oracle runs skill prompts in an
+// isolated sub-agent with its own token budget; this implementation loads the
+// skill instructions into the current session context for the agent to follow.
+func NewSkillTool(dirsFn func() []string) tools.Tool {
+	return &skillTool{dirsFn: dirsFn}
+}
 
-type skillTool struct{ tools.BaseTool }
+type skillTool struct {
+	tools.BaseTool
+	dirsFn func() []string
+}
 
 func (t *skillTool) Name() string { return "Skill" }
 
@@ -62,9 +74,106 @@ func (t *skillTool) UserFacingName(input tools.Input) string {
 	return "Skill"
 }
 
-func (t *skillTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement via Agent-Core skill registry.
-	return &tools.Result{IsError: true, Content: "Skill tool not yet implemented (TODO(dep))"}, nil
+// skillMaxContentChars caps loaded skill content (window-small principle).
+const skillMaxContentChars = 100_000
+
+func (t *skillTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	var in SkillInput
+	if err := json.Unmarshal(input, &in); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("Skill: invalid input: %v", err)}, nil
+	}
+	name := strings.TrimSpace(in.Skill)
+	if name == "" {
+		return &tools.Result{IsError: true, Content: "Skill: skill name is required"}, nil
+	}
+	if strings.ContainsAny(name, "/\\") || strings.Contains(name, "..") {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("Skill: invalid skill name %q (path traversal rejected)", name)}, nil
+	}
+	if t.dirsFn == nil {
+		return &tools.Result{IsError: true, Content: "Skill: no skill directories configured"}, nil
+	}
+
+	content, found := loadSkillContent(t.dirsFn(), name)
+	if !found {
+		available := listSkillNames(t.dirsFn())
+		msg := fmt.Sprintf("Skill %q not found.", name)
+		if len(available) > 0 {
+			msg += " Available skills: " + strings.Join(available, ", ")
+		} else {
+			msg += " No skills are installed (add markdown skills under ~/.claude/skills or .claude/skills)."
+		}
+		return &tools.Result{IsError: true, Content: msg}, nil
+	}
+	if len(content) > skillMaxContentChars {
+		content = content[:skillMaxContentChars] + "\n…(truncated)"
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Skill %q loaded. Follow these instructions:\n\n%s", name, content)
+	if in.Args != "" {
+		fmt.Fprintf(&sb, "\n\nArguments: %s", in.Args)
+	}
+	return &tools.Result{Content: sb.String()}, nil
+}
+
+// loadSkillContent searches dirs for <name>/SKILL.md or <name>.md (first
+// match wins; dirs are ordered project-first by the caller) and returns the
+// body with any YAML frontmatter stripped.
+func loadSkillContent(dirs []string, name string) (string, bool) {
+	for _, dir := range dirs {
+		for _, candidate := range []string{
+			filepath.Join(dir, name, "SKILL.md"),
+			filepath.Join(dir, name+".md"),
+		} {
+			raw, err := os.ReadFile(candidate)
+			if err != nil {
+				continue
+			}
+			return stripFrontmatter(string(raw)), true
+		}
+	}
+	return "", false
+}
+
+// stripFrontmatter removes a leading YAML frontmatter block (--- ... ---).
+func stripFrontmatter(s string) string {
+	if !strings.HasPrefix(s, "---\n") && !strings.HasPrefix(s, "---\r\n") {
+		return strings.TrimSpace(s)
+	}
+	rest := s[4:]
+	if i := strings.Index(rest, "\n---"); i >= 0 {
+		after := rest[i+4:]
+		if j := strings.IndexByte(after, '\n'); j >= 0 {
+			return strings.TrimSpace(after[j+1:])
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
+// listSkillNames enumerates installed skill names across dirs (deduplicated,
+// sorted) for the not-found hint.
+func listSkillNames(dirs []string) []string {
+	seen := make(map[string]bool)
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				if _, err := os.Stat(filepath.Join(dir, e.Name(), "SKILL.md")); err == nil {
+					seen[e.Name()] = true
+				}
+			} else if strings.HasSuffix(e.Name(), ".md") {
+				seen[strings.TrimSuffix(e.Name(), ".md")] = true
+			}
+		}
+	}
+	names := make([]string, 0, len(seen))
+	for n := range seen {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // ── BriefTool ─────────────────────────────────────────────────────────────────

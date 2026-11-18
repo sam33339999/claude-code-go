@@ -60,7 +60,8 @@ func RegisterBuiltinTools(reg *tools.Registry, pool *agtmcp.Pool) {
 	reg.Register(mcp.NewReadMcpResourceTool(pool))
 
 	// ── Misc ─────────────────────────────────────────────────────────────────
-	reg.Register(misc.SkillTool)
+	// Skill is registered by wire.go (needs home + live WorkingDir for its
+	// search directories).
 	reg.Register(misc.BriefTool)
 	reg.Register(misc.NewToolSearchTool(reg))
 	reg.Register(misc.SleepTool)

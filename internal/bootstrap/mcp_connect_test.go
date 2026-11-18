@@ -116,8 +116,8 @@ func addHTTPServerEntry(t *testing.T, store *config.MCPStore, scope, name, url s
 func TestRegisterBuiltinTools_NilPool(t *testing.T) {
 	reg := tools.NewRegistry()
 	RegisterBuiltinTools(reg, nil)
-	if reg.Len() != 28 {
-		t.Fatalf("expected 28 builtin tools (store/HIL-dependent tools registered in wire.go), got %d", reg.Len())
+	if reg.Len() != 27 {
+		t.Fatalf("expected 27 builtin tools (store/HIL/dirs-dependent tools registered in wire.go), got %d", reg.Len())
 	}
 	list, ok := reg.Get("ListMcpResources")
 	if !ok {
@@ -159,7 +159,7 @@ func TestConnectConfiguredMCPServers_NoConfig(t *testing.T) {
 	if len(pool.GetAll()) != 0 {
 		t.Errorf("expected empty pool, got %d connections", len(pool.GetAll()))
 	}
-	if reg.Len() != 28 {
+	if reg.Len() != 27 {
 		t.Errorf("expected only builtin tools, got %d", reg.Len())
 	}
 }
@@ -232,7 +232,7 @@ func TestConnectConfiguredMCPServers_ConnectFailureNonFatal(t *testing.T) {
 	if len(conns) != 1 || conns[0].Status != mcp.StatusFailed {
 		t.Fatalf("expected failed connection record for /mcp display, got %+v", conns)
 	}
-	if reg.Len() != 28 {
+	if reg.Len() != 27 {
 		t.Errorf("builtin tools must stay registered, got %d", reg.Len())
 	}
 }
@@ -515,7 +515,7 @@ func TestConnectConfiguredMCPServers_SlowHandshakeNonFatal(t *testing.T) {
 	if _, ok := reg.Get("b-fast__echo"); !ok {
 		t.Error("b-fast tools should still be registered despite a-slow timeout")
 	}
-	if reg.Len() != 29 { // 28 builtin (store/HIL-dependent tools registered in wire.go) + b-fast__echo
-		t.Errorf("expected 29 tools (28 builtin + 1), got %d", reg.Len())
+	if reg.Len() != 28 { // 27 builtin (store/HIL/dirs-dependent tools registered in wire.go) + b-fast__echo
+		t.Errorf("expected 28 tools (27 builtin + 1), got %d", reg.Len())
 	}
 }

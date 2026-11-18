@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -14,58 +16,81 @@ import (
 	"github.com/tunsuy/claude-code-go/internal/tools/shell"
 )
 
-// ── SkillTool ─────────────────────────────────────────────────────────────────
+// ── SkillTool（BF-13）─────────────────────────────────────────────────────────
 
-func TestSkillTool_Name(t *testing.T) {
-	if misc.SkillTool.Name() != "Skill" {
-		t.Errorf("expected Skill, got %q", misc.SkillTool.Name())
-	}
+func newSkillTool(t *testing.T) (tools.Tool, string) {
+	t.Helper()
+	dir := t.TempDir()
+	return misc.NewSkillTool(func() []string { return []string{dir} }), dir
 }
 
-func TestSkillTool_IsConcurrencySafe_False(t *testing.T) {
-	if misc.SkillTool.IsConcurrencySafe(nil) {
-		t.Error("SkillTool must not be concurrency-safe")
+func TestSkillTool_Metadata(t *testing.T) {
+	tool, _ := newSkillTool(t)
+	if tool.Name() != "Skill" {
+		t.Errorf("expected Skill, got %q", tool.Name())
 	}
-}
-
-func TestSkillTool_IsReadOnly_False(t *testing.T) {
-	if misc.SkillTool.IsReadOnly(nil) {
-		t.Error("SkillTool must not be read-only")
+	if tool.IsConcurrencySafe(nil) {
+		t.Error("Skill must not be concurrency-safe")
 	}
-}
-
-func TestSkillTool_InputSchema(t *testing.T) {
-	schema := misc.SkillTool.InputSchema()
+	if tool.IsReadOnly(nil) {
+		t.Error("Skill must not be read-only")
+	}
+	schema := tool.InputSchema()
 	if _, ok := schema.Properties["skill"]; !ok {
 		t.Error("schema missing 'skill'")
 	}
-	if len(schema.Required) != 1 || schema.Required[0] != "skill" {
-		t.Errorf("expected Required=[skill], got %v", schema.Required)
-	}
-}
-
-func TestSkillTool_UserFacingName(t *testing.T) {
 	in, _ := json.Marshal(misc.SkillInput{Skill: "commit"})
-	name := misc.SkillTool.UserFacingName(in)
-	if name != "Skill(commit)" {
+	if name := tool.UserFacingName(in); name != "Skill(commit)" {
 		t.Errorf("unexpected name: %q", name)
 	}
-}
-
-func TestSkillTool_UserFacingName_NoInput(t *testing.T) {
-	if misc.SkillTool.UserFacingName(nil) != "Skill" {
+	if tool.UserFacingName(nil) != "Skill" {
 		t.Error("expected fallback Skill")
 	}
 }
 
-func TestSkillTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(misc.SkillInput{Skill: "commit"})
-	result, err := misc.SkillTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
+func TestSkillTool_LoadsSkillWithFrontmatter(t *testing.T) {
+	tool, dir := newSkillTool(t)
+	os.MkdirAll(filepath.Join(dir, "commit"), 0o755)
+	os.WriteFile(filepath.Join(dir, "commit", "SKILL.md"), []byte("---\nname: commit\ndescription: d\n---\nWrite a good commit message.\n"), 0o644)
+	in, _ := json.Marshal(misc.SkillInput{Skill: "commit", Args: "fix bug"})
+	result, err := tool.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("load failed: err=%v result=%+v", err, result)
 	}
-	if !result.IsError {
-		t.Error("expected IsError=true")
+	content := result.Content.(string)
+	if !strings.Contains(content, "Write a good commit message.") {
+		t.Errorf("skill body missing: %s", content)
+	}
+	if strings.Contains(content, "description: d") {
+		t.Error("frontmatter must be stripped")
+	}
+	if !strings.Contains(content, "Arguments: fix bug") {
+		t.Error("args must be appended")
+	}
+}
+
+func TestSkillTool_FlatFileAndNotFound(t *testing.T) {
+	tool, dir := newSkillTool(t)
+	os.WriteFile(filepath.Join(dir, "review.md"), []byte("Review the diff carefully."), 0o644)
+	in, _ := json.Marshal(misc.SkillInput{Skill: "review"})
+	result, _ := tool.Call(in, nil, nil)
+	if result.IsError || !strings.Contains(result.Content.(string), "Review the diff") {
+		t.Errorf("flat .md skill must load, got %+v", result)
+	}
+	in, _ = json.Marshal(misc.SkillInput{Skill: "absent"})
+	result, _ = tool.Call(in, nil, nil)
+	if !result.IsError || !strings.Contains(result.Content.(string), "review") {
+		t.Errorf("not-found must list available skills, got %+v", result)
+	}
+}
+
+func TestSkillTool_TraversalAndEmptyRejected(t *testing.T) {
+	tool, _ := newSkillTool(t)
+	for _, name := range []string{"../escape", "a/b", ""} {
+		in, _ := json.Marshal(misc.SkillInput{Skill: name})
+		if result, _ := tool.Call(in, nil, nil); !result.IsError {
+			t.Errorf("name %q must be rejected", name)
+		}
 	}
 }
 
@@ -504,7 +529,7 @@ func TestSyntheticOutputTool_Call_ReturnsError(t *testing.T) {
 // ── Interface compliance ──────────────────────────────────────────────────────
 
 func TestAllMiscTools_ImplementToolInterface(t *testing.T) {
-	var _ tools.Tool = misc.SkillTool
+	var _ tools.Tool = misc.NewSkillTool(nil)
 	var _ tools.Tool = misc.BriefTool
 	var _ tools.Tool = misc.NewToolSearchTool(nil)
 	var _ tools.Tool = misc.SleepTool
