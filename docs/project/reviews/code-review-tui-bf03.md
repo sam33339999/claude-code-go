@@ -302,3 +302,26 @@ tech-lead-agent SOP，本提交无 P0，架构铁律、cache-first 三问、MVU�
 | CR-BF03-4 | P2 | mgr.Close nolint:errcheck | ❌（可选） | — | 与 listSessions 一致性 |
 | CR-BF03-5 | P2 | 设计文档补 BF-01 活状态依赖注记 | ❌（可选） | — | tui.md §4.1 |
 | CR-BF03-6 | P2 | /mcp 引擎不变断言 + nil-client/超时用例 | ❌（可选） | — | cache 守护补强 |
+
+---
+
+## 复核记录（2026-11-18，主会话代行 Tech Lead 复核）
+
+> 背景：修复 Agent 撞模型配额上限，依 AGENTS.md 维护模式由主会话接手修复并代行复核；
+> 供人类 PR 评审确认。只核修复项。
+
+修复提交：`1637769`（BF-03-F1 代码＋文档）、`10df48b`（BF-03-F2 纯测试）。
+
+| 问题 | 复核结果 | 证据 |
+|------|----------|------|
+| CR-BF03-1（P1） | ✅ 关闭 | applyCommandResult 107→72 行（awk 实测）；applyResumeResult/applyDisplayResult 提取，既有 resume/clear/display 测试全绿证明逐路径行为不变 |
+| CR-BF03-2（P1） | ✅ 关闭（本仓范围） | MCPServerLister/FormatMCPStatus GoDoc 钉住无并发池突变约束；tui.md v1.2 §4.1 同步；渲染侧值拷贝防御明示非同步。根治（GetAll 快照）维持跨仓 BF-19。**升级条件已解除**：BF-01-F1（50b2427）消除会话期 pool 写入，本项回落为潜在隐患＋文档化约束 |
+| CR-BF03-3（P2） | ✅ 关闭 | session.Resume 错误经 %w 保留，用户可见文案不变 |
+| CR-BF03-4（P2） | ✅ 关闭 | mgr.Close 失败显式返回错误，与 listSessions 模式一致 |
+| CR-BF03-5（P2） | ✅ 关闭 | tui.md v1.2 补记 /mcp 活状态依赖 BF-01 启动接线（空池提示为预期行为） |
+| CR-BF03-6（P2） | ✅ 关闭 | 引擎历史 DeepEqual 不变断言（cache gate 显示-only 守护）；connected+nil-client 分支；blockingMCPClient＋取消 ctx 驱动超时降级（诚实 tools unavailable） |
+
+**门控复验**：全仓 `CGO_ENABLED=1 go test -race -count=1 ./...` 绿；make docs-check 通过；
+debt-check 通过（本分支 24 不变）；触及文件 gofmt 干净；tui.md v1.2 变更记录完备。
+
+**复核结论：P1 全关闭，评审门控通过（pass-ready）**，待 QA 验收与人类 PR 确认。
