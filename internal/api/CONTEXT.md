@@ -2,7 +2,7 @@
 package: api
 import_path: internal/api
 layer: services
-generated_at: 2026-11-18T15:25:59Z
+generated_at: 2026-11-18T17:00:17Z
 source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, openai_client.go, openai_stream.go, openai_types.go, retry.go, stream.go, usage.go]
 ---
 
@@ -124,11 +124,11 @@ type StreamReader interface {
 - `Delta` → `internal/engine/engine_test.go` (test)
 - `MessageDeltaData` → `internal/engine/engine_test.go` (test)
 - `MessageParam` → `internal/compact/auto.go`, `internal/engine/query.go`
-- `MessageRequest` → `internal/compact/auto.go`, `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/query.go` + 1 more
+- `MessageRequest` → `internal/compact/auto.go`, `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/interrupt_slot_test.go` (test) + 2 more
 - `MessageResponse` → `internal/compact/auto.go`, `internal/engine/engine_test.go` (test), `internal/engine/query.go`
 - `MessageStartData` → `internal/engine/engine_test.go` (test)
 - `StreamEvent` → `internal/engine/engine_test.go` (test)
-- `StreamReader` → `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/stop_hooks_test.go` (test)
+- `StreamReader` → `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/interrupt_slot_test.go` (test), `internal/engine/stop_hooks_test.go` (test)
 - `SystemBlock` → `internal/engine/query.go`
 - `ToolSchema` → `internal/engine/query.go`
 - `Usage` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`

@@ -32,9 +32,16 @@ func msgBufSize() int {
 // It starts the query loop in a background goroutine and returns the event channel.
 func (e *engineImpl) Query(ctx context.Context, params QueryParams) (<-chan Msg, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	e.abortMu.Lock()
-	e.abortFn = cancel
-	e.abortMu.Unlock()
+	// Only foreground (write-back) queries own the interrupt slot. Sub-agent
+	// and forked queries (NoWriteBack) run concurrently on the same engine and
+	// are cancelled via their own contexts (coordinator cancelFn / fork ctx);
+	// letting them overwrite abortFn would hijack Interrupt (Ctrl+C) so it
+	// cancels a background query instead of the main conversation.
+	if !params.NoWriteBack {
+		e.abortMu.Lock()
+		e.abortFn = cancel
+		e.abortMu.Unlock()
+	}
 
 	msgCh := make(chan Msg, msgBufSize())
 

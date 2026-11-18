@@ -313,7 +313,14 @@ func (c *coordinatorImpl) SpawnAgent(ctx context.Context, req SpawnRequest) (Age
 	raw := ids.NewAgentId(idPrefix)
 	agentID := AgentID(raw)
 
-	agentCtx, cancelFn := context.WithCancel(ctx)
+	// Agent lifetime is decoupled from the caller's context: the spawn ctx
+	// is the parent query's tool-call context, which is cancelled when the
+	// parent turn ends (or the user sends the next message). Background
+	// threads must survive that — like the Projects coordinator's threads,
+	// they live until they finish or are explicitly stopped. WithoutCancel
+	// keeps context values (agentctx etc.) while dropping cancellation.
+	parentCtx := context.WithoutCancel(ctx)
+	agentCtx, cancelFn := context.WithCancel(parentCtx)
 
 	entry := &agentEntry{
 		id:        agentID,
@@ -322,7 +329,7 @@ func (c *coordinatorImpl) SpawnAgent(ctx context.Context, req SpawnRequest) (Age
 		status:    AgentStatusRunning,
 		startedAt: time.Now(),
 		inboxCh:   make(chan string, inboxBufferSize),
-		parentCtx: ctx,
+		parentCtx: parentCtx,
 		cancelFn:  cancelFn,
 		loopDone:  make(chan struct{}),
 	}

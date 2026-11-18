@@ -152,3 +152,89 @@ func TestSendMessage_NoStrandedMessages(t *testing.T) {
 	defer mu.Unlock()
 	t.Fatalf("consumed = %d, want %d (messages stranded)", consumed, n)
 }
+
+// TestSpawnAgent_SurvivesParentContextCancel guards the live-fire fix: the
+// spawn ctx is the parent query's tool-call context, cancelled when the
+// parent turn ends. Background threads must outlive it (Projects semantics).
+func TestSpawnAgent_SurvivesParentContextCancel(t *testing.T) {
+	release := make(chan struct{})
+	fn := func(ctx context.Context, _ coordinator.AgentID, _ coordinator.SpawnRequest, _ <-chan string) (string, error) {
+		select {
+		case <-release:
+			return "survived", nil
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
+	c := newCoordinator(fn)
+	spawnCtx, cancel := context.WithCancel(context.Background())
+	id, err := c.SpawnAgent(spawnCtx, coordinator.SpawnRequest{Prompt: "work", Description: "outlive-parent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Parent turn ends.
+	cancel()
+	time.Sleep(50 * time.Millisecond)
+
+	status, err := c.GetAgentStatus(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != coordinator.AgentStatusRunning {
+		t.Fatalf("agent status after parent ctx cancel = %q, want running (lifetime must be decoupled)", status)
+	}
+
+	close(release)
+	ch, _ := c.Subscribe(id)
+	select {
+	case notif := <-ch:
+		if notif.Result != "survived" || notif.Status != coordinator.AgentStatusCompleted {
+			t.Fatalf("notif = %+v, want completed/survived", notif)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for agent completion")
+	}
+}
+
+// TestSendMessage_ResumeAfterParentContextCancel verifies resume works even
+// when the original spawn context is long cancelled (entry.parentCtx must be
+// the decoupled context, not the caller's).
+func TestSendMessage_ResumeAfterParentContextCancel(t *testing.T) {
+	var mu sync.Mutex
+	runs := 0
+	fn := func(_ context.Context, _ coordinator.AgentID, _ coordinator.SpawnRequest, inbox <-chan string) (string, error) {
+		mu.Lock()
+		runs++
+		n := runs
+		mu.Unlock()
+		if n == 1 {
+			return "first", nil
+		}
+		select {
+		case m := <-inbox:
+			return "resumed:" + m, nil
+		case <-time.After(2 * time.Second):
+			return "resumed:no-message", nil
+		}
+	}
+	c := newCoordinator(fn)
+	spawnCtx, cancel := context.WithCancel(context.Background())
+	id, _ := c.SpawnAgent(spawnCtx, coordinator.SpawnRequest{Prompt: "work", Description: "resume-after-cancel"})
+	ch, _ := c.Subscribe(id)
+	<-ch
+	cancel() // parent context gone before the follow-up
+
+	if err := c.SendMessage(context.Background(), id, "follow-up"); err != nil {
+		t.Fatalf("SendMessage: %v", err)
+	}
+	ch2, _ := c.Subscribe(id)
+	select {
+	case notif := <-ch2:
+		if notif.Result != "resumed:follow-up" {
+			t.Fatalf("resumed result = %q, want resumed:follow-up", notif.Result)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for resumed agent")
+	}
+}

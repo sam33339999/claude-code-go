@@ -1753,6 +1753,7 @@ type MCPClientInfo struct {
 
 ## 维护期变更记录
 
+- **2026-11-18 實機驗證修復：agent 生命週期＋Interrupt slot（fix/agent-lifetime）**：使用者實機跑委派「一直失敗」——根因二：(1) coordinator.SpawnAgent 以 caller ctx（父 query 的 tool-call ctx）為 agent ctx 父源，父 turn 結束（Query defer cancel）或下一使用者訊息（TUI abortFn）即取消所有 background agent/fork；現改 `context.WithoutCancel(ctx)` 為 parentCtx（保留 values、去除 cancellation），thread 存活至完成或 StopAgent（對齊 Projects thread 語義），resume 同源。(2) engine.Query 無條件覆蓋 e.abortFn，background query 劫持 Interrupt（Ctrl+C）；現僅 write-back（foreground）query 擁有 interrupt slot，NoWriteBack query 經自身 ctx 取消。另確認：**委派無 per-agent CWD 設定**——Bash 不設 cmd.Dir、fileops/glob/grep 用 os.Getwd()，sub-agent 與主會話共用 process CWD（無 worktree isolation；對齊 leak 的 isolation:"worktree" 為後續項）。PermCtx=nil 安全（所有 CheckPermissions override 忽略 UseContext；checker 用自身快照＋ModeFn）。守護測試×3。無接口簽名變更（SpawnAgent/Query 簽名不變；Interrupt GoDoc 語義限縮 foreground）。
 - **2026-11-18 常駐 coordinator＋fork prompt-cache 复用（feat/coordinator-fork-cache）**：依据 Anthropic 洩漏提示词（claude-projects-coordinator.md、claude-code/agents/fork.md、claude-code-opus-5.5.md Agent 工具段）落地常駐 coordinator＋多 thread 與 KV-cache 复用。接口变更：
   - `pkg/types.ContentBlock` +`CacheControl *CacheControl`（request-side only；歷史快照不得帶標記，engine 標記前 clone）。`pkg/types.CacheControl` 新增（零依賴）。
   - `internal/api`：`MessageRequest` +`SystemBlocks []SystemBlock`（非空時 MarshalJSON 以 block 陣列序列化 system，帶 cache_control；`System` 仍為純文字canonical，OpenAI 相容路徑經 `SystemText()` 讀取、不帶標記）；`ToolSchema`/`ContentBlock` +`CacheControl`；`SystemBlock`、`CacheControl`、`EphemeralCache` 新增。
