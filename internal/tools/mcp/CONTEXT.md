@@ -2,7 +2,7 @@
 package: mcp
 import_path: internal/tools/mcp
 layer: tools
-generated_at: 2026-11-18T01:42:09Z
+generated_at: 2026-11-18T03:53:13Z
 source_files: [doc.go, mcp.go]
 ---
 
@@ -23,7 +23,7 @@ source_files: [doc.go, mcp.go]
 
 ## Dependencies
 
-**Imports:** *(none — zero-dependency)*
+**Imports:** `internal/mcp`, `internal/tools`
 
 **Imported by:** `internal/bootstrap`
 

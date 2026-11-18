@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tunsuy/agtkeel/config"
-	"github.com/tunsuy/agtkeel/mcp"
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/claude-code-go/internal/mcp"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 	mcptools "github.com/tunsuy/claude-code-go/internal/tools/mcp"
 )
 

@@ -8,7 +8,7 @@
 
 **必须遵守的现行约束（CI 强制）：**
 
-- 欠账红线 `make debt-check`：`TODO(dep)`（当前 56）与用户可见 `not yet implemented` 桩（当前 27）只降不升；减少后运行 `scripts/debt-check.sh --update` 刷新基线并随 PR 提交
+- 欠账红线 `make debt-check`：`TODO(dep)`（当前 44）与用户可见 `not yet implemented` 桩（当前 19，含内核搬回后进入扫描范围的 MCP WebSocket 桩）只降不升；减少后运行 `scripts/debt-check.sh --update` 刷新基线并随 PR 提交
 - 改包前先读该包 `CONTEXT.md`；改导出符号后运行 `make docs` 同步生成文档
 - 复盘与证据：[`docs/project/discussions/2026-08-29-process-retrospective.md`](docs/project/discussions/2026-08-29-process-retrospective.md)
 
@@ -25,21 +25,20 @@ Claude Code Go is a **full Go rewrite** of Claude Code (originally TypeScript/Bu
 ```
 CLI (cmd/claude)         → Cobra entry point, bootstrap
 TUI (internal/tui)       → Bubble Tea MVU interface
-Tools (internal/tools/*) → File, shell, search, MCP tools（接口契约与注册表已提取到 agtkeel/tools）
-Engine (agtkeel/engine)  → LLM query loop, tool dispatch, coordinator
-Services (agtkeel/api, agtkeel/mcp, agtkeel/compact, internal/oauth) → API client, MCP, OAuth
-Infra (agtkeel/types, agtkeel/config, agtkeel/session, agtkeel/hooks, internal/state) → Types, config, state
+Tools (internal/tools/*) → File, shell, search, MCP tools（框架：Tool 接口 + Registry + BaseTool 在 internal/tools 根包）
+Engine (internal/engine) → LLM query loop, tool dispatch, coordinator
+Services (internal/api, internal/mcp, internal/compact, internal/oauth) → API client, MCP, OAuth
+Infra (pkg/types, internal/config, internal/session, internal/hooks, internal/state) → Types, config, state
 ```
 
-**基座提取**：可复用 agent 内核（types/api/msgqueue/compact/tools 抽象/engine/session/permissions/hooks/mcp/config/utils）已提取到 [github.com/tunsuy/agtkeel](https://github.com/tunsuy/agtkeel)（MIT，2026-09-23 换库完成）；本仓保留产品侧：CLI/TUI/bootstrap/coordinator/oauth/plugin/state/memdir/agentctx/agenttype/commands 与具体工具实现（internal/tools/<category>）。
+**内核搬回（2026-11-18）**：可复用 agent 内核曾于 2026-09-23（PR #31）提取到外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策已**整併回本仓**（含 OpenAI 兼容增强 normalizeBaseURL/ReasoningContent），恢复上述原始路径。go.mod 不再依赖 agtkeel；内核改动直接在本仓进行。
 
-**Dependency rule**: Lower layers MUST NOT import from higher layers. `agtkeel/types` is zero-dependency — all layers may depend on it.
+**Dependency rule**: Lower layers MUST NOT import from higher layers. `pkg/types` is zero-dependency — all layers may depend on it.
 
 ## Key Dependencies
 
 | Library | Purpose |
 |---------|---------|
-| `github.com/tunsuy/agtkeel` | Shared agent foundation (engine, api, types, permissions, hooks, mcp, session, config, tools contract) |
 | `github.com/spf13/cobra` | CLI command framework |
 | `github.com/charmbracelet/bubbletea` | TUI framework (Elm-style MVU) |
 | `github.com/charmbracelet/lipgloss` | TUI styling |
@@ -138,6 +137,7 @@ internal/
   plugin/            Plugin system
   session/           Session persistence
   state/             Generic state store + AppState
+  transcript/        Session JSONL persistence recorder (BF-18)
   tools/             Tool interface, registry, BaseTool
     agent/           Sub-agent & SendMessage tools
     fileops/         FileRead, FileWrite, FileEdit, Glob, Grep, NotebookEdit

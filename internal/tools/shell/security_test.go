@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 )
 
 func TestAnalyzeCommandDangerous(t *testing.T) {

@@ -2,7 +2,7 @@
 package: oauth
 import_path: internal/oauth
 layer: services
-generated_at: 2026-09-23T11:03:32Z
+generated_at: 2026-11-18T03:53:13Z
 source_files: [client.go, crypto.go, crypto_aes.go, listener.go, refresh.go, store.go, store_darwin.go, store_other.go, types.go]
 ---
 
@@ -54,6 +54,7 @@ type TokenStore interface {
 ## Change Impact
 
 **Test Mocks (must add new methods when interfaces change):**
+- `mockClient` in `internal/engine/engine_test.go`
 - `mockClient` in `test/integration/engine_e2e_test.go`
 
 **Exported type references (files that use types from this package):**
@@ -68,3 +69,7 @@ type TokenStore interface {
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->
+
+## Design Notes
+
+- **2026-11-18 内核搬回＋全仓 gofmt（BF-20）**：本包仅 import 路径恢复（agtkeel/* → internal/*、pkg/types）与 gofmt 格式化，零逻辑改动。oauth 留在产品侧（非内核提取范围），macOS Keychain 集成等行为不变。

@@ -24,9 +24,9 @@ var layers = []Layer{
 // relative to the module root (e.g. "internal/coordinator").
 var layerMap = map[string]string{
 	// CLI layer
-	"cmd/claude":          "cli",
-	"internal/bootstrap":  "cli",
-	"internal/commands":   "cli",
+	"cmd/claude":         "cli",
+	"internal/bootstrap": "cli",
+	"internal/commands":  "cli",
 
 	// TUI layer
 	"internal/tui": "tui",

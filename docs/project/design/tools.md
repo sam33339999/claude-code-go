@@ -1012,4 +1012,5 @@ FileEdit 要求 `old_string` 在文件中唯一出现一次。实现：
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|---------|
 | v1.1 | 2026-11-18 | Agent-Tools | BF-01：删除 MCPProxyTool/MCPToolInput 桩，改用 agtkeel `mcp.AdaptToTool`；新增 `RegisterServerTools`（会话钉住、一次性注册）、`NewListMcpResourcesTool`/`NewReadMcpResourceTool`（Pool 构造期注入）；`RegisterBuiltinTools` 签名新增 `pool *mcp.Pool` 参数；bootstrap 启动时连接已配置服务器并注册其工具（§4.4）。BF-02：Sleep 实现 context-aware 定时（§7.9） |
+| v1.2 | 2026-11-18 | 主会话 | 内核搬回（反转 PR #31）：agtkeel/* import 路径恢复 internal/*、pkg/types；Tool 框架回到 internal/tools 根包。零接口签名变更，仅 import 路径。 |
 | v1.0 | 2026-04-02 | Agent-Tools | 初稿 |

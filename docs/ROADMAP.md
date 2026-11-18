@@ -9,6 +9,8 @@
 > **2026-09-05 状态刷新（B2/B5 落地，PR #23）**：`mcp` 命令组（7 命令）与 `plugin` 命令组（8 命令 + marketplace 子树）从桩变为真实实现，输出与 oracle（claude v2.1.261）字节级一致；用户可见桩 42 → 27。插件系统 CLI 层落地（§3.4 的 3.4.4），加载引擎仍为骨架。同日起项目按维护模式运转（见 [`test/parity/cases.md`](../test/parity/cases.md) 差距台账与 [`2026-08-29 流程复盘`](discussions/2026-08-29-process-retrospective.md)）。
 >
 > **2026-11-18 状态刷新（patrol-13 核查修正，BF-00）**：第 13 次 PM 巡检（[patrol-13-20261118](project/logs/patrol-13-20261118.md)）对照换库前源码与 [parity 差距台账](../test/parity/cases.md) 核实：Phase 2 的"✅ 已完成（2026-09-05）"标注虚报——把"已注册"当成了"已实现"。34 个注册工具中仅 20 个真实实现、14 个为桩（另有 MCPProxyTool 桩类型未注册，工具桩合计 15：interact×6、misc×5、mcp×3、NotebookEdit 核心×1；与 patrol-13"16 桩"计数的核对见 §2.2）；/config、/mcp、/resume、/terminal-setup 四个斜杠命令为桩；update/install/agents 为桩（与 cases.md B8/B9/B10 一致）。PR #31（2026-09-23 基座换库）未丢失任何实现，桩均为构建期（2026-04）原始遗留。本文 Phase 2 各节状态已按台账与代码修正；全量回填计划已派发执行中（[桩回填计划](project/discussions/2026-11-18-stub-backfill-plan.md)，BF-01..BF-16；Batch 1：MCP 接线、Sleep、/mcp、/resume）。
+>
+> **2026-11-18 架构变更（内核搬回）**：agtkeel 外部仓停止维护，经人类决策将其内核整併回本仓（反转 PR #31 提取，含 OpenAI 兼容增强 normalizeBaseURL/ReasoningContent），恢复 internal/{api,engine,mcp,...}、pkg/types 原始路径；go.mod 不再依赖 agtkeel。MCP WebSocket 桩（§3.3）随之回到本仓扫描范围（debt 基线 18→19，scope 变化非新增桩）；BF-08/BF-16/BF-19 由跨仓改为同仓任务。
 
 ---
 

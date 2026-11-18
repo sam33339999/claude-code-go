@@ -32,9 +32,9 @@ func TestMatchToolRule(t *testing.T) {
 
 func TestMatchPathRule(t *testing.T) {
 	tests := []struct {
-		path    string
-		rule    string
-		want    bool
+		path string
+		rule string
+		want bool
 	}{
 		{"/tmp/foo", "", true},
 		{"/tmp/foo", "*", true},

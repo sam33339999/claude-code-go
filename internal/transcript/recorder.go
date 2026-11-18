@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tunsuy/agtkeel/session"
-	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/session"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // Recorder appends new conversation messages to a single session JSONL file.

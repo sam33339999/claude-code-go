@@ -418,3 +418,9 @@ var _ services.MCPServer = (*bootstrap.mcpServerPlaceholder)(nil)
 **决策**：启动时根据模式设置 `CLAUDE_CODE_ENTRYPOINT` 环境变量，值域：`cli`（交互式）、`sdk-cli`（非交互 -p）、`mcp`（MCP serve 模式）、`claude-code-github-action`（CI）。
 
 **原因**：原 TS 中此变量被下游服务（QueryEngine、工具层）用于行为差异化（如是否展示权限对话框）。Go 实现沿用同一约定，通过 `StateStore.SetEntrypoint()` 存储并在需要处读取，避免直接读写 `os.Setenv`。
+
+---
+
+## 8. 维护期架构变更记录
+
+- **2026-11-18 内核搬回（反转 PR #31）**：agtkeel 外部仓停止维护，经人类决策整併回本仓；`agtkeel/*` import 恢复 `internal/*`、`pkg/types` 原始路径，go.mod 移除 agtkeel 依赖与本地 replace。零接口签名变更。本文 §3/§4 所述 internal 路径恢复有效。

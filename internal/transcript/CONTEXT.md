@@ -2,7 +2,7 @@
 package: transcript
 import_path: internal/transcript
 layer: unknown
-generated_at: 2026-11-18T03:26:51Z
+generated_at: 2026-11-18T03:53:13Z
 source_files: [recorder.go]
 ---
 
@@ -26,7 +26,7 @@ source_files: [recorder.go]
 
 ## Dependencies
 
-**Imports:** *(none — zero-dependency)*
+**Imports:** `internal/session`, `pkg/types`
 
 **Imported by:** `internal/bootstrap`, `internal/tui`
 

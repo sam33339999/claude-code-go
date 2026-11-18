@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tunsuy/agtkeel/session"
-	"github.com/tunsuy/agtkeel/types"
-	utilfs "github.com/tunsuy/agtkeel/utils/fs"
+	"github.com/tunsuy/claude-code-go/internal/session"
+	"github.com/tunsuy/claude-code-go/pkg/types"
+	utilfs "github.com/tunsuy/claude-code-go/pkg/utils/fs"
 )
 
 const (

@@ -1,8 +1,8 @@
 package bootstrap
 
 import (
-	agtmcp "github.com/tunsuy/agtkeel/mcp"
-	"github.com/tunsuy/agtkeel/tools"
+	agtmcp "github.com/tunsuy/claude-code-go/internal/mcp"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/tools/agent"
 	"github.com/tunsuy/claude-code-go/internal/tools/fileops"
 	"github.com/tunsuy/claude-code-go/internal/tools/interact"

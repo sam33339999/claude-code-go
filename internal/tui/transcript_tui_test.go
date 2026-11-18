@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tunsuy/agtkeel/session"
-	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/session"
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/transcript"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // runCmdFully executes a Cmd, draining tea.BatchMsg children, and returns

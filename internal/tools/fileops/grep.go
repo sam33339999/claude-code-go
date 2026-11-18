@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 )
 
 // ── Input / Output types ──────────────────────────────────────────────────────
@@ -42,15 +42,15 @@ type GrepMatch struct {
 
 // GrepOutput is the structured output returned by Grep.
 type GrepOutput struct {
-	Matches   []GrepMatch       `json:"matches,omitempty"`
-	Files     []string          `json:"files,omitempty"`  // for files_with_matches mode
-	Counts    map[string]int    `json:"counts,omitempty"` // for count mode
-	NumResults int              `json:"num_results"`
-	Truncated  bool             `json:"truncated,omitempty"`
+	Matches    []GrepMatch    `json:"matches,omitempty"`
+	Files      []string       `json:"files,omitempty"`  // for files_with_matches mode
+	Counts     map[string]int `json:"counts,omitempty"` // for count mode
+	NumResults int            `json:"num_results"`
+	Truncated  bool           `json:"truncated,omitempty"`
 }
 
 const (
-	maxGrepResults = 10_000
+	maxGrepResults             = 10_000
 	outputModeContent          = "content"
 	outputModeFilesWithMatches = "files_with_matches"
 	outputModeCount            = "count"
@@ -104,7 +104,7 @@ func (t *grepTool) InputSchema() tools.InputSchema {
 }
 
 func (t *grepTool) IsConcurrencySafe(_ tools.Input) bool { return true }
-func (t *grepTool) IsReadOnly(_ tools.Input) bool         { return true }
+func (t *grepTool) IsReadOnly(_ tools.Input) bool        { return true }
 func (t *grepTool) SearchHint() string                   { return "grep search content regex pattern find" }
 
 func (t *grepTool) UserFacingName(input tools.Input) string {

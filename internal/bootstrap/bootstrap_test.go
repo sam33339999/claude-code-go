@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tunsuy/agtkeel/config"
+	"github.com/tunsuy/claude-code-go/internal/config"
 
 	"github.com/tunsuy/claude-code-go/internal/agenttype"
 )

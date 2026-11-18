@@ -4,11 +4,11 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tunsuy/agtkeel/msgqueue"
-	"github.com/tunsuy/agtkeel/types"
 	"github.com/tunsuy/claude-code-go/internal/commands"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/claude-code-go/internal/msgqueue"
 	"github.com/tunsuy/claude-code-go/internal/state"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // Update is the BubbleTea Update method — the single message dispatcher.

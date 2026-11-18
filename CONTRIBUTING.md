@@ -163,14 +163,14 @@ compaction, or request serialization** must pass this gate:
 
 | Spec mechanism | Here | Status |
 | --- | --- | --- |
-| Stable prefix / cache params | agtkeel `engine.CacheSafeParams`, `cache_control: ephemeral` markers | partial (no explicit assemble-once owner) |
+| Stable prefix / cache params | `internal/engine.CacheSafeParams`, `cache_control: ephemeral` markers | partial (no explicit assemble-once owner) |
 | Pinned MCP placeholders | `internal/tools/mcp` session pinning (BF-01) + reconnect guard test | done |
 | Tool output cap / spill | `ListMcpResources` 200-entry cap (local); no general cap/spill | partial |
-| Usage normalization | agtkeel `api/usage.go` Anthropic-style counters | partial (OpenAI/DeepSeek hit-token shapes missing) |
+| Usage normalization | `internal/api/usage.go` Anthropic-style counters | partial (OpenAI/DeepSeek hit-token shapes missing) |
 | Cache split in UI | `internal/tui/statusbar.go` CacheRead/CacheCreated | partial (no hit-rate display) |
 | Per-model CacheHit pricing | — | missing |
 | Release cache guard (90% threshold) | — | missing |
-| Compaction economics (refold thresholds) | agtkeel `compact` snip/micro/auto | partial |
+| Compaction economics (refold thresholds) | `internal/compact` snip/micro/auto | partial |
 
 ## Architecture Overview
 

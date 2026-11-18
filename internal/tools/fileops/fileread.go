@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 )
 
 // ── Input / Output types ──────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ func (t *fileReadTool) InputSchema() tools.InputSchema {
 }
 
 func (t *fileReadTool) IsConcurrencySafe(_ tools.Input) bool { return true }
-func (t *fileReadTool) IsReadOnly(_ tools.Input) bool         { return true }
+func (t *fileReadTool) IsReadOnly(_ tools.Input) bool        { return true }
 func (t *fileReadTool) SearchHint() string                   { return "read file open view cat" }
 
 func (t *fileReadTool) UserFacingName(input tools.Input) string {

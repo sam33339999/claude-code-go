@@ -5,12 +5,12 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tunsuy/agtkeel/engine"
-	"github.com/tunsuy/agtkeel/tools"
-	"github.com/tunsuy/agtkeel/types"
 	"github.com/tunsuy/claude-code-go/internal/commands"
+	"github.com/tunsuy/claude-code-go/internal/engine"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/transcript"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // startQueryCmd builds a tea.Cmd that launches a new query against the engine.

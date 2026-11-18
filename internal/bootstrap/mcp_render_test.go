@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/agtkeel/config"
+	"github.com/tunsuy/claude-code-go/internal/config"
 )
 
 // Byte-exact render tests against oracle fixtures (claude v2.1.261), captured

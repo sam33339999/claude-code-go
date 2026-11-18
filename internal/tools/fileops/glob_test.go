@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/tools/fileops"
 )
 
@@ -130,9 +130,9 @@ func TestGlobTool_DoubleStarMatchesNested(t *testing.T) {
 
 func TestGlobTool_PrefixPattern(t *testing.T) {
 	root := makeTree(t, map[string]string{
-		"src/a.ts":   "const a = 1",
-		"src/b.ts":   "const b = 1",
-		"test/c.ts":  "const c = 1",
+		"src/a.ts":  "const a = 1",
+		"src/b.ts":  "const b = 1",
+		"test/c.ts": "const c = 1",
 	})
 
 	out := globCall(t, "src/**/*.ts", root)
@@ -159,8 +159,8 @@ func TestGlobTool_NoMatches(t *testing.T) {
 
 func TestGlobTool_SkipsHiddenDirs(t *testing.T) {
 	root := makeTree(t, map[string]string{
-		".git/config":  "[core]",
-		"visible.go":   "package main",
+		".git/config": "[core]",
+		"visible.go":  "package main",
 	})
 
 	out := globCall(t, "**/*", root)
