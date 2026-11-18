@@ -239,6 +239,8 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 		container.MemoryStore,
 		container.MCPPool,
 		rec,
+		container.QuestionAskCh,
+		container.QuestionRespCh,
 	)
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
@@ -250,6 +252,7 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 // runHeadless executes a single query without the TUI and writes the result
 // to stdout in the requested format.
 func runHeadless(f *rootFlags, extraArgs []string, opts ContainerOptions) error {
+	opts.Headless = true // BF-08: no user to answer AskUserQuestion in -p mode
 	container, err := BuildHeadlessContainer(opts)
 	if err != nil {
 		return fmt.Errorf("bootstrap: build headless container: %w", err)

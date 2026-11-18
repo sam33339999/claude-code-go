@@ -2,7 +2,7 @@
 package: ids
 import_path: pkg/utils/ids
 layer: types
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T04:49:22Z
 source_files: [ids.go]
 ---
 
@@ -19,7 +19,7 @@ source_files: [ids.go]
 
 **Imports:** `pkg/types`
 
-**Imported by:** `internal/coordinator`, `internal/session`
+**Imported by:** `internal/coordinator`, `internal/session`, `internal/tools/interact`
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->

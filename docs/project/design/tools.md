@@ -708,6 +708,13 @@ type TaskOutputInput struct {
 
 #### AskUserQuestion
 
+> **BF-08 已实现（2026-11-18）**：`NewAskUserQuestionTool(askCh, respCh)` 构造期注入 HIL channel 对
+> （`pkg/types.QuestionRequest/QuestionResponse`），完全参照权限对话框管线：tool 发请求→阻塞等待→
+> TUI listener Cmd 转 QuestionRequestMsg→dialogQuestion（数字选项＋自由文本＋Enter/Esc）→RespFn 回传。
+> **headless 安全**：ContainerOptions.Headless 时 channel 为 nil，tool 诚实报错不阻塞。
+> 取消路径：ctx.Done/AbortCh 三段 select。注册点：wire.go Phase 7（RegisterBuiltinTools 余 32）。
+> schema 字节与桩期一致（cache gate：不前缀移动）。
+
 ```go
 // 核心机制：通过 opts.Context 持有的 channel 向 TUI 发出问询请求，阻塞等待用户回答
 // 工具本身不直接与 TUI 耦合，通过接口注入的 RequestPrompt 函数间接触发
@@ -1020,4 +1027,5 @@ FileEdit 要求 `old_string` 在文件中唯一出现一次。实现：
 | v1.1 | 2026-11-18 | Agent-Tools | BF-01：删除 MCPProxyTool/MCPToolInput 桩，改用 agtkeel `mcp.AdaptToTool`；新增 `RegisterServerTools`（会话钉住、一次性注册）、`NewListMcpResourcesTool`/`NewReadMcpResourceTool`（Pool 构造期注入）；`RegisterBuiltinTools` 签名新增 `pool *mcp.Pool` 参数；bootstrap 启动时连接已配置服务器并注册其工具（§4.4）。BF-02：Sleep 实现 context-aware 定时（§7.9） |
 | v1.2 | 2026-11-18 | 主会话 | 内核搬回（反转 PR #31）：agtkeel/* import 路径恢复 internal/*、pkg/types；Tool 框架回到 internal/tools 根包。零接口签名变更，仅 import 路径。 |
 | v1.3 | 2026-11-18 | 主会话 | BF-07 TodoWrite 实现：NewTodoWriteTool(store) 构造注入（wire.go 于 store 后注册）；AppState.Todos＋pkg/types.TodoItem；oracle 语义（全 completed 清空、固定文案、整表替换）；分歧文档化（单会话列表、无持久化）。RegisterBuiltinTools 33 工具（TodoWrite 移出）。 |
+| v1.4 | 2026-11-18 | 主会话 | BF-08 AskUserQuestion 实现：HIL channel 对（pkg/types.QuestionRequest/Response）构造注入，权限对话框管线同构；headless nil channel 诚实报错（ContainerOptions.Headless）；ctx/abort 取消路径。RegisterBuiltinTools 32 工具（AskUserQuestion 移出至 wire.go Phase 7）。 |
 | v1.0 | 2026-04-02 | Agent-Tools | 初稿 |
