@@ -93,7 +93,7 @@ func (t *fileEditTool) GetPath(input tools.Input) string {
 
 // Call executes the FileEdit tools.
 // TODO(dep): full permission checking requires Agent-Core permission system.
-func (t *fileEditTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+func (t *fileEditTool) Call(input tools.Input, ctx *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
 	var in FileEditInput
 	if err := json.Unmarshal(input, &in); err != nil {
 		return &tools.Result{IsError: true, Content: "invalid input: " + err.Error()}, nil
@@ -105,7 +105,7 @@ func (t *fileEditTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnPr
 		return &tools.Result{IsError: true, Content: "old_string must not be empty"}, nil
 	}
 
-	fullPath := expandPath(in.FilePath)
+	fullPath := expandPathFrom(in.FilePath, workDirOf(ctx))
 
 	if isBlockedDevicePath(fullPath) {
 		return &tools.Result{IsError: true, Content: fmt.Sprintf("cannot edit device file: %s", fullPath)}, nil

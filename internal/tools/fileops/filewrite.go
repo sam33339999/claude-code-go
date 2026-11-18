@@ -87,7 +87,7 @@ func (t *fileWriteTool) GetPath(input tools.Input) string {
 // TODO(dep): full implementation requires the permissions system (Agent-Core).
 // Path conflict detection with other write tools requires PathTool sub-interface
 // support in the engine's partitionToolCalls.
-func (t *fileWriteTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+func (t *fileWriteTool) Call(input tools.Input, ctx *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
 	var in FileWriteInput
 	if err := json.Unmarshal(input, &in); err != nil {
 		return &tools.Result{IsError: true, Content: "invalid input: " + err.Error()}, nil
@@ -96,7 +96,7 @@ func (t *fileWriteTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnP
 		return &tools.Result{IsError: true, Content: "file_path is required"}, nil
 	}
 
-	fullPath := expandPath(in.FilePath)
+	fullPath := expandPathFrom(in.FilePath, workDirOf(ctx))
 
 	if isBlockedDevicePath(fullPath) {
 		return &tools.Result{IsError: true, Content: fmt.Sprintf("cannot write to device file: %s", fullPath)}, nil

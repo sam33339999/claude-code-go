@@ -2,7 +2,7 @@
 package: shell
 import_path: internal/tools/shell
 layer: tools
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T17:17:39Z
 source_files: [bash.go, doc.go, matcher.go, security.go]
 ---
 
@@ -41,3 +41,4 @@ source_files: [bash.go, doc.go, matcher.go, security.go]
 - **glob 的 `*` 匹配含空格的任意字符**：`git *` 用 regexp QuoteMeta + `\*`→`.*` 实现，因此匹配 `git push origin main`。若用 shell glob 语义（`*` 不跨空格），`git *` 只能匹配单参数命令，与用户对 settings 规则的直觉（"所有 git 命令"）相悖。
 - **`:*` 前缀语义 = 前缀后必须是词边界**：`go test:*` 匹配 `go test ./...` 但不匹配 `go tests`（前缀 + " " 或完全相等）。防止用前缀重叠伪造命令名绕过规则。
 - **无效输入返回 (nil, nil) 而非 error**：PreparePermissionMatcher 失败时 checker 回退到纯工具名匹配（matchPattern 对无 matcher 的 content 规则返回 false），拒绝放行而非崩溃 —— 权限匹配失败必须保守。
+- **2026-11-18 Bash cmd.Dir（feat/agent-cwd）**：Call 設 cmd.Dir = uctx.WorkingDir（非空時），委派 agent 與 worktree 會話的命令在正確目錄執行；空值維持繼承 process CWD。守護測試 bash_cwd_test.go×2。

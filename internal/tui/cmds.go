@@ -104,6 +104,7 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 			Ctx:         ctx,
 			Coordinator: m.agentCoordinator,
 			MemoryStore: m.memoryStore,
+			WorkingDir:  m.appState.GetState().WorkingDir,
 		},
 	}
 
