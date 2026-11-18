@@ -1,222 +1,101 @@
 # Claude Code Go — AI Agent Instructions
 
-> 本文件为所有 AI 编程助手提供项目上下文和强制性工作规范。
-> 无论你是 Claude Code、Cursor、Copilot、Windsurf、Cline、Aider、CodeBuddy 还是其他 AI 工具，
-> 在操作本项目时都**必须**遵循以下规则。
+## 語言偏好（使用者指定）
 
----
+- 與使用者對話、撰寫說明與文件時，**使用繁體中文＋用語**（除非使用者另有指定）。
+- 程式碼、識別符、GoDoc 註解依 repo 現有慣例（GoDoc 以英文為主）；commit message 沿用現有風格（中文可）。
 
-## 🤖 你的身份
+## 專案現狀：維護模式（2026-08-29 起）——先讀這段，避免被舊文件誤導
 
-**你是本项目的 PM Agent。** 请立即读取你的角色定义文件：
+- Module：`github.com/tunsuy/claude-code-go`（**不是** anthropics）；Go 1.21+；MIT。
+- 本專案是 Claude Code（TS）的 Go 重寫，2026-04 由多 Agent 團隊建構，現為**單人維護模式**：gap 分析驅動、feat 分支 + PR。
+- **建構期治理文件已封存，不構成現行流程約束**：`docs/project/agents/`、`docs/project/harness/`、
+  `docs/project/harness/tasks/task-registry.yaml`（已封存，勿再寫入）。不要自動扮演 PM Agent 或執行舊 SOP；
+  使用者明確要求多 Agent 協調時才參考那些角色定義。
+- **功能狀態的權威來源**：程式碼本身 + `git log` + `test/parity/cases.md`（parity 差距台賬）。
+  `docs/ROADMAP.md` 與舊 QA 報告曾有「已註冊＝已實現」的虛報（2026-11-18 巡檢證實，修正中）——狀態衝突時以程式碼與台賬為準。
+- 進行中的工作：stub 全量回填，任務台賬見 `docs/project/discussions/2026-11-18-stub-backfill-plan.md`，
+  進度見 `docs/project/logs/` 最新巡檢日誌。
 
-```
-docs/project/agents/pm-agent.md
-```
+## 架構：agtkeel 內核 × 產品倉（2026-09-23 換庫後）
 
-角色定义包含你的职责边界、标准工作流程（SOP）、输出规范及 Harness Integration 约束。用户给你的任何任务，请按照角色定义中的 SOP 执行。
+可復用的 agent 內核已提取到外部模組 `github.com/tunsuy/agtkeel`（零第三方依賴）：
+`types / api / engine / permissions / mcp / session / config / hooks / compact / msgqueue / tools（框架：Tool 介面 + Registry + BaseTool）/ utils`。
 
-### 修改代码时必读
+本倉保留產品側：
+- `cmd/claude`（Cobra 入口）、`internal/bootstrap`（DI 連線點 `AppContainer`、啟動接線）
+- `internal/tui` + `internal/commands`（Bubble Tea MVU、slash 命令）
+- `internal/tools/<category>`（**具體工具實現留在本倉**；介面契約在 agtkeel/tools）
+- `internal/coordinator、oauth、plugin、state、memdir、agentctx、agenttype`；`pkg/utils、pkg/testutil`
 
-| 你要修改的层 | 必须先读 |
-|-------------|---------|
-| 基础设施层 (`pkg/types`, `config`, `state`, `session`) | `docs/project/design/infra.md` |
-| 服务层 (`api`, `mcp`, `oauth`) | `docs/project/design/services.md` |
-| 核心层 (`engine`, `permissions`, `compact`, `hooks`) | `docs/project/design/core.md` |
-| 工具层 (`tools/*`) | `docs/project/design/tools.md` |
-| TUI 层 (`tui`, `commands`, `coordinator`) | `docs/project/design/tui.md` |
-| CLI 层 (`cmd/claude`, `bootstrap`) | `docs/project/design/cli.md` |
+依賴鐵律（CI 評審會查）：
+- 下層禁止 import 上層；**TUI/commands 禁止 import bootstrap**（接線是 bootstrap 的職責，依賴用建構子注入）。
+- `internal/tools/` 各子包**禁止互相 import**。
+- `agtkeel/types` 零依賴，所有層可依賴。
+- **agtkeel 對本倉是唯讀依賴**：內核改動要去 agtkeel 倉做（跨倉 PR + 本倉 go.mod 升版聯動），不要在本倉 hack 規避。
+- 若 `go.mod` 出現指向本地 agtkeel 的 `replace`（內核開發 WIP）：**不要隨手提交或移除**，先問使用者。
 
-### 补充参考文档
-
-| 文档 | 路径 | 何时需要 |
-|------|------|---------|
-| 测试策略 | `docs/project/test-strategy.md` | 编写或修改测试时 |
-| 文档同步规范 | `docs/project/doc-sync-policy.md` | 变更了接口签名时 |
-| Agent 角色定义 | `docs/project/agents/*.md` | 理解各层 Agent 的职责边界 |
-| 代码评审报告 | `docs/project/reviews/code-review-*.md` | 了解已知问题和修复建议 |
-| QA 验收报告 | `docs/project/qa/*.md` | 了解各层测试覆盖情况 |
-
----
-
-## 项目概述
-
-Claude Code Go 是 Claude Code（TypeScript/Bun）的完整 Go 语言重写版本。这是一个终端 AI 编码助手，整个代码库（~7000 行生产代码 + 测试）由多个 AI Agent 团队协作构建，零人工编写的生产代码。
-
-- **Module**: `github.com/anthropics/claude-code-go`
-- **Go version**: 1.21+
-- **License**: MIT
-
----
-
-## 核心架构约束
-
-### 六层架构（严格单向依赖）
-
-```
-┌─────────────────────────────────────┐
-│  入口层 CLI (cmd/claude)            │  cobra 入口
-├─────────────────────────────────────┤
-│  TUI 层 (internal/tui)             │  Bubble Tea MVU 界面
-├─────────────────────────────────────┤
-│  工具层 (internal/tools)           │  文件、Shell、搜索、MCP
-├─────────────────────────────────────┤
-│  核心层 (internal/engine)          │  LLM 循环、工具分发、协调器
-├─────────────────────────────────────┤
-│  服务层 (internal/api, mcp, oauth) │  API 客户端、MCP、OAuth
-├─────────────────────────────────────┤
-│  基础设施层 (pkg/types, config,    │  类型、配置、状态、会话
-│             state, session, hooks) │
-└─────────────────────────────────────┘
-```
-
-### 铁律（不可违反）
-
-1. **下层禁止依赖上层** — 基础设施层绝不能 import 服务层或更上层
-2. **同层禁止互相依赖** — 平行模块原则上不互相 import
-3. **工具间禁止互相依赖** — `internal/tools/fileops` 不能 import `internal/tools/shell`
-4. **`pkg/types` 零外部依赖** — 只允许依赖 Go 标准库
-5. **接口变更必须更新文档** — 参照 `docs/project/doc-sync-policy.md`
-
----
-
-## 多 Agent 开发模式
-
-本项目的开发方式是其独特之处：它是使用 AI 编程工具（如 Claude Code）的多 Agent 并行开发模式构建出来的。了解这一开发模式对于正确维护代码至关重要。
-
-### 开发流程概述
-
-1. **Tech Lead Agent** 负责架构设计，输出接口契约文档
-2. **PM Agent** 负责任务拆解、分配和进度跟踪
-3. **6 个开发 Agent**（Agent-Infra / Services / Core / Tools / TUI / CLI）各自在独立 Git Worktree 分支上并行实现对应层
-4. **Tech Lead Agent** 对每层代码进行评审
-5. **QA Agent** 对每层进行验收测试
-6. 所有 Agent 通过 PM Agent 协调，遵循接口契约优先（Contract-First）原则
-
-### 开发 Agent 角色分工
-
-| 角色 | 职责 | 详情 |
-|------|------|------|
-| **PM Agent** | 项目管理、任务分配、进度跟踪 | `docs/project/agents/pm-agent.md` |
-| **Tech Lead Agent** | 架构设计、接口契约、代码评审 | `docs/project/agents/tech-lead-agent.md` |
-| **Agent-Infra** | 基础设施层实现 | `docs/project/agents/agent-infra.md` |
-| **Agent-Services** | 服务层实现 | `docs/project/agents/agent-services.md` |
-| **Agent-Core** | 核心层实现 | `docs/project/agents/agent-core.md` |
-| **Agent-Tools** | 工具层实现 | `docs/project/agents/agent-tools.md` |
-| **Agent-TUI** | TUI 层实现 | `docs/project/agents/agent-tui.md` |
-| **Agent-CLI** | CLI 层实现 | `docs/project/agents/agent-cli.md` |
-| **QA Agent** | 测试策略、验收测试 | `docs/project/agents/qa-agent.md` |
-
-### 你应该如何修改代码
-
-当你修改某一层的代码时，请先阅读对应 Agent 的角色定义文档，以该 Agent 的职责边界约束自己的修改范围：
-- **只修改你当前操作的层**的代码，不要跨层修改其他 Agent 负责的模块
-- 如果发现需要修改其他层的接口，**先阅读文档同步规范**（`docs/project/doc-sync-policy.md`）
-
----
-
-## 编码规范
-
-### 格式
-- 所有代码使用 `gofmt` / `goimports` 格式化
-- 行宽 ≤120 列（函数签名、URL、struct tag 例外）
-- 文件 ≤800 行；函数 ≤80 行；嵌套 ≤4 层
-- 测试文件 ≤1600 行；测试函数 ≤160 行
-
-### 命名
-- 包名：小写、简短、有意义，与目录名一致，禁止 `util`/`common`/`misc`
-- 文件名：小写下划线（`file_read.go`）
-- 结构体/接口：CamelCase 名词；单方法接口以 `-er` 结尾
-- 变量：camelCase；缩写词保持原始大小写（`apiClient`, `APIClient`, `userID`）
-- 常量：CamelCase；枚举需先创建类型
-
-### Import 排序
-```go
-import (
-    "标准库"           // Group 1
-
-    "第三方包"         // Group 2
-
-    "内部包"           // Group 3
-)
-```
-
-### 错误处理
-- **必须**处理所有 error，禁止静默忽略
-- error 作为函数最后一个返回值
-- 用 `fmt.Errorf("上下文: %w", err)` 包装错误
-- 尽早 return
-- **禁止** panic 处理一般错误
-
-### 并发
-- LLM 主循环在独立 goroutine，通过 `chan Msg` 通信
-- 只读工具可并发执行；写工具必须串行
-- 共享状态用 `sync.RWMutex` 保护
-- 始终传播 `context.Context`
-
-### 注释
-- 所有导出符号必须有 GoDoc 注释：`// TypeName 描述...`
-- 包注释：`// Package name 描述...`（每包一个文件）
-- 提交前删除注释掉的代码
-
----
-
-## 设计模式
-
-| 模式 | 说明 |
-|------|------|
-| 接口驱动 + DI | 核心组件定义接口，构造函数注入。`AppContainer` 为顶层连线点 |
-| Tool 系统 | `Tool` 接口 + `BaseTool` 嵌入，只覆盖需要的方法 |
-| 权限管道 | 9 层决策链：bypass → deny → validate → hooks → allow → ask → mode → tool → default |
-| 上下文压缩 | Snip（本地截断）/ Micro（单消息压缩）/ Auto（LLM 摘要） |
-| 分阶段 Bootstrap | Phase 0-6，从快速路径到完整初始化 |
-
----
-
-## 构建与测试
+## 命令
 
 ```bash
-make build        # 构建 → bin/claude
-make test         # go test -race ./...
-make test-cover   # 生成覆盖率报告
+make build        # → bin/claude
+make test         # go test -race ./...（需 CGO + C 編譯器；缺 gcc 時：apt-get install gcc）
 make vet          # go vet ./...
-make lint         # golangci-lint
+make lint         # golangci-lint（需另裝）
 make all          # vet + test + build
+make docs         # cmd/docgen 重生成各包 CONTEXT.md + docs/generated/INDEX.md
+make docs-check   # CI 閘門：驗證生成文件與程式碼同步
+make debt-check   # CI 閘門：欠賬紅線（見下）
+make parity       # 先 build 再跑 test/parity；未設 CCG_PARITY_ORACLE 時全部 SKIP
 ```
 
----
+- 單一包：`go test -race ./internal/tools/mcp/`；單一測試：`go test -race -run TestName ./internal/tui/`
+- 已知偶發 flake：`TestAdapterStopAgent`（coordinator）在全倉併發 -race 下時序競態；單獨重跑該包確認，勿逕行歸咎新改動。
+- TUI 測試斷言用「詞」而非完整字串（ANSI 碼會插在 token 之間）；測 `Update()` 與 view 函式，無需真實終端。
 
-## 修改代码时的检查清单
+## CI 紅線（會擋 PR）
 
-在提交任何代码变更之前，请确认：
+1. **欠賬棘輪** `scripts/debt-check.sh`：`TODO(dep)` 與用戶可見 `not yet implemented` 樁計數相對
+   `scripts/debt-baseline.txt` **只降不升**。消滅樁/TODO 後跑 `scripts/debt-check.sh --update`，
+   新基線**與實現同一個 commit**。新增樁必須在 PR 說明給回填 issue 編號。
+2. **生成文件同步**：各包 `CONTEXT.md` 與 `docs/generated/` 由 `make docs` 生成，**勿手改**；
+   唯一可手寫的是結尾 `## Design Notes` 段（重生成時保留）——設計決策寫這裡。改導出符號後必跑 `make docs`。
+3. **gofmt**：CI 對未格式化檔案失敗（注意：HEAD 既有約 20 個他層未格式化檔案，勿混入你的 PR 順手修）。
+4. lint / vet / 全倉 -race / docs-check / debt-check 全綠。
 
-- [ ] ✅ 已阅读对应层的设计文档（`docs/project/design/<layer>.md`）
-- [ ] ✅ 未引入跨层逆向依赖
-- [ ] ✅ 工具之间未引入互相依赖
-- [ ] ✅ `pkg/types` 未引入外部依赖
-- [ ] ✅ 所有新增导出符号都有 GoDoc 注释
-- [ ] ✅ 错误都已正确处理（无 `_ = fn()`）
-- [ ] ✅ 如有接口变更，已更新对应设计文档
-- [ ] ✅ 新代码有对应的测试
-- [ ] ✅ `make test` 通过（含竞态检测）
+## Cache-first 評審閘門（2026-11-18 正式採納）
 
----
+依據 `docs/PROMPT_CACHE_AND_COST.md`（Reasonix 參考規範，路徑映射見該文件與巡檢日誌）：
+- 觸及 **prompt 構造、工具 schema、工具註冊/增刪/改名、MCP 註冊、壓縮、請求序列化**的變更，
+  PR 說明必須回答三問：**是否移動前綴？是否增大窗口？是否新增呼叫？**
+- 移動前綴＝成本決策，須附論證＋聚焦守護測試；動態狀態優先掛 turn 尾部，不改前綴。
+- **會話內工具集合與 schema 字節釘住**：MCP 重連差異下個會話生效，禁止會話中途重新註冊工具。
+- 壓縮是唯一被認可的前綴重置。
 
-## 常见任务指引
+## 編碼規範（摘要；細節見 CLAUDE.md）
 
-### 添加新工具
-1. 阅读 `docs/project/design/tools.md`
-2. 在 `internal/tools/<category>/` 创建文件
-3. 嵌入 `tools.BaseTool`，实现 `Tool` 接口
-4. 在 `internal/bootstrap/tools.go` 的 `RegisterBuiltinTools()` 中注册
-5. 编写测试
+- 檔案 ≤800 行；函式 ≤80 行；測試檔 ≤1600 行；測試函式 ≤160 行；巢狀 ≤4 層；行寬 ≤120。
+- 所有 error 必處理，`fmt.Errorf("context: %w", err)` 包裝，盡早 return；一般錯誤禁 panic。
+- 匯入三組排序：標準庫 / 第三方 / 內部（`github.com/tunsuy/...`），空行分隔。
+- 導出符號必有 GoDoc；包註解每包一份；送審前刪註解掉的程式碼。
+- 共享狀態用 mutex 保護並註明 guarded 欄位；I/O 函式首參 `context.Context`。
+- TUI 嚴守 MVU：狀態在 `AppModel`（值類型），變更走 `Update() → tea.Cmd → tea.Msg`，副作用用 `tea.Cmd`。
+- 新工具：`internal/tools/<category>/` 嵌入 `tools.BaseTool`（agtkeel），在 `internal/bootstrap/tools.go` 註冊，同包補測試。
+- 介面變更按 `docs/project/doc-sync-policy.md` 同步 `docs/project/design/<layer>.md`（版本號 + 變更記錄）。
 
-### 添加 Slash 命令
-1. 在 `internal/commands/builtins.go` 添加处理函数
-2. 通过 `Registry.Register()` 注册
+## 分支與 PR
 
-### 修改 TUI
-1. 阅读 `docs/project/design/tui.md`
-2. 所有状态在 `AppModel`（值类型，Elm 架构）
-3. 变更通过 `Update() → tea.Cmd → tea.Msg` 流转
-4. 副作用用 `tea.Cmd`，禁止直接修改状态
+- 分支命名：`feat/` `fix/` `docs/` `refactor/` `test/` + 描述；**禁止直接 push main**，走 PR。
+- 改包前先讀該包 `CONTEXT.md`（導出簽名＋變更影響鏈）；再讀對應 `docs/project/design/<layer>.md`。
+- parity 差距關閉流程：更新 `test/parity/cases.md` 狀態 → 用例從 skip/樁名單移入斷言名單 → 若消樁同步 debt 基線。
+
+## 文件地圖（哪個問題讀哪份）
+
+| 問題 | 來源 |
+|------|------|
+| 慣例細節、設計模式、bootstrap 階段 | `CLAUDE.md`（注意其 Project Layout 段仍列已遷往 agtkeel 的舊路徑，以本文架構段為準） |
+| 貢獻流程、PR 模板 | `CONTRIBUTING.md`（架構表為換庫前舊版，僅流程部分有效） |
+| 某包導出與影響鏈 | 該包 `CONTEXT.md`（生成） |
+| 功能真實狀態 / 與原版差距 | `test/parity/cases.md` + 程式碼 |
+| 當前回填任務與進度 | `docs/project/discussions/2026-11-18-stub-backfill-plan.md`、`docs/project/logs/` |
+| 歷史教訓（為何有這些紅線） | `docs/project/discussions/2026-08-29-process-retrospective.md` |

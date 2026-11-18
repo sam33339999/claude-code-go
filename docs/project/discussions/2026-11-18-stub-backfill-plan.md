@@ -1,0 +1,95 @@
+# 桩代码全量回填计划（Stub Backfill Plan）
+
+> **维护人**：PM Agent
+> **创建**：2026-11-18
+> **决策来源**：人类于 2026-11-18 拍板「全量回填」（patrol-13 §7 决策项 2，方案 A）
+> **跟踪方式**：task-registry.yaml 已封存（2026-08-29），本档案为维护期任务台账。
+> 任务 ID 系列 `BF-xx` 不与构建期 T-xxx 混用。**建议人类将本表镜像为 GitHub Issues**（当前环境无 GitHub 凭据，PM 无法代建）。
+> **合并方式**：feat 分支 + PR（维护模式约定）。当前环境无 push 凭据，Agent 提交到本地分支，push/PR 由人类执行。
+
+---
+
+## 1. 范围
+
+- 26 处本仓用户可见 `not yet implemented` 桩（patrol-13 §2 清单）
+- 1 处 agtkeel 库内桩（MCP WebSocket transport，扫描范围外，BF-16，跨仓）
+- 56 处 `TODO(dep)` 中随回填自然消除的部分（不单独追求清零，debt 红线只降不升）
+- `docs/ROADMAP.md` 虚报修正（BF-00，与回填并行）
+
+## 2. 通用验收门控（每个 BF 任务适用）
+
+1. 开发 Agent 完成实现 + 单元测试（同包 `_test.go`），`go test -race` 全绿
+2. **Cache-first 评审门控（2026-11-18 人类决策正式采纳，依据 `docs/PROMPT_CACHE_AND_COST.md`）**：
+   凡触及 prompt 构造、工具 schema、工具注册/增删/改名、MCP 注册、压缩、请求序列化的变更，
+   提交说明必须回答三问：是否移动前缀？是否增大窗口？是否新增调用？
+   - 移动前缀 = 成本决策，须附经济学论证；动态数据优先 turn-tail 投影，不改前缀
+   - 会话内工具集合与 schema 字节钉住（MCP 重连差异下个会话生效）
+   - 在变更面附近加聚焦守护测试（schema 稳定性 / 前缀字节一致性）
+   - 压缩是唯一被认可的前缀重置；其余前缀打破须评审注记
+3. Tech Lead 代码评审（先读 `docs/project/design/<layer>.md` + cache-first 门控），P0 全关闭
+4. QA 验收（功能完整性 + 测试质量；集成测试如需新增由 QA 负责）
+5. 文档同步：受影响包 `make docs` 重生成 CONTEXT.md（含 Design Notes），`make docs-check` 通过；
+   接口变更按 `docs/project/doc-sync-policy.md` 更新设计文档
+6. 桩减少后 `scripts/debt-check.sh --update` 刷新基线，**与实现同一次提交**
+7. 按 `docs/project/harness/protocols/agent-output.md` 输出 JSON 汇报
+
+## 3. 任务分解与批次
+
+### Batch 1 — 高就绪度（2026-11-18 派发）
+
+| ID | 任务 | 角色 | 涉及文件 | 依赖 | 验收要点 |
+|----|------|------|----------|------|----------|
+| BF-01 | MCP 三工具接线：MCPProxyTool 改用 agtkeel `mcp.AdaptToTool`；ListMcpResources/ReadMcpResource 经 Pool→client 真实调用；启动时从 Pool 注册各 server 工具 | agent-tools | `internal/tools/mcp/`、`internal/bootstrap/tools.go`、`internal/bootstrap/wire.go`（注册路径） | 无（agtkeel 能力已就绪） | 对 mock MCP server 的真实调用测试；−3 桩 |
+| BF-02 | Sleep 工具：context-aware 定时，支持 AbortCh 取消 | agent-tools | `internal/tools/misc/misc.go`（Sleep 部分）+ 测试 | 无 | 取消/超时路径测试；−1 桩 |
+| BF-03 | /mcp、/resume 斜杠命令真实实现 | agent-tui | `internal/commands/builtins.go` + 测试；如需注入接口，最小化变更并汇报 | /mcp 依赖 BF-01 的 Pool 状态暴露（可先用现有 AppContainer.MCPPool）；/resume 复用 `internal/bootstrap/session.go` 已有逻辑 | /mcp 展示连接状态；/resume 列出/恢复会话；−2 桩 |
+| BF-00 | ROADMAP 虚报修正（docs PR） | maintainer-docs | `docs/ROADMAP.md` | patrol-13 §4 清单 | 与 cases.md 对齐；不虚构新状态；**追加**：概览框"会话持久化 ✅"亦属虚报（store 存在但生产零接线，BF-18），一并修正 |
+| BF-17 | Cache-first 门控制度化（2026-11-18 人类决策采纳） | maintainer-docs + tech-lead | `CONTRIBUTING.md`（新增 Cache-first review gate 节）、`docs/project/agents/tech-lead-agent.md`（评审清单加入门控）、`docs/PROMPT_CACHE_AND_COST.md` 入库、本仓路径映射说明（Reasonix 路径 → agtkeel/本仓对应物） | 无 | 门控文本引用参考规范；映射表区分"已有/缺失"机制；Tech Lead 评审通过 |
+
+### Batch 2 — 中就绪度（Batch 1 评审通过后派发）
+
+| ID | 任务 | 角色 | 备注 |
+|----|------|------|------|
+| BF-05 | /config、/terminal-setup 斜杠命令 | agent-tui | /config 设置查看/编辑对话框；/terminal-setup 生成 shell 补全脚本 |
+| BF-06 | CLI：update（含 --check）、install、agents | agent-cli | **agents 形态需 Tech Lead 先裁决**（cases.md §B11：oracle 为 options 驱动，Go 为三桩子命令）；update 对齐 GitHub releases 检查 |
+| BF-07 | TodoWrite：会话 todo 状态 + TUI 面板 | agent-tools + agent-tui | 契约先行：todo 状态接口由 Tech Lead 定义；agtkeel `TodosDir` 常量可落地 |
+| BF-08 | AskUserQuestion：engine Msg 类型 + TUI 问答对话框 | agent-core(agtkeel) + agent-tui | **跨仓变更**（/root/go/agtkeel-src），Msg 契约需 Tech Lead 评审；参照权限对话框管线 |
+| BF-09 | Enter/ExitPlanMode：模式状态机 + 切换入口 | agent-tools + agent-tui | agtkeel permissions 已有 `PermissionModePlan` 执行半边；先核查 mode 存储位置再定方案 |
+| BF-18 | 交互/ headless 会话持久化接线（BF-03 发现的新缺口，P1） | agent-cli + agent-core | 生产代码零调用 session.New/AppendEntry（仅测试有），--resume 与 /resume 无真实数据源；ROADMAP"会话持久化 ✅"属同类虚报（能力在 agtkeel，接线缺失）。先核查引擎是否有会话写入钩子，若需 agtkeel 新契约则走跨仓流程 |
+
+### Batch 3 — 低就绪度（需新建子系统，Batch 2 期间做契约设计）
+
+| ID | 任务 | 角色 | 备注 |
+|----|------|------|------|
+| BF-10 | Enter/ExitWorktree：git worktree 管理器 | agent-tools | 工具间禁止互依赖，git 操作自包含 |
+| BF-11 | NotebookEdit：.ipynb JSON 解析与编辑 | agent-tools | stdlib encoding/json 即可，无需第三方 |
+| BF-12 | ToolSearch：注册表搜索索引 | agent-tools | agtkeel `SearchHint()` 契约已存在，registry 有 Filter/Names |
+| BF-13 | Skill：skill 注册表与加载器 | agent-tools | markdown skill 文件加载（~/.claude/skills + 项目级） |
+| BF-14 | Brief：摘要工具 | agent-tools | 复用 agtkeel compact 管线 |
+| BF-15 | SyntheticOutput：会话操纵层 | agent-core | 依赖引擎会话接口，契约先行 |
+| BF-16 | MCP WebSocket transport（agtkeel 库内桩） | agent-services | **跨仓**；nhooyr.io/websocket 或等价方案由 Tech Lead 定 |
+
+## 4. 并发与批次纪律
+
+- 代码实现（重）并发 ≤ 2；修复（轻）≤ 3；评审 ≤ 2（PM 容量管控规范）
+- 每个开发 Agent 在独立 worktree/feat 分支工作，**不触碰主工作区未提交的用户改动**
+  （go.mod replace、wire.go OpenAI 修复、.agtkeel-uncommitted.diff）
+- 跨层接口变更：先 Tech Lead 契约评审，再实现（Contract-First）
+- 跨仓（agtkeel）变更：单独分支 + 本仓 go.mod pseudo-version 升级联动，人类协调合并顺序
+
+## 5. 状态跟踪
+
+| ID | 状态 | worktree/分支 | 备注 |
+|----|------|---------------|------|
+| BF-00 | blocked（配额）→ 排队 | bf-docs-roadmap | 头部注记+概览框已完成（未提交）；人类决策不调整配额，待 BF-01/02/03 完成后与 BF-17 合并重派续做 |
+| BF-17 | pending（排队） | 待建（与 BF-00 同批） | cache-first 门控制度化，2026-11-18 人类决策采纳 |
+| BF-01 | in_progress（退回修复） | bf-tools-b1 | 评审 NOT pass-ready（报告 4e25721）：CR-BF01-1 P0（看門狗遲到落地＝會話期 pool 寫入，真實 race）+ CR-BF01-2 P1（boot ListTools 無 deadline）；BF-01-F1/F2 修复中 |
+| BF-02 | in_progress（随 BF-01 修复） | bf-tools-b1 | Sleep 本體通過；CR-BF01-5 duration overflow（P2）併入 F1 |
+| BF-01-F1/F2 | in_progress | bf-tools-b1 | F1 代碼修复（CR-BF01-1/2/3 hygiene/5/6）；F2 測試補充（慢握手回歸、慢 list、guard 強化、output-cap）；分開提交 |
+| BF-03-F1/F2 | blocked（配额）→ 排队 | bf-tui-b1 | 修复 Agent 撞配额中断；待评审 Agent 完成后重派 |
+| BF-20 | pending（P2） | 待建 | 全仓 gofmt 清理（HEAD 既有 23 个未格式化文件，跨层，独立 chore 任务避免噪声） |
+| BF-03 | in_progress（退回修复） | bf-tui-b1 | 评审通过（0 P0/2 P1/4 P2，报告 ca72211）；CR-BF03-1/2 退回 Agent-TUI（BF-03-F1/F2）；修复后 Tech Lead 复核 → QA |
+| BF-19 | pending（跨仓） | 待建 | CR-BF03-2 根因修复：agtkeel Pool 快照式 GetAll API（现返回共享可变指针）。**BF-01 合并前置依赖**——评审已裁决 CR-BF03-2 经 CR-BF01-1 升级 P0（看門狗遲到落地路径），BF-01-F1 修复后回落为 BF-03 侧潜在 P1。范围补充：CR-BF01-7 内核 inherited 限制（jsonRPC reader 绑定 initialize ctx、httptest/HTTP Close 语义）併案处理。API 形态由 Tech Lead 裁决 |
+| BF-18 | pending | — | Batch 2；BF-03 验收中发现的新缺口 |
+| BF-05..BF-16 | pending | — | 按批次派发 |
+
+> 状态变更由 PM 独家更新本表；Agent 汇报按 agent-output.md JSON 格式。

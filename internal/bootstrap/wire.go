@@ -6,21 +6,21 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tunsuy/claude-code-go/internal/agentctx"
-	"github.com/tunsuy/claude-code-go/internal/agenttype"
 	"github.com/tunsuy/agtkeel/api"
 	"github.com/tunsuy/agtkeel/config"
-	"github.com/tunsuy/claude-code-go/internal/coordinator"
 	"github.com/tunsuy/agtkeel/engine"
 	"github.com/tunsuy/agtkeel/hooks"
 	"github.com/tunsuy/agtkeel/mcp"
-	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/agtkeel/msgqueue"
-	"github.com/tunsuy/claude-code-go/internal/oauth"
 	"github.com/tunsuy/agtkeel/permissions"
-	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/agtkeel/tools"
 	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/agentctx"
+	"github.com/tunsuy/claude-code-go/internal/agenttype"
+	"github.com/tunsuy/claude-code-go/internal/coordinator"
+	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/claude-code-go/internal/oauth"
+	"github.com/tunsuy/claude-code-go/internal/state"
 )
 
 // P1-F: Compile-time interface assertions for AppContainer field types.
@@ -82,8 +82,14 @@ type AppContainer struct {
 	MemoryStore *memdir.MemoryStore
 }
 
-// defaultModel is used when no model override is provided.
+// defaultModel is used when no model override is provided for Anthropic
+// compatible providers.
 const defaultModel = "claude-opus-4-5"
+
+// defaultOpenAIModel is used when no model override is provided for
+// OpenAI-compatible providers. Anthropic model IDs are not guaranteed to exist
+// on those endpoints, so they need their own fallback.
+const defaultOpenAIModel = "gpt-4o-mini"
 
 // BuildContainer wires up the full application container used in interactive mode.
 //
@@ -721,14 +727,25 @@ func buildAPIClient(settings *config.LayeredSettings, apiKey string, opts Contai
 	return api.NewClient(cfg, nil)
 }
 
+// resolveProviderName returns the active provider name, defaulting to anthropic.
+func resolveProviderName(settings *config.LayeredSettings) string {
+	if settings != nil && settings.Merged != nil && settings.Merged.Provider != "" {
+		return settings.Merged.Provider
+	}
+	return "anthropic"
+}
+
 // resolveModel returns the active model, checking (in order):
-// CLI override → merged settings → defaultModel.
+// CLI override → merged settings → provider-specific default.
 func resolveModel(settings *config.LayeredSettings, override string) string {
 	if override != "" {
 		return override
 	}
 	if settings != nil && settings.Merged != nil && settings.Merged.Model != "" {
 		return settings.Merged.Model
+	}
+	if resolveProviderName(settings) == string(api.ProviderOpenAI) {
+		return defaultOpenAIModel
 	}
 	return defaultModel
 }
@@ -740,10 +757,7 @@ func buildAppState(settings *config.LayeredSettings, opts ContainerOptions, mode
 	appState.Verbose = opts.Verbose
 
 	// Determine provider name
-	provider := "anthropic"
-	if settings.Merged != nil && settings.Merged.Provider != "" {
-		provider = settings.Merged.Provider
-	}
+	provider := resolveProviderName(settings)
 
 	appState.MainLoopModel = state.ModelSetting{
 		ModelID:  model,

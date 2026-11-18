@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/tunsuy/agtkeel/config"
+
 	"github.com/tunsuy/claude-code-go/internal/agenttype"
 )
 
@@ -70,6 +72,52 @@ func TestResolveModel_Override(t *testing.T) {
 	got := resolveModel(nil, want)
 	if got != want {
 		t.Errorf("resolveModel(nil, %q) = %q, want %q", want, got, want)
+	}
+}
+
+// TestResolveModel_OpenAIProviderUsesOpenAIDefault verifies that an
+// OpenAI-compatible provider does not fall back to an Anthropic model ID.
+func TestResolveModel_OpenAIProviderUsesOpenAIDefault(t *testing.T) {
+	settings := &config.LayeredSettings{Merged: &config.SettingsJson{Provider: "openai"}}
+	if got := resolveModel(settings, ""); got != defaultOpenAIModel {
+		t.Errorf("resolveModel(openai) = %q, want %q", got, defaultOpenAIModel)
+	}
+}
+
+// TestResolveModel_AnthropicProviderUsesAnthropicDefault verifies the
+// anthropic default is kept for direct providers and empty settings.
+func TestResolveModel_AnthropicProviderUsesAnthropicDefault(t *testing.T) {
+	for name, settings := range map[string]*config.LayeredSettings{
+		"nil settings": nil,
+		"direct":       {Merged: &config.SettingsJson{Provider: "direct"}},
+		"empty":        {Merged: &config.SettingsJson{}},
+	} {
+		if got := resolveModel(settings, ""); got != defaultModel {
+			t.Errorf("%s: resolveModel() = %q, want %q", name, got, defaultModel)
+		}
+	}
+}
+
+// TestResolveModel_SettingsModelWinsOverProviderDefault verifies an explicit
+// model in settings beats either provider default.
+func TestResolveModel_SettingsModelWinsOverProviderDefault(t *testing.T) {
+	settings := &config.LayeredSettings{Merged: &config.SettingsJson{
+		Provider: "openai",
+		Model:    "qwen3.7-max",
+	}}
+	if got := resolveModel(settings, ""); got != "qwen3.7-max" {
+		t.Errorf("resolveModel() = %q, want qwen3.7-max", got)
+	}
+}
+
+// TestResolveProviderName defaults to anthropic when unset.
+func TestResolveProviderName(t *testing.T) {
+	if got := resolveProviderName(nil); got != "anthropic" {
+		t.Errorf("resolveProviderName(nil) = %q, want anthropic", got)
+	}
+	settings := &config.LayeredSettings{Merged: &config.SettingsJson{Provider: "openai"}}
+	if got := resolveProviderName(settings); got != "openai" {
+		t.Errorf("resolveProviderName() = %q, want openai", got)
 	}
 }
 
