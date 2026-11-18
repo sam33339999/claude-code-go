@@ -404,3 +404,30 @@ RegisterServerTools 超时 + 對應測試），不影響已驗證的釘住模型
 | CR-BF01-5 | P2 | Sleep Duration 溢位上限校驗 | ❌（可選） | — | |
 | CR-BF01-6 | P2 | headless 過時 GoDoc + 提交三問形式 | ❌（可選） | — | mcp_connect 註釋併入 P0 修復 |
 | CR-BF01-7 | P2 | 內核繼承限制（Close/reader-ctx/schema 保真/mcp__ 命名/nil-uctx） | ❌（跨倉跟進） | — | PM/Tech Lead 登記，與 BF-19 併案 |
+
+---
+
+## 复核记录（2026-11-18，主会话代行 Tech Lead 复核）
+
+> 背景：修复 Agent 四度撞模型配额上限，依 AGENTS.md 维护模式（单人负责人＋主会话）
+> 由主会话直接接手修复并代行复核；本记录供人类 PR 评审时确认。只核修复项，非全量重审。
+
+修复提交：`50b2427`（BF-01-F1 代码＋文档）、`de4ab23`（BF-01-F2 纯测试）。
+
+| 问题 | 复核结果 | 证据 |
+|------|----------|------|
+| CR-BF01-1（P0） | ✅ 关闭 | connectWithWatchdog 改为 cancellable ctx＋外部看门狗；超时/取消分支 cancel 后阻塞收 `<-done`（drain），竞速成功握手在 boot 内同步 Disconnect；所有 pool 写入在 boot 返回前终结。drain 有界性经 agtkeel 源码核实：jsonrpc.go:153 call() select ctx.Done、transport.go:218/344 同。迟到落地注释已删。mcpConnectTimeout 可注入。回归测试 SlowHandshakeBoundedAndDrained / CallerCancelDrains / SlowHandshakeNonFatal 全过（-race），connectWithWatchdog 覆盖 77.8%→88.9%（原 0% 超时分支已补） |
+| CR-BF01-2（P1） | ✅ 关闭 | RegisterServerTools 每服务器 WithTimeout(listToolsTimeout=10s，可注入)；超时非致命；SlowListTimesOutNonFatal 测试过 |
+| CR-BF01-3（P2） | ✅ 关闭 | 生命周期三句 GoDoc 补齐；export_test.go test-only reset hook（不进生产构建）；FreshRegistrySeesReconnectChanges 对照＋FailureAlsoPins 测试过 |
+| CR-BF01-4（P2） | ✅ 关闭 | PartialFailureNote / NilUseContext×2 / CancelledContext / EmptyContent 测试补齐；可选项一并落地：maxResourceEntries=200 输出上限＋诚实截断提示＋TruncatedAtCap 测试（cache Q2 窗口收紧，schema 字节不变） |
+| CR-BF01-5（P2） | ✅ 关闭 | maxSleepMilliseconds=24h 运行时上限（schema 不变）；OverflowRejected / AtCapAccepted 测试过 |
+| CR-BF01-6（P2） | ✅ 关闭 | BuildHeadlessContainer GoDoc 修正；bootstrap CONTEXT.md 过时迟到落地表述修正；F1/F2 提交说明均以三问模板显式回答（否/否/否） |
+| CR-BF01-7（P2） | 🔒 跨仓 | 非本 PR 责任，维持登记 BF-19 併案（reader-ctx 绑定、HTTP Close 语义） |
+
+**CR-BF03-2 升级裁决后续**：触发路径（会话期后台 pool 写入）已消除，回落为 BF-03 侧潜在 P1；
+其约束文档化（GoDoc＋tui.md §4.1）属 BF-03-F1 范围，仍在队列。
+
+**门控复验**：go build/vet 干净；`CGO_ENABLED=1 go test -race -count=1 ./...` 全仓绿；
+make docs-check 通过；debt-check 通过（22/44 不变）；触及文件 gofmt 干净。
+
+**复核结论：P0 全关闭，评审门控通过（pass-ready）**，待 QA 验收与人类 PR 确认。
