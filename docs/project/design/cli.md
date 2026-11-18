@@ -424,3 +424,4 @@ var _ services.MCPServer = (*bootstrap.mcpServerPlaceholder)(nil)
 ## 8. 维护期架构变更记录
 
 - **2026-11-18 内核搬回（反转 PR #31）**：agtkeel 外部仓停止维护，经人类决策整併回本仓；`agtkeel/*` import 恢复 `internal/*`、`pkg/types` 原始路径，go.mod 移除 agtkeel 依赖与本地 replace。零接口签名变更。本文 §3/§4 所述 internal 路径恢复有效。
+- **2026-11-18 BF-06 update/agents/install 实现（oracle 形态对齐）**：`agents` 改为单一列表命令＋`--setting-sources`（移除 list/add/remove 三桩，依 cases.md 指引对齐 oracle main.tsx:4278）；User/Project/Built-in 分组、project 遮蔽 user 标记、active 计数。`update` 加 `upgrade` 别名，GitHub releases 版本检查（releasesAPIBase/releasesDownloadBase 可注入），新版提示 `claude install`（v1 不自安装，分歧记录 cases.md B8）。`install [target]` 下载平台 archive（goreleaser 命名 claude_<ver>_<os>_<arch>）解压原子安装到 ~/.local/bin，--force 覆盖，PATH 提示（分歧：无 package-manager 集成，B10）。命令文件：agents_cmd.go/update_cmd.go/install_cmd.go；misc.go 仅留 doctor。
