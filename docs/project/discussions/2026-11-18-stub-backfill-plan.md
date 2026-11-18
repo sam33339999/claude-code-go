@@ -12,7 +12,7 @@
 ## 1. 范围
 
 - 26 处本仓用户可见 `not yet implemented` 桩（patrol-13 §2 清单）
-- 1 处 agtkeel 库内桩（MCP WebSocket transport，扫描范围外，BF-16，跨仓）
+- 1 处原 agtkeel 库内桩（MCP WebSocket transport，BF-16；内核搬回后已进入扫描范围，基线 19）
 - 56 处 `TODO(dep)` 中随回填自然消除的部分（不单独追求清零，debt 红线只降不升）
 - `docs/ROADMAP.md` 虚报修正（BF-00，与回填并行）
 
@@ -52,7 +52,7 @@
 | BF-05 | /config、/terminal-setup 斜杠命令 | agent-tui | /config 设置查看/编辑对话框；/terminal-setup 生成 shell 补全脚本 |
 | BF-06 | CLI：update（含 --check）、install、agents | agent-cli | **agents 形态需 Tech Lead 先裁决**（cases.md §B11：oracle 为 options 驱动，Go 为三桩子命令）；update 对齐 GitHub releases 检查 |
 | BF-07 | TodoWrite：会话 todo 状态 + TUI 面板 | agent-tools + agent-tui | 契约先行：todo 状态接口由 Tech Lead 定义；agtkeel `TodosDir` 常量可落地 |
-| BF-08 | AskUserQuestion：engine Msg 类型 + TUI 问答对话框 | agent-core(agtkeel) + agent-tui | **跨仓变更**（/root/go/agtkeel-src），Msg 契约需 Tech Lead 评审；参照权限对话框管线 |
+| BF-08 | AskUserQuestion：engine Msg 类型 + TUI 问答对话框 | agent-core + agent-tui | 内核搬回后为**同仓变更**（internal/engine Msg 契约），需 Tech Lead 评审；参照权限对话框管线 |
 | BF-09 | Enter/ExitPlanMode：模式状态机 + 切换入口 | agent-tools + agent-tui | agtkeel permissions 已有 `PermissionModePlan` 执行半边；先核查 mode 存储位置再定方案 |
 | BF-18 | 交互/ headless 会话持久化接线（BF-03 发现的新缺口，P1） | agent-cli + agent-core | 生产代码零调用 session.New/AppendEntry（仅测试有），--resume 与 /resume 无真实数据源；ROADMAP"会话持久化 ✅"属同类虚报（能力在 agtkeel，接线缺失）。先核查引擎是否有会话写入钩子，若需 agtkeel 新契约则走跨仓流程 |
 
@@ -66,7 +66,7 @@
 | BF-13 | Skill：skill 注册表与加载器 | agent-tools | markdown skill 文件加载（~/.claude/skills + 项目级） |
 | BF-14 | Brief：摘要工具 | agent-tools | 复用 agtkeel compact 管线 |
 | BF-15 | SyntheticOutput：会话操纵层 | agent-core | 依赖引擎会话接口，契约先行 |
-| BF-16 | MCP WebSocket transport（agtkeel 库内桩） | agent-services | **跨仓**；nhooyr.io/websocket 或等价方案由 Tech Lead 定 |
+| BF-16 | MCP WebSocket transport（internal/mcp/transport.go 桩） | agent-services | 内核搬回后为**同仓**；nhooyr.io/websocket 或等价方案由 Tech Lead 定 |
 
 ## 4. 并发与批次纪律
 
@@ -76,7 +76,7 @@
 - 每个开发 Agent 在独立 worktree/feat 分支工作，**不触碰主工作区未提交的用户改动**
   （go.mod replace、wire.go OpenAI 修复、.agtkeel-uncommitted.diff）
 - 跨层接口变更：先 Tech Lead 契约评审，再实现（Contract-First）
-- 跨仓（agtkeel）变更：单独分支 + 本仓 go.mod pseudo-version 升级联动，人类协调合并顺序
+- 内核已于 2026-11-18 搬回本仓（ARCH-01）：原跨仓任务 BF-08/16/19 改为同仓，直接 feat 分支 + PR
 
 ## 5. 状态跟踪
 
@@ -89,8 +89,9 @@
 | BF-01-F1/F2 | completed | bf-tools-b1 | 主会话接手（子 Agent 四度配额失败）；F1=50b2427、F2=de4ab23；复核记录 f7a9eb1；全仓 -race 绿、docs-check/debt-check 通过（22/44） |
 | BF-03-F1/F2 | completed | bf-tui-b1 | 主会话接手（配额）；F1=1637769（CR-BF03-1/2/3/4/5）、F2=10df48b（CR-BF03-6 守护测试）；全仓 -race 绿、docs-check/debt-check 通过（24） |
 | BF-03 | completed（评审通过，已合并） | bf-tui-b1 | 实现 286e0c7＋修复＋复核 4b38842；P1 全关闭；CR-BF03-2 升级条件已解除；已合并 feat/impl |
-| BF-20 | pending（P2） | 待建 | 全仓 gofmt 清理（HEAD 既有约 20 个未格式化文件，跨层，独立 chore 任务避免噪声） |
-| BF-19 | pending（跨仓技术债） | 待建 | CR-BF03-2 根因修复：agtkeel Pool 快照式 GetAll API（现返回共享可变指针）。**已非合并阻塞**——BF-01-F1 消除会话期 pool 写入后回落为潜在隐患＋约束文档化，已随 feat/impl 合并；根治仍待跨仓。併案 CR-BF01-7（jsonRPC reader 绑定 initialize ctx、HTTP Close 语义）。API 形态由 Tech Lead 裁决 |
+| BF-20 | completed | reinternalize-kernel | 全仓 gofmt 50 檔，随内核搬回提交 59b589e 一并了结；gofmt -l 全仓 0 |
+| ARCH-01 | completed（已合并） | reinternalize-kernel | 内核搬回（反转 PR #31）：13 包 87 檔恢复原始路径＋89 檔 import 改写＋go.mod 去 agtkeel＋OpenAI 增强正式入库；59b589e→合并 b1c0e68；40 包 -race 全绿；debt 基线 44/19（WS 桩 scope 变化）；BF-08/16/19 改为同仓任务 |
+| BF-19 | pending（同仓技术债） | 待建 | CR-BF03-2 根因修复：internal/mcp Pool 快照式 GetAll API（现返回共享可变指针）。**已非合并阻塞**——BF-01-F1 消除会话期 pool 写入后回落为潜在隐患＋约束文档化；内核搬回后根治在同仓做。併案 CR-BF01-7（jsonRPC reader 绑定 initialize ctx、HTTP Close 语义）。API 形态由 Tech Lead 裁决 |
 | BF-18 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 a75c1c7；internal/transcript Recorder＋TUI turn 边界落盘＋headless 收尾＋/resume 换文件；已合并 feat/impl，合并后全仓 -race 复验绿；正式评审留待人类 PR |
 | BF-05 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 e7411d4；/config 只读面板＋/terminal-setup 检测；已合并 feat/impl；正式评审留待人类 PR |
 | BF-06..BF-16 | pending | — | 按批次派发 |
