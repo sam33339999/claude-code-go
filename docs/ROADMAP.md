@@ -1,12 +1,14 @@
 # Claude Code Go — Roadmap
 
-> 最后更新：2026-09-05
+> 最后更新：2026-11-18
 >
 > 本文档基于与 claude-code-main（TypeScript 原版）的全面对比分析，规划 claude-code-go 项目从当前状态到生产可用的完整路径。
 >
-> **2026-08-29 状态刷新**：Phase 1 已全部完成（权限接入 + 安全增强 T-060..T-064 已合并 main，CI 含 lint + race + 覆盖率）；Phase 2 大部分完成（34 个工具注册、20 个斜杠命令、mcp/agents/update/install 子命令落地）。各节标注 ✅ 已完成 / ⚠️ 部分完成 / ❌ 未开始。
+> **2026-08-29 状态刷新**：Phase 1 已全部完成（权限接入 + 安全增强 T-060..T-064 已合并 main，CI 含 lint + race + 覆盖率）；Phase 2 大部分完成（34 个工具注册、20 个斜杠命令、mcp/agents/update/install 子命令落地——**2026-11-18 勘误**：仅 mcp 命令组属实，agents/update/install 实为桩，工具与斜杠命令多为"注册"而非"实现"，见下方刷新）。各节标注 ✅ 已完成 / ⚠️ 部分完成 / ❌ 未开始。
 >
 > **2026-09-05 状态刷新（B2/B5 落地，PR #23）**：`mcp` 命令组（7 命令）与 `plugin` 命令组（8 命令 + marketplace 子树）从桩变为真实实现，输出与 oracle（claude v2.1.261）字节级一致；用户可见桩 42 → 27。插件系统 CLI 层落地（§3.4 的 3.4.4），加载引擎仍为骨架。同日起项目按维护模式运转（见 [`test/parity/cases.md`](../test/parity/cases.md) 差距台账与 [`2026-08-29 流程复盘`](discussions/2026-08-29-process-retrospective.md)）。
+>
+> **2026-11-18 状态刷新（patrol-13 核查修正，BF-00）**：第 13 次 PM 巡检（[patrol-13-20261118](project/logs/patrol-13-20261118.md)）对照换库前源码与 [parity 差距台账](../test/parity/cases.md) 核实：Phase 2 的"✅ 已完成（2026-09-05）"标注虚报——把"已注册"当成了"已实现"。34 个注册工具中仅 20 个真实实现、14 个为桩（另有 MCPProxyTool 桩类型未注册，工具桩合计 15：interact×6、misc×5、mcp×3、NotebookEdit 核心×1；与 patrol-13"16 桩"计数的核对见 §2.2）；/config、/mcp、/resume、/terminal-setup 四个斜杠命令为桩；update/install/agents 为桩（与 cases.md B8/B9/B10 一致）。PR #31（2026-09-23 基座换库）未丢失任何实现，桩均为构建期（2026-04）原始遗留。本文 Phase 2 各节状态已按台账与代码修正；全量回填计划已派发执行中（[桩回填计划](project/discussions/2026-11-18-stub-backfill-plan.md)，BF-01..BF-16；Batch 1：MCP 接线、Sleep、/mcp、/resume）。
 
 ---
 
@@ -40,17 +42,20 @@
 │  • TUI (BubbleTea)      • 测试覆盖率          • Remote 模式│
 │  • OAuth 认证            │                      • 数据迁移   │
 │  • 配置加载              │                      │            │
-│  • 会话持久化            │                      │            │
+│  • 会话存储 (agtkeel)    │                      │            │
 │  • 协调器框架            │                      │            │
-│  • 权限管线（含安全增强） │                      │            │
-│  • 工具系统 (34 个)      │                      │            │
-│  • CLI 子命令：mcp(7)    │                      │            │
-│    plugin(8)+marketplace │                      │            │
-│    auth/doctor/update    │                      │            │
+│  • 权限管线（含安全增强） │  • 工具系统 20/34 真实 │            │
+│  • CLI 子命令：mcp(7)    │  • 14 个注册工具桩     │            │
+│    plugin(8)+marketplace │  • 4 个斜杠命令桩      │            │
+│    auth/doctor           │  • update/install/    │            │
+│                          │    agents 桩          │            │
+│                          │  • 会话持久化接线(BF-18)│           │
 └─────────────────────────────────────────────────────────────┘
 
-完成度: ███████████████░░░░░ 75%
+完成度: ███████████████░░░░░ 75%（历史估算，未经桩审计）
 （维护模式：以 parity 差距台账驱动，不再按本表时间线推进）
+（勘误：「会话持久化」原列 ✅——agtkeel session store 存在，但生产代码零接线，
+交互/headless 会话不落盘，--resume 与 /resume 无真实数据源；BF-18 回填中。）
 ```
 
 ---
@@ -166,51 +171,58 @@ executeOneTool (已实现)
 
 ---
 
-## Phase 2：工具与命令补全（v0.3.0）✅ 已完成（2026-09-05）
+## Phase 2：工具与命令补全（v0.3.0）⚠️ 部分完成（2026-11-18 核查修正）
 
 **目标**：补齐 11 个未实现的工具和 20 个 CLI 子命令，实现与原版功能对等的工具集。
 
-**预估周期**：3 周（历史规划；实际经维护模式 parity 驱动完成，见 §2.4）
+**预估周期**：3 周（历史规划；实际经维护模式 parity 驱动部分完成，见 §2.4）
 
-### 2.1 交互工具实现 ✅ 已完成
+> **2026-11-18 修正**：原「✅ 已完成」标注虚报——把「已注册」当成了「已实现」（patrol-13 核查，
+> 对照换库前源码与 parity 台账证实）。CLI mcp/plugin 命令组属实；工具与斜杠命令多为桩。
+> 全量回填执行中（BF-01..BF-20，见 [回填计划](project/discussions/2026-11-18-stub-backfill-plan.md)）。
+
+### 2.1 交互工具实现 ❌ 桩（仅注册，回填中）
 
 | # | 工具 | 文件 | 状态 |
 |---|------|------|------|
-| 2.1.1 | ✅ `TodoWrite` | `internal/tools/interact/` | 已注册 |
-| 2.1.2 | ✅ `AskUserQuestion` | `internal/tools/interact/` | 已注册，经 Msg channel 与 TUI 交互 |
-| 2.1.3 | ✅ `EnterPlanMode` / `ExitPlanMode` | `internal/tools/interact/` | 已注册 |
-| 2.1.4 | ✅ `EnterWorktree` / `ExitWorktree` | `internal/tools/interact/` | 已注册 |
+| 2.1.1 | ❌ `TodoWrite` | `internal/tools/interact/` | 桩（仅注册；BF-07 待派发） |
+| 2.1.2 | ❌ `AskUserQuestion` | `internal/tools/interact/` | 桩（仅注册；**不存在** Msg channel/TUI 交互，原宣称失实；BF-08 待派发，需 agtkeel 新 Msg 契约） |
+| 2.1.3 | ❌ `EnterPlanMode` / `ExitPlanMode` | `internal/tools/interact/` | 桩（仅注册；agtkeel permissions 已有 Plan 模式执行半边，缺状态机；BF-09 待派发） |
+| 2.1.4 | ❌ `EnterWorktree` / `ExitWorktree` | `internal/tools/interact/` | 桩（仅注册；BF-10 待派发） |
 
-（Todo 状态后来演进为 Task 系统：`internal/tools/tasks/` 提供 TaskCreate/Get/List/Update/Stop/Output 六个工具，比原计划的单一 TodoWrite 更完整。）
+（勘误：Task 系统（`internal/tools/tasks/` 六工具，coordinator-backed）**自 2026-04 即真实存在**，
+与 TodoWrite 并行，并非其「演进」；TodoWrite 式的会话 todo 列表＋UI 面板仍缺失，属 BF-07。）
 
-### 2.2 Agent/MCP 工具实现 ✅ 已完成
+### 2.2 Agent/MCP 工具实现 ⚠️ 部分完成
 
 | # | 工具 | 文件 | 状态 |
 |---|------|------|------|
 | 2.2.1 | ✅ `Agent` tool | `internal/tools/agent/` | 已集成 `coordinator` |
 | 2.2.2 | ✅ `SendMessage` tool | `internal/tools/agent/` | 已集成 |
-| 2.2.3 | ✅ `MCPProxyTool` | `internal/tools/mcp/` | 已集成 `mcp.Pool` |
-| 2.2.4 | ✅ `ListMcpResources` | `internal/tools/mcp/` | 已注册 |
-| 2.2.5 | ✅ `ReadMcpResource` | `internal/tools/mcp/` | 已注册 |
+| 2.2.3 | ⚠️ `MCPProxyTool` | `internal/tools/mcp/` | 原为桩且「已集成 mcp.Pool」失实（Pool 建而未用）；**BF-01 已改用 agtkeel `AdaptToTool` 真实接线**（分支 pass-ready 待合并） |
+| 2.2.4 | ⚠️ `ListMcpResources` | `internal/tools/mcp/` | 原为桩；BF-01 真实实现（Pool→client，分支 pass-ready 待合并） |
+| 2.2.5 | ⚠️ `ReadMcpResource` | `internal/tools/mcp/` | 原为桩；BF-01 真实实现（分支 pass-ready 待合并） |
 
-（另有 `GetAgentStatus` 工具与 `misc/`（Skill/Brief/ToolSearch/Sleep/SyntheticOutput）、`memory/`（MemoryRead/Write/Delete）、`web/`、`shell/` 等，当前共 **34 个工具**注册。）
+（另有 `GetAgentStatus` 工具与 `misc/`（Skill/Brief/ToolSearch/Sleep/SyntheticOutput）、`memory/`（MemoryRead/Write/Delete）、`web/`、`shell/` 等，当前共 **34 个工具注册＝20 真实实现＋14 桩**
+（interact×6、misc×5、已注册 mcp 资源工具×2、NotebookEdit 核心×1；Sleep 经 BF-02 实现后 misc 桩余 4，
+以合并后代码为准）。misc 其余桩属 Batch 3（BF-12/13/14/15）。）
 
-### 2.3 斜杠命令补全 ✅ 已完成
+### 2.3 斜杠命令补全 ⚠️ 部分完成
 
 | # | 命令 | 状态 | 实现要点 |
 |---|------|------|----------|
-| 2.3.1 | ✅ `/config` | 完成 | `internal/commands/builtins.go` |
-| 2.3.2 | ✅ `/mcp` | 完成 | 展示 MCP 连接状态 |
-| 2.3.3 | ✅ `/resume` | 完成 | 会话恢复（Terminal/Resume 深化见 [terminal-resume 差距分析](analysis/terminal-resume-system-gap-analysis.md)） |
-| 2.3.4 | ✅ `/terminal-setup` | 完成 | shell 补全脚本 |
-| 2.3.5 | ✅ `/review` | 完成 | 有专属逻辑 |
-| 2.3.6 | ✅ `/commit` | 完成 | 有专属逻辑 |
-| 2.3.7 | ✅ `/diff` | 完成 | 有专属逻辑 |
-| 2.3.8 | ✅ `/init` | 完成 | 有专属逻辑 |
+| 2.3.1 | ❌ `/config` | 桩 | `internal/commands/builtins.go`（BF-05 待派发） |
+| 2.3.2 | ⚠️ `/mcp` | 原桩；BF-03 真实实现 | 展示 MCP 连接状态（分支 pass-ready 待合并；活状态依赖 BF-01 启动接线） |
+| 2.3.3 | ⚠️ `/resume` | 原桩；BF-03 真实实现 | 列表＋按 ID 恢复（分支 pass-ready 待合并；会话持久化接线缺口见 BF-18；Terminal/Resume 深化见 [terminal-resume 差距分析](analysis/terminal-resume-system-gap-analysis.md)） |
+| 2.3.4 | ❌ `/terminal-setup` | 桩 | shell 补全脚本（BF-05 待派发） |
+| 2.3.5 | ⚠️ `/review` | 固定 prompt 模板 | 发送专属 canned prompt 给 LLM，无 git/文件操作集成 |
+| 2.3.6 | ⚠️ `/commit` | 固定 prompt 模板 | 同上 |
+| 2.3.7 | ⚠️ `/diff` | 固定 prompt 模板 | 同上 |
+| 2.3.8 | ⚠️ `/init` | 固定 prompt 模板 | 同上 |
 
 （现共 **20 个内建斜杠命令**：clear/help/exit/vim/theme/model/effort/status/cost/session/config/compact/memory/dream/mcp/review/commit/diff/init/resume/terminal-setup。）
 
-### 2.4 CLI 子命令补全 ✅ 已完成（2026-09-05，B2/B5）
+### 2.4 CLI 子命令补全 ⚠️ 部分完成（2026-09-05 B2/B5 属实；其余勘误）
 
 **高优先级（用户直接使用）**：
 
@@ -225,8 +237,8 @@ executeOneTool (已实现)
 
 | # | 命令 | 状态 | 说明 |
 |---|------|------|------|
-| 2.4.5 | ✅ `update` | 完成 | `internal/bootstrap/misc.go` |
-| 2.4.6 | ✅ `install` | 完成 | shell 集成 |
+| 2.4.5 | 🚧 `update` | 桩 | `internal/bootstrap/misc.go`（与 cases.md B8 一致；原 ✅ 虚报；BF-06 待派发） |
+| 2.4.6 | 🚧 `install` | 桩 | shell 集成未实现，`--target` 被丢弃（与 cases.md B10 一致；原 ✅ 虚报；BF-06 待派发） |
 | 2.4.7 | ✅ `mcp add-json` | 完成 | |
 | 2.4.8 | ✅ `mcp add-from-claude-desktop` | 完成 | |
 
@@ -234,7 +246,7 @@ executeOneTool (已实现)
 
 | # | 命令 | 状态 | 说明 |
 |---|------|------|------|
-| 2.4.9 | ✅ `agents list/add/remove` | 完成 | `internal/bootstrap/misc.go` |
+| 2.4.9 | 🚧 `agents list/add/remove` | 桩 | `internal/bootstrap/misc.go`（与 cases.md B9 一致；原 ✅ 虚报；形态还需对齐 oracle options 驱动，BF-06 待 Tech Lead 裁决） |
 | 2.4.10 | ✅ `plugin list/install/uninstall/...` | 完成 | 2026-09-05 落地（PR #23）：list/install/uninstall/enable/disable/update/validate + marketplace 子树，字节级对齐 oracle；分歧与未验证边缘见 cases.md §B12 |
 | 2.4.11 | ✅ `mcp reset-project-choices` | 完成 | |
 
@@ -243,8 +255,8 @@ executeOneTool (已实现)
 
 ### Phase 2 完成标准
 
-- [x] 工具全部可执行（非占位）— 34 个工具注册
-- [x] `/review`、`/commit`、`/diff`、`/init` 有专属逻辑
+- [ ] 工具全部可执行（非占位）— 当前 34 注册＝20 真实＋14 桩（原以注册数冒充可执行数；回填中，以合并后代码与 debt 基线为准）
+- [x] `/review`、`/commit`、`/diff`、`/init` 有专属逻辑（勘误：仅专属 canned prompt，无 git/文件集成）
 - [x] `mcp add/remove/list/get` 可正常操作配置文件
 - [x] Agent tool 能通过 Coordinator 启动子代理
 - [x] `plugin` 子命令组（2026-09-05，PR #23；插件加载引擎见 Phase 3.4）
@@ -548,9 +560,13 @@ Phase 5 (生产就绪)   ←── 依赖所有 Phase
 
 | 指标 | 当前 | v0.3.0 | v0.5.0 | v1.0.0 |
 |------|------|--------|--------|--------|
-| 工具实现数 | 11/22 | 22/22 | 22/22 | 22/22 |
+| 工具实现数 | 11/22（历史） | 20/34 注册真实† | 22/22 | 22/22 |
 | CLI 子命令 | 7/27 | 20/27 | 25/27 | 27/27 |
-| 斜杠命令 | 14/18 | 18/18 | 18/18 | 18/18 |
+| 斜杠命令 | 14/18 | 18/18‡ | 18/18 | 18/18 |
+
+> † 2026-11-18 实测：34 注册中 20 真实、14 桩（原 v0.3.0「22/22」虚报，patrol-13）。
+> ‡ 20 个注册中 4 个为桩（/config、/mcp、/resume、/terminal-setup；BF-03/05 回填中），
+> /review /commit /diff /init 仅 canned prompt。其余各列為历史规划目标，非实测。
 | Provider 支持 | 2/4 | 2/4 | 4/4 | 4/4 |
 | MCP Transport | 3/4 | 3/4 | 4/4 | 4/4 |
 

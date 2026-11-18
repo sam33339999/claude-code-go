@@ -11,6 +11,7 @@ Thank you for your interest in contributing! This document explains how to set u
 - [Testing](#testing)
 - [Pull Request Process](#pull-request-process)
 - [Coding Standards](#coding-standards)
+- [Cache-first review gate](#cache-first-review-gate)
 - [Architecture Overview](#architecture-overview)
 - [Reporting Bugs](#reporting-bugs)
 - [Requesting Features](#requesting-features)
@@ -122,6 +123,7 @@ make test-cover
 **What we look for in reviews:**
 - Correctness and test coverage
 - Adherence to the layered architecture (see below)
+- **Cache-first gate** for prefix-bearing changes (see [Cache-first review gate](#cache-first-review-gate))
 - Clear, idiomatic Go code
 - No unnecessary dependencies added
 - Documentation updated where relevant
@@ -135,6 +137,40 @@ make test-cover
 - **No global mutable state** outside of `internal/config` and `internal/state`.
 - **Context propagation**: Pass `context.Context` as the first argument to functions that do I/O or may be cancelled.
 - **Concurrency**: Prefer channels over shared memory. Protect shared state with mutexes and document which fields are guarded.
+
+## Cache-first review gate
+
+Adopted 2026-11-18. Reference spec: [`docs/PROMPT_CACHE_AND_COST.md`](PROMPT_CACHE_AND_COST.md)
+(written for the Reasonix project; the mapping below adapts it to this repo).
+
+Provider prefix caching bills a reused prefix at the cache-hit rate. Any change that touches
+**prompt construction, tool schemas, tool registration (add/remove/rename), MCP registration,
+compaction, or request serialization** must pass this gate:
+
+1. Answer the three questions in the PR description:
+   **Does it move the provider-visible prefix? Does it grow the context window? Does it add LLM calls?**
+2. A prefix move is a *cost decision*: justify the economics and add a focused guard test near the
+   changed surface (schema-byte stability, prefix identity). Prefer turn-tail projection over prefix
+   edits for per-turn data.
+3. **Session-pinned tool surface**: the registered tool set and schema bytes must not change
+   mid-session. MCP reconnect differences surface next session, never by re-registering tools
+   mid-session (see `internal/tools/mcp` `RegisterServerTools` pinning + guard test).
+4. Compaction is the only sanctioned prefix reset.
+5. Deleting/renaming a tool or editing a schema moves the prefix even when the intent is unrelated —
+   that is why this gate names them.
+
+### Mechanism mapping (Reasonix spec → this repo)
+
+| Spec mechanism | Here | Status |
+| --- | --- | --- |
+| Stable prefix / cache params | agtkeel `engine.CacheSafeParams`, `cache_control: ephemeral` markers | partial (no explicit assemble-once owner) |
+| Pinned MCP placeholders | `internal/tools/mcp` session pinning (BF-01) + reconnect guard test | done |
+| Tool output cap / spill | `ListMcpResources` 200-entry cap (local); no general cap/spill | partial |
+| Usage normalization | agtkeel `api/usage.go` Anthropic-style counters | partial (OpenAI/DeepSeek hit-token shapes missing) |
+| Cache split in UI | `internal/tui/statusbar.go` CacheRead/CacheCreated | partial (no hit-rate display) |
+| Per-model CacheHit pricing | — | missing |
+| Release cache guard (90% threshold) | — | missing |
+| Compaction economics (refold thresholds) | agtkeel `compact` snip/micro/auto | partial |
 
 ## Architecture Overview
 
