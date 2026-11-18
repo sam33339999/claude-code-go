@@ -3,6 +3,7 @@
 > 负责 Agent：Agent-Tools
 > 状态：设计中
 > 日期：2026-04-02
+> 最近更新：2026-11-18（v1.1，BF-01/BF-02 回填，见文末变更记录）
 
 ---
 
@@ -176,7 +177,7 @@ internal/
 | `Brief` | `internal/tools/misc` | ReadOnly | ✅ 是 | 返回当前会话摘要信息 |
 | `ListMcpResources` | `internal/tools/mcp` | ReadOnly | ✅ 是 | 列出 MCP 服务器上的所有资源 |
 | `ReadMcpResource` | `internal/tools/mcp` | ReadOnly | ✅ 是 | 读取指定 MCP 资源内容 |
-| `MCPTool` | `internal/tools/mcp` | Special | — | MCP 动态工具包装器（运行时从 MCP 服务器发现并注册） |
+| `MCPTool` | `internal/tools/mcp` | Special | — | MCP 动态工具包装器：运行时经 `RegisterServerTools` 从已连接服务器发现，复用 agtkeel `mcp.AdaptToTool`（名为 `{server}__{tool}`） |
 
 ### 3.2 任务管理工具（TodoV2 功能标志控制）
 
@@ -579,28 +580,49 @@ type SendMessageInput struct {
 
 ### 4.4 MCP 类
 
+MCP 能力由 agtkeel 内核提供（`agtkeel/mcp`：`MCPClient` 接口、`Pool` 连接池、
+`AdaptToTool` 适配器）。本包（`internal/tools/mcp`）负责工具层接线，**不再自维护
+proxy 桩**（原 `MCPProxyTool`/`NewMCPProxyTool`/`MCPToolInput` 已删除，BF-01）：
+
 ```go
-// TODO(dep): 依赖 Agent-Services MCP 客户端接口（internal/mcp）
-//
-// MCPTool 是 MCP 远程工具的动态包装器：
-// - 运行时从 MCP 服务器发现工具 schema
-// - 调用 mcp.Client.CallTool(serverName, toolName, input)
-// - 将结果转换为 ToolResult
-//
-// ListMcpResources / ReadMcpResource：
-// - 调用 mcp.Client.ListResources(serverName) / ReadResource(serverName, uri)
-// - 只读，并发安全
+// 每服务器动态代理工具：直接复用内核适配器，Call 转发 client.CallTool。
+// 工具名 "{serverName}__{normalizedToolName}"（NormalizeToolName 归一化）。
+func RegisterServerTools(ctx context.Context, reg *tools.Registry, pool *mcp.Pool) (int, error)
+// - 遍历 pool.GetConnected()（按服务器名排序，注册顺序确定）
+// - client.ListTools 发现工具定义 → mcp.AdaptToTool → reg.Replace
+// - **会话钉住（cache-stability）**：每个 registry 仅首次调用生效（boot 阶段、
+//   首个 LLM 请求之前一次性完成）；后续调用为 no-op。重连后 live tool list
+//   即使变化，本会话工具名集合与 schema 字节保持不变（provider 前缀缓存稳定，
+//   见 docs/PROMPT_CACHE_AND_COST.md "Pinned MCP placeholders" / Boundaries §4），
+//   差异留到下个会话启动生效；动态连接状态只进 /mcp 输出，不进 Description/InputSchema
+// - 单服务器 ListTools 失败不阻塞其余服务器，错误经 errors.Join 汇总返回
+// - nil pool / 空 pool → (0, nil)，优雅降级
+
+// 资源元工具：Pool 在注册期注入（UseContext 无 MCP 字段，构造期依赖注入）
+func NewListMcpResourcesTool(pool *mcp.Pool) tools.Tool
+func NewReadMcpResourceTool(pool *mcp.Pool) tools.Tool
+// - ListMcpResources：可选 server_name 过滤；无过滤时聚合所有已连接服务器
+//   （按名排序）的 ListResources，输出 JSON 数组（server/uri/name/description/mimeType）
+// - ReadMcpResource：server_name + uri 必填，经 Pool 解析 client 后 ReadResource；
+//   文本内容原样返回，二进制返回 mime/base64 占位说明
+// - 只读、并发安全；nil pool → 诚实错误；空 pool → 空列表（非错误）；
+//   未知/未连接服务器 → IsError 明确提示
 ```
 
-**接口预期**（等待 Agent-Services 完成后回填）：
+**启动接线**（`internal/bootstrap`，CLI 层负责连线）：
 
 ```go
-type MCPClient interface {
-    CallTool(ctx context.Context, serverName, toolName string, input json.RawMessage) (MCPToolResult, error)
-    ListResources(ctx context.Context, serverName string) ([]MCPResource, error)
-    ReadResource(ctx context.Context, serverName, uri string) (MCPResourceContent, error)
-    ListTools(ctx context.Context, serverName string) ([]MCPToolDef, error)
-}
+// RegisterBuiltinTools 签名新增 pool 参数（BF-01，最小接口变更）：
+func RegisterBuiltinTools(reg *tools.Registry, pool *mcp.Pool)
+// pool 可为 nil（资源工具优雅降级）。BuildContainer / BuildContainerWithClient
+// 先建 pool 再注册工具，随后调用 connectConfiguredMCPServers：
+// - config.MCPStore.ListMCPServers 取配置（去重、剔除 rejected/不可连接类型）
+// - project 作用域（.mcp.json）服务器仅在用户批准
+//   （enableAllProjectMcpServers / enabledMcpjsonServers）后连接
+// - 每服务器握手看门狗 30s；连接失败非致命（记录在 pool 连接状态，供 /mcp 展示）
+// - 连接后 RegisterServerTools 注册各服务器工具
+// 注意：agtkeel jsonRPCClient 的后台读协程绑定首次调用（initialize）的 ctx，
+// 故 Connect 使用长生命周期 context，超时仅约束启动等待（看门狗），不取消连接。
 ```
 
 ---
@@ -861,9 +883,10 @@ func RegisterAll(r *Registry, cfg *Config) {
         r.Register(tasks.TaskOutputTool)
     }
 
-    // MCP（动态注册由 MCP 客户端在连接后调用 r.Register）
-    r.Register(mcp.ListMcpResourcesTool)
-    r.Register(mcp.ReadMcpResourceTool)
+    // MCP（资源工具注入 pool；每服务器代理工具由 bootstrap 在连接后
+    // 调用 mcp.RegisterServerTools(ctx, r, pool) 动态注册，见 §4.4）
+    r.Register(mcp.NewListMcpResourcesTool(pool))
+    r.Register(mcp.NewReadMcpResourceTool(pool))
 
     // 其他
     r.Register(misc.SkillTool)
@@ -972,3 +995,21 @@ FileEdit 要求 `old_string` 在文件中唯一出现一次。实现：
 ### 7.8 AgentTool 取消传播
 
 子 Agent 运行时父 Agent 中止（用户 Ctrl+C），需要级联取消所有子 Agent。实现：每个子 Agent 使用 `context.WithCancel(parentCtx)` 派生 context，父 context 取消时子 Agent 的主循环感知到 `ctx.Done()` 并退出。同时在 AppState 中记录所有运行中的子 Agent goroutine，用于清理检查。
+
+### 7.9 Sleep 的 context-aware 实现（BF-02）
+
+`SleepTool.Call` 用 `time.NewTimer` + `select` 同时监听三路信号：定时完成、
+`UseContext.Ctx.Done()`（取消/超时）、`UseContext.AbortCh`（引擎中止）。
+任一取消路径返回 `IsError=true` 的诚实结果（携带已请求时长与取消原因），
+不返回硬 error。输入校验：先检查 `milliseconds` 字段存在性（encoding/json
+对缺失字段填零，无法与显式 0ms 区分），再校验类型与非负；0ms 立即成功返回。
+`UseContext` 为 nil 时回退 `context.Background()`（兼容早期调用方与测试）。
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 修改人 | 变更摘要 |
+|------|------|--------|---------|
+| v1.1 | 2026-11-18 | Agent-Tools | BF-01：删除 MCPProxyTool/MCPToolInput 桩，改用 agtkeel `mcp.AdaptToTool`；新增 `RegisterServerTools`（会话钉住、一次性注册）、`NewListMcpResourcesTool`/`NewReadMcpResourceTool`（Pool 构造期注入）；`RegisterBuiltinTools` 签名新增 `pool *mcp.Pool` 参数；bootstrap 启动时连接已配置服务器并注册其工具（§4.4）。BF-02：Sleep 实现 context-aware 定时（§7.9） |
+| v1.0 | 2026-04-02 | Agent-Tools | 初稿 |

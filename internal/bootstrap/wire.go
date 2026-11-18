@@ -97,7 +97,7 @@ const defaultOpenAIModel = "gpt-4o-mini"
 //  1. Config loading (layered settings merge)
 //  2. OAuth token pre-warm
 //  3. API client construction
-//  4. Tool registry setup
+//  4. MCP pool + tool registry setup (configured servers connected, MCP tools registered)
 //  5. Permission checker setup (HIL support)
 //  6. Engine construction
 //  7. App state store construction
@@ -120,18 +120,23 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 		return nil, fmt.Errorf("wire: build API client: %w", err)
 	}
 
-	// ── Phase 4: Tool registry ───────────────────────────────────────────────
+	// ── Phase 4: MCP pool + tool registry ────────────────────────────────────
+	// The pool is created first so the MCP resource tools receive it at
+	// construction; configured servers are then connected and their tools
+	// registered before the engine is built. Connection failures are
+	// non-fatal (recorded on the pool; logged only in debug mode).
+	pool := mcp.NewPool()
 	reg := tools.NewRegistry()
-	RegisterBuiltinTools(reg)
+	RegisterBuiltinTools(reg, pool)
+	if err := connectConfiguredMCPServers(context.Background(), reg, pool, settings, opts.HomeDir, opts.WorkingDir); err != nil && opts.Debug {
+		fmt.Fprintf(os.Stderr, "mcp: startup: %v\n", err)
+	}
 
 	// ── Phase 4.5: Agent type registry ──────────────────────────────────
 	agentProfiles := agenttype.NewRegistry()
 	agenttype.RegisterBuiltins(agentProfiles)
 
 	loadCustomAgentProfiles(agentProfiles, opts.HomeDir, opts.WorkingDir)
-
-	// ── Phase 5: MCP pool (deferred connections happen on first use) ─────────
-	pool := mcp.NewPool()
 
 	// ── Phase 6: App state store (needed for permission context) ─────────────
 	model := resolveModel(settings, opts.ModelOverride)
@@ -207,8 +212,10 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	}, nil
 }
 
-// BuildHeadlessContainer wires up a minimal container for non-interactive (-p) mode.
-// No MCP connections are pre-established; OAuth pre-warm is still performed.
+// BuildHeadlessContainer wires up the container for non-interactive (-p) mode.
+// It delegates to BuildContainer, so it performs the same startup wiring,
+// including pre-establishing configured MCP connections and registering their
+// tools (bounded, non-abandoning boot connect; failures are non-fatal).
 func BuildHeadlessContainer(opts ContainerOptions) (*AppContainer, error) {
 	// Headless mode uses the same wiring path; any optimisations (skipping
 	// MCP init, etc.) can be added here in future iterations.
@@ -225,17 +232,18 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 		return nil, fmt.Errorf("wire: load settings: %w", err)
 	}
 
-	// ── Phase 4: Tool registry ───────────────────────────────────────────────
+	// ── Phase 4: MCP pool + tool registry ────────────────────────────────────
+	pool := mcp.NewPool()
 	reg := tools.NewRegistry()
-	RegisterBuiltinTools(reg)
+	RegisterBuiltinTools(reg, pool)
+	if err := connectConfiguredMCPServers(context.Background(), reg, pool, settings, opts.HomeDir, opts.WorkingDir); err != nil && opts.Debug {
+		fmt.Fprintf(os.Stderr, "mcp: startup: %v\n", err)
+	}
 
 	// ── Phase 4.5: Agent type registry (test path) ──────────────────────
 	agentProfilesTest := agenttype.NewRegistry()
 	agenttype.RegisterBuiltins(agentProfilesTest)
 	loadCustomAgentProfiles(agentProfilesTest, opts.HomeDir, opts.WorkingDir)
-
-	// ── Phase 5: MCP pool (deferred connections happen on first use) ─────────
-	pool := mcp.NewPool()
 
 	// ── Phase 6: App state store (needed for permission context) ─────────────
 	model := resolveModel(settings, opts.ModelOverride)

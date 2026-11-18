@@ -1,6 +1,6 @@
 ---
 type: auto-generated-index
-generated_at: 2026-09-23T11:03:32Z
+generated_at: 2026-11-18T01:42:09Z
 package_count: 25
 ---
 
@@ -25,7 +25,7 @@ package_count: 25
 | `internal/tools/agent` | Tools | AgentInput, AgentOutput, GetAgentStatusInput, GetAgentStatusOutput, SendMessageInput | [CONTEXT](../../internal/tools/agent/CONTEXT.md) |
 | `internal/tools/fileops` | Tools | FileEditInput, FileReadInput, FileReadOutput, FileWriteInput, GlobInput | [CONTEXT](../../internal/tools/fileops/CONTEXT.md) |
 | `internal/tools/interact` | Tools | AskUserQuestionInput, EnterPlanModeInput, EnterWorktreeInput, ExitPlanModeInput, ExitWorktreeInput | [CONTEXT](../../internal/tools/interact/CONTEXT.md) |
-| `internal/tools/mcp` | Tools | ListMcpResourcesInput, MCPProxyTool, MCPToolInput, ReadMcpResourceInput | [CONTEXT](../../internal/tools/mcp/CONTEXT.md) |
+| `internal/tools/mcp` | Tools | ListMcpResourcesInput, ReadMcpResourceInput | [CONTEXT](../../internal/tools/mcp/CONTEXT.md) |
 | `internal/tools/memory` | Tools | MemoryDeleteInput, MemoryReadInput, MemoryWriteInput | [CONTEXT](../../internal/tools/memory/CONTEXT.md) |
 | `internal/tools/misc` | Tools | BriefInput, SkillInput, SleepInput, SyntheticOutputInput, ToolSearchInput | [CONTEXT](../../internal/tools/misc/CONTEXT.md) |
 | `internal/tools/shell` | Tools | BashInput, BashOutput, SecurityFinding | [CONTEXT](../../internal/tools/shell/CONTEXT.md) |
