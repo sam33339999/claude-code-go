@@ -206,8 +206,10 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	}, nil
 }
 
-// BuildHeadlessContainer wires up a minimal container for non-interactive (-p) mode.
-// No MCP connections are pre-established; OAuth pre-warm is still performed.
+// BuildHeadlessContainer wires up the container for non-interactive (-p) mode.
+// It delegates to BuildContainer, so it performs the same startup wiring,
+// including pre-establishing configured MCP connections and registering their
+// tools (bounded, non-abandoning boot connect; failures are non-fatal).
 func BuildHeadlessContainer(opts ContainerOptions) (*AppContainer, error) {
 	// Headless mode uses the same wiring path; any optimisations (skipping
 	// MCP init, etc.) can be added here in future iterations.

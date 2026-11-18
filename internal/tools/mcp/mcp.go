@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	agtmcp "github.com/tunsuy/agtkeel/mcp"
 	"github.com/tunsuy/agtkeel/tools"
@@ -18,7 +19,25 @@ import (
 // pinnedRegistries marks registries whose MCP server-tool registration has
 // already run. Keys are process-lifetime boot registries; the marker is what
 // enforces session pinning (see RegisterServerTools).
+//
+// Hygiene: entries are never pruned and there is no production reset API — a
+// registry's lifetime is its session, and the marker intentionally persists
+// for the process lifetime so a re-pass can never re-register mid-session.
+// Long-lived processes / many-container test runs accumulate markers slowly;
+// tests may clear them via the test-only reset hook (export_test.go).
 var pinnedRegistries sync.Map // map[*tools.Registry]struct{}
+
+// listToolsTimeout bounds a single server's boot-time tools/list request so a
+// server that handshakes but hangs on tools/list cannot block startup forever
+// (CR-BF01-2). It is a var (not a const) so tests can inject a short timeout;
+// production keeps 10s. A timeout is a per-server, non-fatal ListTools failure.
+var listToolsTimeout = 10 * time.Second
+
+// maxResourceEntries caps the aggregated ListMcpResources output so a
+// resource-heavy server cannot produce an unbounded tool result (cache-first
+// gate Q2: keep the window small). Excess entries are dropped with an honest
+// truncation note; the provider-facing schema stays byte-stable.
+const maxResourceEntries = 200
 
 // RegisterServerTools discovers the tools exposed by every connected MCP
 // server in pool and registers them into reg using the agtkeel kernel adapter
@@ -38,6 +57,16 @@ var pinnedRegistries sync.Map // map[*tools.Registry]struct{}
 // A nil pool or empty pool registers nothing and returns (0, nil). Per-server
 // ListTools failures are collected into the returned error (errors.Join)
 // without preventing registration of the remaining servers' tools.
+//
+// Each server's ListTools runs under a per-server deadline (listToolsTimeout,
+// default 10s) so a server that completes the handshake but hangs on
+// tools/list cannot block startup indefinitely; a timeout is recorded as a
+// non-fatal per-server failure (CR-BF01-2).
+//
+// Pinning lifecycle: a registry's lifetime is its session; the pinning marker
+// is retained for the process lifetime; and a registration that fails (even
+// wholly) still pins the registry — a later re-pass is a no-op, so a boot-time
+// failure is not recoverable mid-session by retrying this function.
 func RegisterServerTools(ctx context.Context, reg *tools.Registry, pool *agtmcp.Pool) (int, error) {
 	if reg == nil || pool == nil {
 		return 0, nil
@@ -54,7 +83,9 @@ func RegisterServerTools(ctx context.Context, reg *tools.Registry, pool *agtmcp.
 		if conn.Client == nil {
 			continue
 		}
-		defs, err := conn.Client.ListTools(ctx)
+		lctx, cancel := context.WithTimeout(ctx, listToolsTimeout)
+		defs, err := conn.Client.ListTools(lctx)
+		cancel()
 		if err != nil {
 			errs = append(errs, fmt.Errorf("mcp: list tools for server %q: %w", conn.Name, err))
 			continue
@@ -182,6 +213,7 @@ func (t *listMcpResourcesTool) Call(input tools.Input, uctx *tools.UseContext, _
 
 	var entries []mcpResourceEntry
 	var errs []string
+	truncated := false
 	for _, conn := range conns {
 		resources, err := conn.Client.ListResources(ctx)
 		if err != nil {
@@ -189,6 +221,10 @@ func (t *listMcpResourcesTool) Call(input tools.Input, uctx *tools.UseContext, _
 			continue
 		}
 		for _, r := range resources {
+			if len(entries) >= maxResourceEntries {
+				truncated = true
+				break
+			}
 			entries = append(entries, mcpResourceEntry{
 				Server:      conn.Name,
 				URI:         r.URI,
@@ -196,6 +232,9 @@ func (t *listMcpResourcesTool) Call(input tools.Input, uctx *tools.UseContext, _
 				Description: r.Description,
 				MIMEType:    r.MIMEType,
 			})
+		}
+		if truncated {
+			break
 		}
 	}
 
@@ -210,6 +249,9 @@ func (t *listMcpResourcesTool) Call(input tools.Input, uctx *tools.UseContext, _
 		return nil, fmt.Errorf("ListMcpResources: marshal resources: %w", err)
 	}
 	content := string(raw)
+	if truncated {
+		content += fmt.Sprintf("\n\nNote: listing truncated at %d entries; use server_name to narrow the result.", maxResourceEntries)
+	}
 	if len(errs) > 0 {
 		content += "\n\nNote: some servers failed to list resources:\n- " + strings.Join(errs, "\n- ")
 	}

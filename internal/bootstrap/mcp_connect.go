@@ -19,8 +19,9 @@ import (
 // connection records (surfaced by `mcp list` and the /mcp command) and joined
 // into the returned error for debug logging.
 
-// mcpConnectTimeout bounds a single startup connection attempt.
-const mcpConnectTimeout = 30 * time.Second
+// mcpConnectTimeout bounds a single startup connection attempt. It is a var
+// (not a const) so tests can inject a short timeout; production keeps 30s.
+var mcpConnectTimeout = 30 * time.Second
 
 // connectConfiguredMCPServers connects pool to the configured MCP servers and
 // registers each connected server's tools into reg via mcptools.RegisterServerTools.
@@ -63,31 +64,71 @@ func connectConfiguredMCPServers(
 	return errors.Join(errs...)
 }
 
-// connectWithWatchdog connects one server, bounding the handshake with
-// mcpConnectTimeout.
+// connectWithWatchdog connects one server with a bounded, NON-ABANDONING
+// startup wait (mcpConnectTimeout).
 //
-// The connect itself runs with a detached background context: the agtkeel
-// jsonRPCClient binds its background reader goroutine to the context of the
-// first call (the initialize handshake), so a timeout context cancelled after
-// Connect would tear the connection down right after startup. The watchdog
-// only bounds how long startup waits; a handshake that completes later still
-// lands in the pool (its tools are picked up by the next RegisterServerTools
-// pass, e.g. after a /mcp reconnect).
-func connectWithWatchdog(ctx context.Context, pool *mcp.Pool, name string, cfg mcp.ServerConfig) error {
+// Kernel constraint: the agtkeel jsonRPCClient binds its background reader
+// goroutine to the context of the first call (the initialize handshake), so a
+// healthy connection needs that context to outlive boot. We therefore pass a
+// cancellable context WITHOUT a deadline and enforce the timeout with an
+// external watchdog: on success the context is deliberately left uncancelled
+// (its lifetime becomes the connection's lifetime); on failure the deferred
+// cancel releases it.
+//
+// On timeout or caller cancellation we cancel that context and WAIT for the
+// Connect goroutine to fully drain before returning. Cancellation propagates
+// into Connect (HTTP request contexts / stdio Recv ctx.Done / the call()
+// select), and dialServer's failure path closes the transport, so the drain is
+// bounded. Every pool write therefore terminates before boot returns: no
+// background goroutine may mutate pool connection state mid-session
+// (CR-BF01-1, carrying the CR-BF03-2 P0 escalation; PM followup constraint).
+//
+// A server whose handshake exceeds the timeout is failed for this session.
+// That cost is real but the alternative benefit was illusory: under session
+// pinning a late-landing connection's tools would never be registered into
+// this session's registry anyway (RegisterServerTools is a one-shot no-op on
+// re-pass), and keeping a half-booted connection alive only created a data
+// race against unsynchronized /mcp and resource-tool readers. The kernel-side
+// root fix (reader not bound to the handshake ctx; real transport teardown) is
+// tracked as cross-repo debt with BF-19 (CR-BF01-7).
+func connectWithWatchdog(ctx context.Context, pool *mcp.Pool, name string, cfg mcp.ServerConfig) (err error) {
+	cctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		if err != nil {
+			cancel()
+		}
+	}()
+
 	done := make(chan error, 1)
 	go func() {
-		done <- pool.Connect(context.Background(), name, cfg)
+		done <- pool.Connect(cctx, name, cfg)
 	}()
+
 	timer := time.NewTimer(mcpConnectTimeout)
 	defer timer.Stop()
+
 	select {
-	case err := <-done:
+	case err = <-done:
 		return err
 	case <-timer.C:
-		return fmt.Errorf("handshake timed out after %s", mcpConnectTimeout)
+		err = fmt.Errorf("handshake timed out after %s", mcpConnectTimeout)
 	case <-ctx.Done():
-		return ctx.Err()
+		err = ctx.Err()
 	}
+
+	// The watchdog fired. Cancel and drain: do not return until the Connect
+	// goroutine has finished, so no pool write can outlive startup.
+	cancel()
+	if connErr := <-done; connErr == nil {
+		// The handshake raced the deadline and won: the reader goroutine is
+		// bound to the now-cancelled context, so this connection cannot serve
+		// the session. Tear it down synchronously (still within boot) rather
+		// than leaving a dead "connected" record behind.
+		if derr := pool.Disconnect(name); derr != nil {
+			err = fmt.Errorf("%w (teardown: %v)", err, derr)
+		}
+	}
+	return err
 }
 
 // projectMCPApproved reports whether a project-scoped (.mcp.json) server has

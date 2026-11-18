@@ -155,9 +155,19 @@ func (t *toolSearchTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProg
 
 // ── SleepTool ─────────────────────────────────────────────────────────────────
 
+// maxSleepMilliseconds caps a single Sleep call at 24 hours. Requests above
+// the cap are rejected honestly. Besides being a sane product bound, the cap
+// keeps the time.Duration conversion far from the int64 overflow boundary
+// (~9.2e12 ms ≈ 292 years), where Milliseconds*time.Millisecond would wrap
+// negative and make the timer fire immediately, falsely reporting success
+// (CR-BF01-5). The cap is enforced at runtime only; the provider-facing schema
+// is intentionally left byte-stable (no prefix move).
+const maxSleepMilliseconds = 24 * 60 * 60 * 1000
+
 // SleepInput is the input schema for SleepTool.
 type SleepInput struct {
 	// Milliseconds is the duration to sleep in milliseconds (required).
+	// Must be in [0, maxSleepMilliseconds].
 	Milliseconds int `json:"milliseconds"`
 }
 
@@ -212,6 +222,9 @@ func (t *sleepTool) Call(input tools.Input, uctx *tools.UseContext, _ tools.OnPr
 	}
 	if in.Milliseconds < 0 {
 		return &tools.Result{IsError: true, Content: fmt.Sprintf("Sleep: milliseconds must be >= 0, got %d", in.Milliseconds)}, nil
+	}
+	if in.Milliseconds > maxSleepMilliseconds {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("Sleep: milliseconds must be <= %d (24h), got %d", maxSleepMilliseconds, in.Milliseconds)}, nil
 	}
 
 	ctx := context.Background()

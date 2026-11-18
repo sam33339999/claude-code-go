@@ -76,6 +76,20 @@ source_files: [auth.go, bootstrap.go, mcp.go, mcp_connect.go, mcp_health.go, mcp
   （enableAllProjectMcpServers / enabledMcpjsonServers）。连接失败非致命：
   状态记录在 pool（供 /mcp 展示），错误仅在 Debug 模式打印。
   **agtkeel 内核约束**：jsonRPCClient 的后台读协程绑定首次调用（initialize）
-  的 ctx，故 Connect 必须用长生命周期 context；启动等待用 30s 看门狗
-  （connectWithWatchdog）约束，而不是可取消的 timeout ctx——后者会在启动后
-  立即撕掉连接。迟到的握手仍会落入 pool，其工具下个会话生效。
+  的 ctx，故健康连接的 Connect 必须用长生命周期 context。启动等待用看门狗
+  （connectWithWatchdog）约束：成功则保留该 ctx（其生命周期即连接生命周期）；
+  超时/取消则 cancel 并**等待 Connect goroutine 完全收尾**后才返回——所有
+  pool 写入在 boot 返回前终结，会话期间无后台 pool 变更（CR-BF01-1）。
+  超时服务器本会话视为失败：钉住模型下迟到连接的工具本就不会注册进本会话，
+  旧「迟到落地收益」注释已删除（其收益是虚幻的，且制造 data race）。
+
+- **2026-11-18 BF-01-F1 有界且不遗弃的 boot 连接（CR-BF01-1 P0 / CR-BF01-2 P1 修复）**：
+  connectWithWatchdog 改为 cancellable ctx（无 deadline）＋外部看门狗；超时分支
+  cancel 后阻塞收 `<-done`，若握手恰好竞速成功则同步 Disconnect（仍在 boot 内），
+  杜绝会话期 pool 写入与 /mcp、资源工具无锁读取的 data race（CR-BF03-2 升级裁决的
+  触发路径）。`mcpConnectTimeout` 改为 var 供测试注入（生产 30s）。drain 有界性依据：
+  agtkeel jsonrpc.call 与 transport 均 select ctx.Done，cancel 传导至握手使 Connect 返回。
+  内核根因（reader 绑定 handshake ctx、HTTP Close 仅置旗标）登记跨仓债务 BF-19/CR-BF01-7。
+  RegisterServerTools 的 boot ListTools 加每服务器 deadline（listToolsTimeout，生产 10s，
+  可注入），hung server 不再无限阻塞启动；超时为非致命单服务器失败。
+  回归测试：慢握手 bounded+drained、caller-cancel drain、慢 list 非致命（原超时分支 0% 覆盖已补）。
