@@ -32,6 +32,16 @@ type Options struct {
 	Search func(query string) (any, error)
 	// Describe, when set, backs codemode.describe(name) inside the sandbox.
 	Describe func(name string) (any, error)
+	// Typescript compiles the code as TypeScript (Node-style type stripping,
+	// CM-02 v2). Errors point into the TS source.
+	Typescript bool
+	// ImportModule, when set, resolves import specifiers to module source
+	// (CM-02 v2 controlled imports). The host decides what is reachable;
+	// nil keeps imports disabled. Never expose arbitrary filesystem reads.
+	ImportModule func(specifier string) (string, error)
+	// History, when set, backs codemode.history(limit) inside the sandbox
+	// (CM-02 v2 execution history for reuse).
+	History func(limit int) (any, error)
 }
 
 // Result is what one sandbox execution produced.

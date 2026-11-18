@@ -159,3 +159,62 @@ func TestMoejs_SearchDescribeHooks(t *testing.T) {
 		t.Errorf("search/describe round trip: %#v", res.Value)
 	}
 }
+
+func TestMoejsV2_TypeScript(t *testing.T) {
+	rt := NewMoejsRuntime()
+	res, err := rt.Execute(context.Background(), `
+		const double = (x: number): number => x * 2;
+		return double(21);
+	`, nil, Options{Typescript: true})
+	if err != nil {
+		t.Fatalf("TS execute: %v", err)
+	}
+	if fmt.Sprintf("%v", res.Value) != "42" {
+		t.Errorf("TS value: %#v", res.Value)
+	}
+}
+
+func TestMoejsV2_ImportHook(t *testing.T) {
+	rt := NewMoejsRuntime()
+	opts := Options{
+		ImportModule: func(spec string) (string, error) {
+			if spec == "lib" {
+				return `export const answer = 42;`, nil
+			}
+			return "", context.DeadlineExceeded
+		},
+	}
+	res, err := rt.Execute(context.Background(), `
+		const m = await import("lib");
+		return m.answer;
+	`, nil, opts)
+	if err != nil {
+		t.Fatalf("import execute: %v", err)
+	}
+	if fmt.Sprintf("%v", res.Value) != "42" {
+		t.Errorf("import value: %#v", res.Value)
+	}
+	_, err = rt.Execute(context.Background(), `await import("nope");`, nil, opts)
+	if err == nil {
+		t.Error("resolver rejection must fail the import")
+	}
+}
+
+func TestMoejsV2_HistoryHook(t *testing.T) {
+	rt := NewMoejsRuntime()
+	opts := Options{
+		History: func(limit int) (any, error) {
+			return []map[string]any{{"id": "e1", "code": "return 1"}}, nil
+		},
+	}
+	res, err := rt.Execute(context.Background(), `
+		const h = codemode.history(5);
+		return h[0].id;
+	`, nil, opts)
+	if err != nil {
+		t.Fatalf("history execute: %v", err)
+	}
+	if res.Value != "e1" {
+		t.Errorf("history value: %#v", res.Value)
+	}
+}

@@ -1,8 +1,8 @@
 # Code Mode 设计文档（CM-01）
 
 > 负责 Agent：主会话（维护模式）
-> 状态：已实现（v1，2026-11-18）
-> 版本：v1.0
+> 状态：已实现（v2，2026-11-18）
+> 版本：v2.0
 > 研究依据：`docs/project/discussions/2026-11-18-codemode-feasibility.md`（含 moejs/goja 实测）
 
 ---
@@ -38,8 +38,12 @@ LLM ──tool_call: CodeMode{code}──▶ engine 权限管线（CodeMode 本�
 
 - 每次调用新建隔离 runtime（moejs：~µs 级创建、~KiB 级内存）
 - 代码契约：**async 函数 body**（语句＋return）；包装为 `(async () => { code })().then(capture, captureErr)`
+- **TypeScript 输入（v2）**：input `typescript=true` → moejs CompileTS（Node 式类型剥离，错误指向 TS 源码）
 - 暴露 globals：`tools.*`（Proxy 动态分发）、`codemode.search/describe`、`console.log`（捕获）
 - `DisableDynamicCode: true`（eval/new Function 禁用）；builtins 冻结共享
+- **受控 import（v2）**：`import { x } from "name"` 经 host resolver 读
+  `dataDir/modules/<name>.js`（flat 名称、禁路径穿越、256KiB 上限）；
+  无 dataDir 时 import 禁用。沙箱仍无任意 fs 访问
 - 护栏：`Options.MemoryLimit`（默认 64MiB，超限不可 catch 地中断）、
   Timeout（默认 120s，rt.Interrupt）、ctx/AbortCh 取消联动
 
@@ -55,6 +59,13 @@ bridge 完整复用引擎流程（orchestration.go 同构）：
 **每次内部调用独立过权限**——CodeMode 不是权限旁路。YOLO 模式下内部调用同样放行
 （与直接调用一致）。
 
+**批次批准（v2）**：bridge 先 CanUseTool 分流——
+- 直接 Allow（规则/YOLO）：**不缓存**，每次重查（live 模式切换即时生效）
+- Ask → RequestPermission（TUI 对话框）→ 用户批准 → **该工具在本次执行内
+  预批准**（execAllow，执行 scope，不持久化）；后续同工具调用免询问
+- Deny：**不缓存**，每次如实拒绝
+语义：N 次同工具写调用＝1 次询问；不同工具分别询问；执行结束缓存即弃。
+
 ### 2.3 Progressive discovery（cache gate 友好）
 
 - 工具 description 含**紧凑 catalog**（每工具一行：name＋首行描述），构造期快照
@@ -66,8 +77,18 @@ bridge 完整复用引擎流程（orchestration.go 同构）：
 ### 2.4 结果
 
 - return 值（字串原样、其他 JSON indent）＋console.log 捕获
-- 上限 32KiB（window-small），超限截断＋诚实提示
+- 上限 32KiB（window-small）；**超限 spill（v2）**：全量写
+  `dataDir/spill/<execID>.txt`，回传 4KiB preview＋文件指针（模型用 Read/Grep 取回）；
+  无 dataDir 时降级为截断＋提示
 - 执行错误（编译/超时/内存/拒绝未 catch）→ IsError 结果回模型自纠
+
+### 2.5 执行历史与复用（v2）
+
+- 每次执行追加 `dataDir/history.jsonl`：{id, ts, ok, duration_ms, typescript,
+  code（≤2000 字符）, tools（去重调用名单）, preview, error}——best-effort 不致命
+- 沙箱内 `codemode.history(limit)`（默认 10、上限 50，newest-first）取回历史，
+  模型读取过去代码改编复用
+- replay/rollback（副作用追踪＋重放审批）属 durable runtime 级别，留 v3
 
 ## 3. 引擎选型（实测依据见可行性研究 §2/§9）
 
@@ -89,12 +110,11 @@ Runtime 介面（`internal/codemode/runtime.go`）隔离引擎：Execute(ctx, co
 `reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime()))`。
 RegisterBuiltinTools 不含 CodeMode（依赖 checker，同 plan/HIL 工具模式）。
 
-## 5. 已知局限（v1）
+## 5. 已知局限（v2 后）
 
-- 代码契约为同步 bridge＋async 包装；`import` 不开放（Importer 未接）
-- TypeScript 输入未开放（CompileTS 就绪，v2 可加）
-- 无执行历史/replay/rollback（Cloudflare durable runtime 级别，超出 v1）
-- 权限轰炸：N 个内部写调用＝N 次 Ask（v2 考虑批次批准 UX）
+- 无 replay/rollback/审批持久化（Cloudflare durable runtime 级别，留 v3）
+- 批次批准为执行 scope 同工具粒度（非 read/write 分类闸门；Agent Lee 模式留 v3）
+- import 仅 host 预置模块（沙箱不能创建模块——无 fs，结构性限制）
 - moejs alpha：API 可能变动（钉版 v0.1.1＋介面隔离缓解）
 
 ## 6. 测试覆盖
@@ -110,3 +130,4 @@ RegisterBuiltinTools 不含 CodeMode（依赖 checker，同 plan/HIL 工具模�
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|---------|
 | v1.0 | 2026-11-18 | 主会话 | CM-01 v1 实现：moejs 沙箱＋权限 bridge＋progressive discovery＋32KiB cap＋23 测试 |
+| v2.0 | 2026-11-18 | 主会话 | CM-02 v2：TypeScript 输入（CompileTS）；批次批准（Ask→批准→执行内同工具预批准，Deny/直接 Allow 不缓存）；结果 spill（>32KiB→文件＋4KiB preview＋指针）；执行历史（history.jsonl＋codemode.history 复用）；受控 import（host modules 目录、flat 名称、256KiB cap）。新增测试×11（工具端×8＋引擎×3），总 34 测试。dataDir 接线 ~/.claude/codemode。 |

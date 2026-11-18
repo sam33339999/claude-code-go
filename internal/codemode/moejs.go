@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/MoeForge/moejs"
@@ -36,6 +37,7 @@ globalThis.tools = new Proxy({}, {
 globalThis.codemode = {
 	search: (q) => __search(String(q)),
 	describe: (n) => __describe(String(n)),
+	history: (n) => __history(Number(n) || 10),
 };
 `
 
@@ -52,10 +54,23 @@ func (m *MoejsRuntime) Execute(ctx context.Context, code string, call CallFunc, 
 		memLimit = DefaultMemoryLimit
 	}
 
-	rt := moejs.NewRuntime(moejs.Options{
+	mopts := moejs.Options{
 		MemoryLimit:        memLimit,
 		DisableDynamicCode: true, // no eval / new Function in the sandbox
-	})
+	}
+	if opts.ImportModule != nil {
+		resolve := opts.ImportModule
+		mopts.Importer = &moejs.Importer{
+			Resolve: func(_ moejs.Referrer, specifier string) (*moejs.Module, error) {
+				src, err := resolve(specifier)
+				if err != nil {
+					return nil, err
+				}
+				return moejs.Compile("codemode:"+specifier, src)
+			},
+		}
+	}
+	rt := moejs.NewRuntime(mopts)
 	loop, err := eventloop.New(rt, eventloop.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("codemode: event loop: %w", err)
@@ -129,6 +144,19 @@ func (m *MoejsRuntime) Execute(ctx context.Context, code string, call CallFunc, 
 	}
 
 	// Result capture: the async body's resolved value / rejection.
+	if err := rt.SetGlobal("__history", moejs.NativeFunc(func(_ *moejs.Realm, _ moejs.Value, args []moejs.Value) (moejs.Value, error) {
+		if opts.History == nil {
+			return moejs.Undefined(), fmt.Errorf("codemode: history is not available")
+		}
+		n, _ := strconv.Atoi(moejs.Arg(args, 0).String())
+		v, err := opts.History(n)
+		if err != nil {
+			return moejs.Undefined(), err
+		}
+		return rt.FromGo(v)
+	})); err != nil {
+		return nil, fmt.Errorf("codemode: install __history: %w", err)
+	}
 	if err := rt.SetGlobal("__capture", moejs.NativeFunc(func(_ *moejs.Realm, _ moejs.Value, args []moejs.Value) (moejs.Value, error) {
 		v, err := rt.ToGoWith(moejs.Arg(args, 0), moejs.DecodeOptions{})
 		if err != nil {
@@ -148,10 +176,6 @@ func (m *MoejsRuntime) Execute(ctx context.Context, code string, call CallFunc, 
 	}
 
 	source := sandboxPrelude + "\n(async () => {\n" + code + "\n})().then(v => __capture(v), e => __captureErr(e && e.message ? String(e.message) : String(e)));\n"
-	script, err := moejs.CompileScript("codemode.js", source)
-	if err != nil {
-		return nil, fmt.Errorf("codemode: compile: %w", err)
-	}
 
 	// Guards: timeout and caller cancellation both interrupt the script.
 	timer := time.AfterFunc(timeout, func() { rt.Interrupt("codemode: execution timed out") })
@@ -159,10 +183,23 @@ func (m *MoejsRuntime) Execute(ctx context.Context, code string, call CallFunc, 
 	stopCtxWatch := context.AfterFunc(ctx, func() { rt.Interrupt("codemode: cancelled") })
 	defer stopCtxWatch()
 
-	runErr := loop.Run(func(rt *moejs.Runtime) error {
-		_, err := rt.RunScript(script)
-		return err
-	})
+	var runErr error
+	if opts.Typescript {
+		mod, err := moejs.CompileTS("codemode.ts", source)
+		if err != nil {
+			return nil, fmt.Errorf("codemode: compile: %w", err)
+		}
+		runErr = loop.Run(func(rt *moejs.Runtime) error { return rt.Load(mod) })
+	} else {
+		script, err := moejs.CompileScript("codemode.js", source)
+		if err != nil {
+			return nil, fmt.Errorf("codemode: compile: %w", err)
+		}
+		runErr = loop.Run(func(rt *moejs.Runtime) error {
+			_, err := rt.RunScript(script)
+			return err
+		})
+	}
 	if codeErr != nil {
 		return nil, codeErr
 	}
