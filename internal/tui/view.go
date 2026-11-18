@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -77,6 +78,9 @@ func (m AppModel) View() string {
 			"Press y to confirm, n to cancel.",
 			m.termWidth, m.theme,
 		))
+	case dialogConfig:
+		sb.WriteString("\n")
+		sb.WriteString(m.renderConfigDialog())
 	}
 
 	return sb.String()
@@ -105,6 +109,46 @@ func (m *AppModel) syncViewportContent() {
 	if m.pinnedToBottom {
 		m.viewport.GotoBottom()
 	}
+}
+
+// renderConfigDialog renders the read-only /config settings panel (BF-05).
+// Editing happens via the dedicated slash commands (/model, /theme, /vim,
+// /effort) and persistent settings files; interactive in-panel editing is a
+// documented follow-up (design/tui.md §4.1). Display-only: it never touches
+// engine history or tool schemas (cache-first gate).
+func (m AppModel) renderConfigDialog() string {
+	st := m.appState.GetState()
+	themeName := "light"
+	if m.darkMode {
+		themeName = "dark"
+	}
+	vim := "off"
+	if m.input.vimEnabled {
+		vim = "on"
+	}
+	effort := m.effort
+	if effort == "" {
+		effort = "default"
+	}
+	var sb strings.Builder
+	sb.WriteString(warningStyle(m.theme).Bold(true).Render("Configuration"))
+	sb.WriteString("\n")
+	line := func(k, v string) {
+		sb.WriteString(mutedStyle(m.theme).Render(fmt.Sprintf("  %-12s %s", k, v)))
+		sb.WriteString("\n")
+	}
+	line("Model", st.MainLoopModel.ModelID)
+	line("Theme", themeName)
+	line("Vim mode", vim)
+	line("Effort", effort)
+	line("Working dir", st.WorkingDir)
+	if m.sessionID != "" {
+		line("Session", m.sessionID)
+	}
+	sb.WriteString(mutedStyle(m.theme).Render("Change: /model /theme /vim /effort · persistent: ~/.claude/settings.json"))
+	sb.WriteString("\n")
+	sb.WriteString(mutedStyle(m.theme).Render("(Esc to close)"))
+	return sb.String()
 }
 
 // renderConfirmDialog renders a minimal yes/no confirmation dialog.

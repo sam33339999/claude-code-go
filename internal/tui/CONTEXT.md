@@ -2,7 +2,7 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-18T01:17:44Z
+generated_at: 2026-11-18T03:14:37Z
 source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, spinner.go, statusbar.go, styles.go, theme.go, update.go, view.go, welcome.go]
 ---
 
@@ -92,3 +92,4 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **2026-09-23 基座换库（agtkeel import-swap）**：可复用 agent 内核已逐字提取到 `github.com/tunsuy/agtkeel`（MIT），本包 import 随之改写：`internal/{api,compact,msgqueue,engine,session,permissions,hooks,mcp,config}` → `agtkeel/*`、`internal/tools`（接口契约+注册表）→ `agtkeel/tools`、`pkg/types` → `agtkeel/types`、`pkg/utils/{fs,ids}` → `agtkeel/utils/*`。本包代码**仅 import 路径重写，零逻辑改动**，`go build`/`go vet`/`go test -race ./...` 全绿。已知表现局限：docgen 依赖图按本模块前缀分类，agtkeel 视作第三方库，故上方 Imports 栏不再展示内核依赖（与 cobra 等一致）。
 - **2026-11-18 BF-03（/mcp、/resume 接线）**：`New()`/`newAppModel` 末尾新增 `mcpPool commands.MCPServerLister` 注入参数（bootstrap `runInteractive` 传入 `container.MCPPool`，与 memoryStore 同一注入模式）；`AppModel` 新增 `mcpPool` 字段。新增 `MCPStatusMsg` 与 `fetchMCPStatusCmd`（/mcp 报告在 Update 循环外生成，整体 15s 超时，MVU 合规）。`applyCommandResult` 新增：`FetchMCPStatus` → 异步 Cmd；`NewMessages`（`[]types.Message` 断言）→ 替换 `m.messages` + `queryEngine.SetMessages` + 采纳 `NewSessionID`，查询进行中拒绝恢复；/clear 的遗留 `[]interface{}{}` 断言失败被忽略，行为不变。未新增引擎契约（复用既有 `SetMessages`）。
 - **2026-11-18 BF-03-F1 评审修复（CR-BF03-1）**：`applyCommandResult` 提取 `applyResumeResult`（NewMessages 消费＋isLoading 拒绝，返回 stop 标志）与 `applyDisplayResult`（Display 渲染）两个私有 helper，主函数 107→72 行（≤80 规范），逐路径行为不变。/mcp 显示-only 守护补强：TestSlashMCP_FetchesStatusViaCmd 追加引擎历史 DeepEqual 不变断言（cache gate）。
+- **2026-11-18 BF-05 /config 面板**：view.go 新增 renderConfigDialog（dialogConfig overlay case），渲染 AppState 当前设置（Model/Theme/Vim/Effort/WorkingDir/Session），Esc 关闭沿用既有 keys.go。纯展示不触引擎历史（DeepEqual 守护测试）。只读面板，交互编辑为文档化后续项。

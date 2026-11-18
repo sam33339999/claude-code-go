@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/tunsuy/claude-code-go/internal/memdir"
@@ -245,10 +246,9 @@ func cmdConfig() *Command {
 		Name:        "config",
 		Description: "Open configuration settings",
 		Execute: func(ctx CommandContext, args string) Result {
-			return Result{
-				Text:    "Config dialog not yet implemented.",
-				Display: DisplayMessage,
-			}
+			// The TUI renders a read-only settings panel (dialogConfig);
+			// editing happens via /model, /theme, /vim, /effort and settings files.
+			return Result{OpenDialog: "config"}
 		},
 	}
 }
@@ -405,10 +405,10 @@ func cmdResume() *Command {
 func cmdTerminalSetup() *Command {
 	return &Command{
 		Name:        "terminal-setup",
-		Description: "Install shell integration (key bindings, completions)",
+		Description: "Detect terminal environment and show setup guidance",
 		Execute: func(ctx CommandContext, args string) Result {
 			return Result{
-				Text:    "Terminal setup not yet implemented.",
+				Text:    FormatTerminalSetup(DetectTerminal(os.Getenv)),
 				Display: DisplayMessage,
 			}
 		},

@@ -2,7 +2,7 @@
 
 > 负责 Agent：Agent-TUI
 > 状态：已实现（维护期回填中）
-> 版本：v1.2
+> 版本：v1.3
 > 日期：2026-11-18（初稿 2026-04-02）
 
 ---
@@ -726,6 +726,25 @@ Update() 中 case CommandResultMsg: → 更新 m.commandResult → View() 展示
 - 已知局限：交互模式目前不落盘会话 JSONL（持久化接线属 bootstrap/engine 职责，见 BF-03 汇报），
   故 /resume 列表内容取决于其他路径写入的会话文件。
 
+**/config（只读设置面板，BF-05）**：
+
+- `cmdConfig` 返回 `Result{OpenDialog: "config"}`（既有 wiring），TUI 打开 `dialogConfig`，
+  `renderConfigDialog` 渲染当前设置：Model（AppState.MainLoopModel）、Theme（dark/light）、
+  Vim mode、Effort、Working dir、Session ID。Esc 关闭（既有 keys.go 处理）。
+- **只读**：编辑经既有 /model /theme /vim /effort 命令与持久化设置文件（~/.claude/settings.json）；
+  面板内交互编辑为文档化的后续项（与原版 /config 的可编辑面板有差距，属已知局限）。
+- 纯展示：不触碰引擎历史与工具 schema（cache-first 闸门三问全否，有 DeepEqual 守护测试）。
+
+**/terminal-setup（终端环境检测，BF-05）**：
+
+- `DetectTerminal(lookup)` 纯函数从环境变量识别终端（VS Code/iTerm2/Apple Terminal/WezTerm/
+  Ghostty/Windows Terminal/Konsole/GNOME/tmux/screen/generic/unknown）与 shell（SHELL basename）；
+  lookup 注入（生产 os.Getenv），测试不改进程环境。未知环境诚实报告，不猜测。
+- `FormatTerminalSetup` 输出检测报告＋非侵入指引：多行输入 Ctrl+J 提示、
+  `claude completion <shell>` 补全安装指引（cobra 内建命令）。**不写任何文件、不改终端设置**——
+  与原版「安装 Shift+Enter 键绑定」有差距，设计规格（§命令表「终端环境配置检测」）以检测为准，
+  键绑定自动安装列为后续项。
+
 **依赖注入路径（接口变更，已汇报）**：
 
 - `tui.New(...)` 与内部 `newAppModel` 末尾新增参数 `mcpPool commands.MCPServerLister`（可为 nil），
@@ -1037,6 +1056,7 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|---------|
+| v1.3 | 2026-11-18 | Agent-TUI（主会话代行） | BF-05：/config 只读设置面板（OpenDialog 既有 wiring＋renderConfigDialog，Esc 关闭，交互编辑为后续项）；/terminal-setup 终端环境检测（DetectTerminal 纯函数＋非侵入指引，不写文件；键绑定自动安装为后续项）。两桩消除，debt 24→22。cache 闸门三问全否＋守护测试。无接口签名变更。 |
 | v1.2 | 2026-11-18 | Agent-TUI | BF-03-F1 评审修复（CR-BF03-1/2/3/4/5）：§4.1 钉住 `MCPServerLister`/`FormatMCPStatus` 的无并发池突变约束（活指针读取，快照根治待跨仓 BF-19；BF-01 并发写者落地前必须关闭）；补记 /mcp 活状态对 BF-01 启动接线的依赖（此前空池提示为预期行为）；`applyCommandResult` 提取 `applyResumeResult`/`applyDisplayResult` helper（≤80 行，行为不变）；/resume 错误经 %w 保留底层原因、Close 失败显式处理。无接口签名变更。 |
 | v1.1 | 2026-11-18 | Agent-TUI | BF-03：/mcp、/resume 真实实现（§4.1）。新增 `commands.MCPServerLister`、`commands.FormatMCPStatus`、`Result.FetchMCPStatus`/`Result.NewSessionID`、`tui.MCPStatusMsg`；`tui.New`/`newAppModel` 新增 `mcpPool` 注入参数（bootstrap 传入 `container.MCPPool`）；`applyCommandResult` 开始消费 `Result.NewMessages`（含 isLoading 保护）。commands 层新增 agtkeel mcp/session/types/utils/fs 向下依赖。 |
 | v1.0 | 2026-04-02 | Agent-TUI | 初稿 |
