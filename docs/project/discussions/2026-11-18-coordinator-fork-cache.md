@@ -74,6 +74,29 @@ resume_test.go、bootstrap wire_fork_test.go、tools/agent fork 語義×2、tui 
 3. **是否新增呼叫？** fork 是新增背景呼叫，但其前綴走 cache read（便宜輸入）——此即本變更目的。
    529 時 background QuerySource 即放棄（避免容量級聯）。
 
+## 實機驗證修復（2026-11-18，fix/agent-lifetime）
+
+使用者實機跑委派「一直失敗」。根因與修復：
+
+1. **Agent 生命週期綁死父 query ctx**（主因）：`SpawnAgent` 以 caller ctx（＝父 query 的
+   tool-call ctx）為 agent ctx 父源。父 turn 結束時 `Query` 的 `defer cancel()` 觸發；TUI 在使用者
+   送下一訊息時也會 abort 前一 query——background agent/fork 隨即被取消。**fork 強制 background，
+   所以每次 fork 都在父 turn 結束時死亡**。修復：`context.WithoutCancel(ctx)` 為 parentCtx
+   （保留 values、去除 cancellation），thread 存活至完成或 StopAgent（Projects thread 語義）。
+2. **Interrupt slot 被 background query 劫持**：`engine.Query` 無條件覆蓋 `e.abortFn`，
+   sub-agent query 跑在同一 engine 上會使 Ctrl+C 取消到 background query 而非主對話。
+   修復：僅 write-back（foreground）query 擁有 interrupt slot。
+
+守護測試：TestSpawnAgent_SurvivesParentContextCancel、TestSendMessage_ResumeAfterParentContextCancel、
+TestInterrupt_NotHijackedByBackgroundQuery。
+
+### CWD 事實（使用者提問）
+
+**委派無 per-agent CWD 設定**：Bash 工具不設 `cmd.Dir`（繼承 process CWD）、fileops/glob/grep
+用 `os.Getwd()`。sub-agent 與主會話共用同一個 process 工作目錄，無隔离。這非失敗根因，但與
+leak 的 `isolation: "worktree"`（agent 獨立 git worktree）有差距——列為後續項。
+另確認 PermCtx=nil 安全（所有 CheckPermissions override 忽略 UseContext；checker 用自身快照＋ModeFn）。
+
 ## Phase 2（未落地，後續任務）
 
 - **跨 process 存續**：Projects thread 可跨 coordinator 替換存活（project-activity wake 帶摘要）。
@@ -86,6 +109,9 @@ resume_test.go、bootstrap wire_fork_test.go、tools/agent fork 語義×2、tui 
   預設 5m。可於 api.CacheControl 加 TTL 欄位＋session 設定。
 - **fork gate**：leak 的 fork 是 gated feature（「when the fork gate is on」）；本倉直接開放
   agent_type=fork。若需對齊 oracle 預設行為（fork 非預設、需顯式選擇），現狀已符合（預設 worker）。
+- **Worktree isolation**：leak 的 Agent 工具有 `isolation: "worktree"`（agent 在獨立 git worktree
+  工作，未變更自動清理）。目前 sub-agent 共用 process CWD，寫入任務可能互相衝突——coordinator
+  prompt 已建議寫入任務串行，但 isolation 是更徹底的解法。本倉 EnterWorktree 工具（BF-10）可以為基。
 
 ## 已知局限
 

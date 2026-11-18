@@ -20,8 +20,10 @@ type QueryEngine interface {
 	// Cancellation is via ctx; see also Interrupt for immediate user-initiated abort.
 	Query(ctx context.Context, params QueryParams) (<-chan Msg, error)
 
-	// Interrupt signals the currently-running query to stop at the next safe
-	// opportunity (equivalent to the user pressing Ctrl+C).
+	// Interrupt signals the currently-running foreground query to stop at the
+	// next safe opportunity (equivalent to the user pressing Ctrl+C).
+	// Background sub-agent/forked queries (NoWriteBack) do not own this slot;
+	// they are cancelled via their own contexts.
 	Interrupt(ctx context.Context)
 
 	// GetMessages returns the full conversation history held by this engine.
