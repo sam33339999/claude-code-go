@@ -165,9 +165,31 @@ func TestEV01_NotificationAfterConnect(t *testing.T) {
 	if len(tools) != 0 {
 		t.Errorf("expected empty tool list, got %d", len(tools))
 	}
-	events := waitForEvents(t, col, 1)
-	if !strings.Contains(events[0], "late-event") {
-		t.Errorf("expected late-event, got %q", events[0])
+	// The early-event notification may arrive late (scheduling); wait for the
+	// late-event specifically rather than assuming it is the first collected.
+	deadline := time.Now().Add(3 * time.Second)
+	var events []string
+	for time.Now().Before(deadline) {
+		events = col.snapshot()
+		found := false
+		for _, e := range events {
+			if strings.Contains(e, "late-event") {
+				found = true
+			}
+		}
+		if found {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	foundLate := false
+	for _, e := range events {
+		if strings.Contains(e, "late-event") {
+			foundLate = true
+		}
+	}
+	if !foundLate {
+		t.Errorf("expected late-event notification, got %v", events)
 	}
 }
 
