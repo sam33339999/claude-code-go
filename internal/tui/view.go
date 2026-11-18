@@ -27,21 +27,47 @@ func (m AppModel) View() tea.View {
 		return m.screenView("")
 	}
 
-	var sb strings.Builder
+	// Render bottom-anchored extras FIRST and measure them, so the message
+	// viewport can shrink to keep everything inside the terminal. Without
+	// this, dialogs/todo panel append below a full-height viewport and get
+	// clipped off-screen (the approval dialog becomes invisible).
+	dialog := m.renderActiveDialog()
+	extraLines := renderedLines(dialog)
 
-	// --- Coordinator panel (multi-agent) ---
+	var todoPanel string
+	if todos := m.appState.GetState().Todos; len(todos) > 0 {
+		todoPanel = renderTodoPanel(todos, m.theme)
+		extraLines += renderedLines(todoPanel)
+	}
+
+	var coordPanel string
 	if m.coordinatorMode {
-		panel := m.coordinatorPanel.View(m.termWidth, m.theme)
-		if panel != "" {
-			sb.WriteString(panel)
-			sb.WriteString("\n")
+		coordPanel = m.coordinatorPanel.View(m.termWidth, m.theme)
+		if coordPanel != "" {
+			extraLines += renderedLines(coordPanel) + 1 // trailing newline
 		}
 	}
 
-	// --- Message list rendered through viewport ---
+	var sb strings.Builder
+
+	// --- Coordinator panel (multi-agent) ---
+	if coordPanel != "" {
+		sb.WriteString(coordPanel)
+		sb.WriteString("\n")
+	}
+
+	// --- Message list rendered through viewport (shrunk by extras) ---
 	// Only show viewport area when there is content to display;
 	// otherwise avoid filling the terminal with blank lines.
-	vpContent := strings.TrimRight(m.viewport.View(), "\n ")
+	vp := m.viewport
+	if extraLines > 0 {
+		h := vp.Height() - extraLines
+		if h < 1 {
+			h = 1
+		}
+		vp.SetHeight(h)
+	}
+	vpContent := strings.TrimRight(vp.View(), "\n ")
 	if vpContent != "" {
 		sb.WriteString(vpContent)
 		sb.WriteString("\n")
@@ -59,43 +85,55 @@ func (m AppModel) View() tea.View {
 	sb.WriteString("\n")
 
 	// --- Todo panel (BF-07) ---
-	if todos := m.appState.GetState().Todos; len(todos) > 0 {
-		sb.WriteString(renderTodoPanel(todos, m.theme))
+	if todoPanel != "" {
+		sb.WriteString(todoPanel)
 	}
 
 	// --- Input area ---
 	sb.WriteString(m.input.View(m.theme))
 
-	// --- Active dialogs (overlay) ---
-	switch m.activeDialog {
-	case dialogPermission:
-		if m.permReq != nil {
-			sb.WriteString("\n")
-			sb.WriteString(m.permReq.View(m.termWidth, m.theme))
-		}
-	case dialogCompact:
+	// --- Active dialog (bottom-anchored, space reserved above) ---
+	if dialog != "" {
 		sb.WriteString("\n")
-		sb.WriteString(renderConfirmDialog(
-			"Compact conversation?",
-			"This will summarise the history and reduce context usage.",
-			m.termWidth, m.theme,
-		))
-	case dialogExit:
-		sb.WriteString("\n")
-		sb.WriteString(renderConfirmDialog(
-			"Exit Claude Code?",
-			"Press y to confirm, n to cancel.",
-			m.termWidth, m.theme,
-		))
-	case dialogConfig:
-		sb.WriteString("\n")
-		sb.WriteString(m.renderConfigDialog())
-	case dialogQuestion:
-		sb.WriteString("\n")
-		sb.WriteString(renderQuestionDialog(m.questionReq, m.theme))
+		sb.WriteString(dialog)
 	}
 
 	return m.screenView(sb.String())
+}
+
+// renderActiveDialog renders the currently open dialog ("" when none).
+func (m AppModel) renderActiveDialog() string {
+	switch m.activeDialog {
+	case dialogPermission:
+		if m.permReq != nil {
+			return m.permReq.View(m.termWidth, m.theme)
+		}
+	case dialogCompact:
+		return renderConfirmDialog(
+			"Compact conversation?",
+			"This will summarise the history and reduce context usage.",
+			m.termWidth, m.theme,
+		)
+	case dialogExit:
+		return renderConfirmDialog(
+			"Exit Claude Code?",
+			"Press y to confirm, n to cancel.",
+			m.termWidth, m.theme,
+		)
+	case dialogConfig:
+		return m.renderConfigDialog()
+	case dialogQuestion:
+		return renderQuestionDialog(m.questionReq, m.theme)
+	}
+	return ""
+}
+
+// renderedLines counts the terminal lines a rendered block occupies.
+func renderedLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	return len(strings.Split(strings.TrimRight(s, "\n"), "\n"))
 }
 
 // screenView wraps rendered content in a tea.View with the program's screen
