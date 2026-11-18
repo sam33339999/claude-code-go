@@ -98,9 +98,9 @@ version action）——无分歧，无需对齐。
 | B5 | `plugin list/install/uninstall/enable/disable/update/validate/marketplace` | 真实功能 | 已实现（8 个命令 + marketplace 子树，字节级钉在 `internal/bootstrap/plugin_*_test.go`） | ✅ 2026-09-05 |
 | B6 | `auth login/logout/status` | OAuth 流程 | login/logout/status 已实现 | ⏳ 对比 login 的设备码输出格式 |
 | B7 | `doctor` | 环境体检（逐项检查） | 打印最小报告（Go runtime/version），**无逐项检查** | ⏳ |
-| B8 | `update` | 自更新；`update --check` 查版本 | `update` 桩；`--check` 半实现（打印当前版本 + "not yet implemented"） | 🚧 |
-| B9 | `agents list/add/remove` | 管理 sub-agents | 桩 | 🚧 |
-| B10 | `install` | 安装 gh action 等 | 桩 | 🚧 |
+| B8 | `update`（别名 `upgrade`） | 自更新；`update --check` 查版本 | 已实现（BF-06）：GitHub releases 版本检查（endpoint 可注入，semver 比较）；新版提示 `claude install <ver>`。**分歧**：不自安装二进制（oracle 走 npm/native installer；Go 发行走 GitHub release archives，安装见 B10） | ✅ 2026-11-18（分歧已记录） |
+| B9 | `agents [--setting-sources]` | 列出配置的 agents（oracle 形态） | 已实现（BF-06）：**对齐 oracle 单一命令形态**（移除 list/add/remove 三桩子命令）；User/Project/Built-in 分组＋`(shadowed by project)` 遮蔽标记＋active 计数。**分歧**：无 local/managed/plugin/CLI-arg 分组、无 memory 显示；custom agents 文件式管理（~/.claude/agents、.claude/agents） | ✅ 2026-11-18（形态已对齐） |
+| B10 | `install [target]` | 安装 native build（stable/latest/特定版本，--force） | 已实现（BF-06）：GitHub releases 下载当前平台 archive（goreleaser 命名），解压 claude 二进制原子安装到 ~/.local/bin，PATH 提示。**分歧**：无 package-manager 集成 | ✅ 2026-11-18（分歧已记录） |
 | B11 | oracle 有、Go 完全缺失的子命令 | 16 个顶层子命令 | Go 缺 **11 个顶层 + 9 个二级**（明细见 §B11 盘点，2026-08-30，oracle 2.1.251） | ✅ 已盘点 |
 
 ## B11. 子命令盘点（2026-08-30，oracle = claude 2.1.251 本机二进制）
@@ -138,8 +138,8 @@ version action）——无分歧，无需对齐。
 | `plugin` | `prune\|autoremove` | 无 — `waived: 同上（uninstall 留 .orphaned_at 标记，清理语义留给将来） 2026-09-05` |
 | `plugin` | `tag` | 无 — `waived: 同上 2026-09-05` |
 | `plugin marketplace` | `add` / `list` / `remove\|rm` / `update` 整棵子树 | 已实现（2026-09-05，B5 一并落地；远程源见 §B12 分歧） |
-| `agents` | oracle 无二级子命令（options 驱动） | Go 是 `list/add/remove` 三桩，**形态不一致** |
-| `update` | 别名 `upgrade` | 无别名 |
+| `agents` | oracle 无二级子命令（options 驱动） | 已对齐 oracle 形态（BF-06，2026-11-18）：单一命令＋--setting-sources；Go 旧三子命令已移除 |
+| `update` | 别名 `upgrade` | 已补（BF-06，2026-11-18） |
 
 ### 盘点结论
 
@@ -147,12 +147,12 @@ version action）——无分歧，无需对齐。
   5 个命令同生共死，应作为一个 gap 整体决策——做或整体 waive）和
   **plugin 生态**（marketplace 子树 + details/eval/init/prune/tag）。
 - `agents` 的形态差异（oracle 用 options，Go 用子命令桩）提示关闭 B9 时
-  **不要照 Go 现状实现**，先对齐 oracle 形态。
+  **不要照 Go 现状实现**，先对齐 oracle 形态。（2026-11-18：BF-06 已依此对齐 oracle 形态关闭 B9。）
 - 加上 B2/B5 的桩：行为缺口合计 11 顶层 + 9 二级 + 桩（2026-08-30 快照）。
 - **2026-09-05 更新**：B2/B5 落地关闭 15 个桩（勘误：原记 16，B2 实为 7 个命令
   而非 8 个；42→27 与 debt 基线一致），marketplace 子树一并实现，
   `details/eval/init/prune/tag` 5 个二级缺口 waive（见上表）。
-  剩余二级缺口：`mcp login/logout`、`agents` 形态、`update` 别名 = 3 处。
+  剩余二级缺口：`mcp login/logout` = 1 处（`agents` 形态与 `update` 别名已由 BF-06 于 2026-11-18 关闭）。
 
 ## B12. B2/B5 落地记录（2026-09-05，oracle = claude v2.1.261）
 
