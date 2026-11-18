@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools/fileops"
 	"github.com/tunsuy/claude-code-go/internal/tools/misc"
+	"github.com/tunsuy/claude-code-go/internal/tools/shell"
 )
 
 // ── SkillTool ─────────────────────────────────────────────────────────────────
@@ -104,42 +106,87 @@ func TestBriefTool_Call_ReturnsError(t *testing.T) {
 	}
 }
 
-// ── ToolSearchTool ────────────────────────────────────────────────────────────
+// ── ToolSearchTool（BF-12）────────────────────────────────────────────────────
 
-func TestToolSearchTool_Name(t *testing.T) {
-	if misc.ToolSearchTool.Name() != "ToolSearch" {
-		t.Errorf("expected ToolSearch, got %q", misc.ToolSearchTool.Name())
-	}
+func newSearchTool() tools.Tool {
+	reg := tools.NewRegistry()
+	reg.Register(fileops.FileReadTool)
+	reg.Register(fileops.GrepTool)
+	reg.Register(fileops.NotebookEditTool)
+	reg.Register(shell.BashTool)
+	return misc.NewToolSearchTool(reg)
 }
 
-func TestToolSearchTool_IsConcurrencySafe_True(t *testing.T) {
-	if !misc.ToolSearchTool.IsConcurrencySafe(nil) {
-		t.Error("ToolSearchTool should be concurrency-safe")
+func TestToolSearchTool_Metadata(t *testing.T) {
+	tool := newSearchTool()
+	if tool.Name() != "ToolSearch" {
+		t.Errorf("expected ToolSearch, got %q", tool.Name())
 	}
-}
-
-func TestToolSearchTool_IsReadOnly_True(t *testing.T) {
-	if !misc.ToolSearchTool.IsReadOnly(nil) {
-		t.Error("ToolSearchTool should be read-only")
+	if !tool.IsConcurrencySafe(nil) {
+		t.Error("ToolSearch should be concurrency-safe")
 	}
-}
-
-func TestToolSearchTool_UserFacingName(t *testing.T) {
+	if !tool.IsReadOnly(nil) {
+		t.Error("ToolSearch should be read-only")
+	}
 	in, _ := json.Marshal(misc.ToolSearchInput{Query: "file read"})
-	name := misc.ToolSearchTool.UserFacingName(in)
-	if name != "ToolSearch(file read)" {
+	if name := tool.UserFacingName(in); name != "ToolSearch(file read)" {
 		t.Errorf("unexpected name: %q", name)
 	}
 }
 
-func TestToolSearchTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(misc.ToolSearchInput{Query: "something"})
-	result, err := misc.ToolSearchTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
+func TestToolSearchTool_FindsByHintAndName(t *testing.T) {
+	tool := newSearchTool()
+	in, _ := json.Marshal(misc.ToolSearchInput{Query: "search file content regex"})
+	result, err := tool.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("unexpected failure: err=%v result=%+v", err, result)
 	}
+	var entries []struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	if err := json.Unmarshal([]byte(result.Content.(string)), &entries); err != nil {
+		t.Fatalf("result not JSON: %v", err)
+	}
+	if len(entries) == 0 || entries[0].Name != "Grep" {
+		t.Errorf("expected Grep ranked first for content-regex query, got %+v", entries)
+	}
+	for _, e := range entries {
+		if e.Description == "" {
+			t.Errorf("entry %s missing description", e.Name)
+		}
+	}
+}
+
+func TestToolSearchTool_CamelCaseNameMatch(t *testing.T) {
+	tool := newSearchTool()
+	in, _ := json.Marshal(misc.ToolSearchInput{Query: "notebook"})
+	result, _ := tool.Call(in, nil, nil)
+	if result.IsError || !strings.Contains(result.Content.(string), "NotebookEdit") {
+		t.Errorf("expected NotebookEdit for 'notebook' query (camelCase split), got %+v", result)
+	}
+}
+
+func TestToolSearchTool_NoMatchAndEmptyQuery(t *testing.T) {
+	tool := newSearchTool()
+	in, _ := json.Marshal(misc.ToolSearchInput{Query: "zzzznonexistent"})
+	result, _ := tool.Call(in, nil, nil)
+	if result.IsError || !strings.Contains(result.Content.(string), "No tools match") {
+		t.Errorf("expected honest no-match message, got %+v", result)
+	}
+	in, _ = json.Marshal(misc.ToolSearchInput{Query: "  "})
+	result, _ = tool.Call(in, nil, nil)
 	if !result.IsError {
-		t.Error("expected IsError=true")
+		t.Error("empty query must be rejected")
+	}
+}
+
+func TestToolSearchTool_NilRegistry(t *testing.T) {
+	tool := misc.NewToolSearchTool(nil)
+	in, _ := json.Marshal(misc.ToolSearchInput{Query: "x"})
+	result, _ := tool.Call(in, nil, nil)
+	if !result.IsError {
+		t.Error("nil registry must report honest error")
 	}
 }
 
@@ -419,7 +466,7 @@ func TestSyntheticOutputTool_Call_ReturnsError(t *testing.T) {
 func TestAllMiscTools_ImplementToolInterface(t *testing.T) {
 	var _ tools.Tool = misc.SkillTool
 	var _ tools.Tool = misc.BriefTool
-	var _ tools.Tool = misc.ToolSearchTool
+	var _ tools.Tool = misc.NewToolSearchTool(nil)
 	var _ tools.Tool = misc.SleepTool
 	var _ tools.Tool = misc.SyntheticOutputTool
 }

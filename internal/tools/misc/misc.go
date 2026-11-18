@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/tunsuy/claude-code-go/internal/tools"
 )
@@ -113,11 +116,18 @@ type ToolSearchInput struct {
 	Query string `json:"query"`
 }
 
-// ToolSearchTool is the exported singleton instance.
-// TODO(dep): Requires Agent-Core tool registry and search index.
-var ToolSearchTool tools.Tool = &toolSearchTool{}
+// NewToolSearchTool constructs the ToolSearch tool backed by the live tool
+// registry (BF-12). Keyword scoring over tool names, SearchHint() and
+// descriptions; no external index needed. Registered by RegisterBuiltinTools
+// with the registry itself (self-reference is safe: search runs at call time).
+func NewToolSearchTool(reg *tools.Registry) tools.Tool {
+	return &toolSearchTool{reg: reg}
+}
 
-type toolSearchTool struct{ tools.BaseTool }
+type toolSearchTool struct {
+	tools.BaseTool
+	reg *tools.Registry
+}
 
 func (t *toolSearchTool) Name() string { return "ToolSearch" }
 
@@ -148,9 +158,118 @@ func (t *toolSearchTool) UserFacingName(input tools.Input) string {
 	return "ToolSearch"
 }
 
-func (t *toolSearchTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement via Agent-Core tool registry search index.
-	return &tools.Result{IsError: true, Content: "ToolSearch not yet implemented (TODO(dep))"}, nil
+// toolSearchMaxResults caps the returned matches (window-small principle).
+const toolSearchMaxResults = 10
+
+func (t *toolSearchTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	if t.reg == nil {
+		return &tools.Result{IsError: true, Content: "ToolSearch: no tool registry configured"}, nil
+	}
+	var in ToolSearchInput
+	if err := json.Unmarshal(input, &in); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("ToolSearch: invalid input: %v", err)}, nil
+	}
+	tokens := searchTokens(in.Query)
+	if len(tokens) == 0 {
+		return &tools.Result{IsError: true, Content: "ToolSearch: query is required"}, nil
+	}
+
+	type scored struct {
+		name  string
+		desc  string
+		score int
+	}
+	var matches []scored
+	for _, tool := range t.reg.All() {
+		name := tool.Name()
+		nameTokens := searchTokens(name)
+		hintTokens := searchTokens(tool.SearchHint())
+		desc := strings.ToLower(tool.Description(tools.Input("{}"), nil))
+		score := 0
+		for _, q := range tokens {
+			switch {
+			case containsToken(nameTokens, q):
+				score += 3
+			case containsToken(hintTokens, q):
+				score += 2
+			case strings.Contains(desc, q):
+				score++
+			}
+		}
+		if score > 0 {
+			matches = append(matches, scored{name: name, desc: firstLine(tool.Description(tools.Input("{}"), nil)), score: score})
+		}
+	}
+	if len(matches) == 0 {
+		return &tools.Result{Content: fmt.Sprintf("No tools match query %q. Use the tool list in your system prompt for available tools.", in.Query)}, nil
+	}
+	sort.Slice(matches, func(i, j int) bool {
+		if matches[i].score != matches[j].score {
+			return matches[i].score > matches[j].score
+		}
+		return matches[i].name < matches[j].name
+	})
+	if len(matches) > toolSearchMaxResults {
+		matches = matches[:toolSearchMaxResults]
+	}
+	type entry struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	entries := make([]entry, 0, len(matches))
+	for _, m := range matches {
+		entries = append(entries, entry{Name: m.name, Description: m.desc})
+	}
+	raw, err := json.Marshal(entries)
+	if err != nil {
+		return nil, fmt.Errorf("ToolSearch: marshal results: %w", err)
+	}
+	return &tools.Result{Content: string(raw)}, nil
+}
+
+// searchTokens lowercases s and splits on non-alphanumeric runs. CamelCase
+// names are split at case boundaries first so "FileRead" yields file+read.
+func searchTokens(s string) []string {
+	var spaced strings.Builder
+	runes := []rune(s)
+	for i, r := range runes {
+		if i > 0 && unicode.IsUpper(r) && (unicode.IsLower(runes[i-1]) || (i+1 < len(runes) && unicode.IsLower(runes[i+1]))) {
+			spaced.WriteRune(' ')
+		}
+		spaced.WriteRune(r)
+	}
+	var tokens []string
+	for _, f := range strings.FieldsFunc(strings.ToLower(spaced.String()), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}) {
+		if f != "" {
+			tokens = append(tokens, f)
+		}
+	}
+	return tokens
+}
+
+// containsToken reports whether tok appears in tokens (exact or prefix match,
+// so "read" matches "readfile" fragments like "read").
+func containsToken(tokens []string, tok string) bool {
+	for _, t := range tokens {
+		if t == tok || strings.HasPrefix(t, tok) {
+			return true
+		}
+	}
+	return false
+}
+
+// firstLine returns the first line of s, truncated to 160 runes.
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	r := []rune(s)
+	if len(r) > 160 {
+		return string(r[:160]) + "…"
+	}
+	return s
 }
 
 // ── SleepTool ─────────────────────────────────────────────────────────────────

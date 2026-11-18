@@ -2,7 +2,7 @@
 package: fileops
 import_path: internal/tools/fileops
 layer: tools
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T05:20:41Z
 source_files: [dangerous.go, doc.go, fileedit.go, fileread.go, filewrite.go, glob.go, grep.go, helpers.go, notebookedit.go, write_atomic.go]
 ---
 
@@ -35,3 +35,4 @@ source_files: [dangerous.go, doc.go, fileedit.go, fileread.go, filewrite.go, glo
 ## Design Notes
 
 - **2026-09-23 基座换库（agtkeel import-swap）**：可复用 agent 内核已逐字提取到 `github.com/tunsuy/agtkeel`（MIT），本包 import 随之改写：`internal/{api,compact,msgqueue,engine,session,permissions,hooks,mcp,config}` → `agtkeel/*`、`internal/tools`（接口契约+注册表）→ `agtkeel/tools`、`pkg/types` → `agtkeel/types`、`pkg/utils/{fs,ids}` → `agtkeel/utils/*`。本包代码**仅 import 路径重写，零逻辑改动**，`go build`/`go vet`/`go test -race ./...` 全绿。已知表现局限：docgen 依赖图按本模块前缀分类，agtkeel 视作第三方库，故上方 Imports 栏不再展示内核依赖（与 cobra 等一致）。
+- **2026-11-18 BF-11 NotebookEdit 实现**：.ipynb loose-JSON round trip（map[string]json.RawMessage 保留未知字段）；replace/insert/delete；source string|[]string 双格式输入、[]string 行输出；markdown 转换清 outputs/execution_count；insert 需 cell_type；绝对路径＋.ipynb 扩展名校验；writeFileAtomic 原子写。CheckPermissions/GetPath 既有真实逻辑保留。
