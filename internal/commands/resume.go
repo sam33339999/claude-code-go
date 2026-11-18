@@ -99,20 +99,25 @@ func listSessions(cwd string, limit int) ([]sessionInfo, error) {
 // loadSessionMessages reopens the session identified by sessionID under cwd
 // and returns its ordered conversation messages (user + assistant roles).
 // Corrupt or unknown entry types are skipped, mirroring the CLI --resume path.
+// Unlike the CLI path, the underlying resume error is preserved via %w for
+// diagnostics, and a Close failure is surfaced (same pattern as listSessions).
 func loadSessionMessages(cwd, sessionID string) ([]types.Message, error) {
 	if !validSessionID(sessionID) {
 		return nil, fmt.Errorf("invalid session ID %q", sessionID)
 	}
 	_, mgr, err := session.Resume(sessionID, cwd)
 	if err != nil {
-		return nil, fmt.Errorf("session %q not found for this project.\n"+
-			"Tip: use /resume to list available sessions", sessionID)
+		return nil, fmt.Errorf("session %q not found for this project: %w\n"+
+			"Tip: use /resume to list available sessions", sessionID, err)
 	}
-	defer mgr.Close() //nolint:errcheck
 
 	entries, err := mgr.ReadAll()
+	closeErr := mgr.Close()
 	if err != nil {
 		return nil, fmt.Errorf("resume session %q: %w", sessionID, err)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close session %q: %w", sessionID, closeErr)
 	}
 	return extractSessionMessages(entries), nil
 }

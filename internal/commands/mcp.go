@@ -12,8 +12,18 @@ import (
 
 // MCPServerLister is the read-only view of the MCP connection pool required
 // by the /mcp command. *mcp.Pool implements it; tests may supply a fake.
+//
+// Concurrency constraint (CR-BF03-2): GetAll returns a fresh slice whose
+// elements are LIVE *mcp.ServerConnection pointers shared with the pool.
+// The caller must ensure that no pool mutation (Connect/Reconnect/Disconnect
+// or any other writer of connection fields) runs concurrently with reading
+// the returned connections. A value-snapshot GetAll is pending on the agtkeel
+// side (cross-repo task BF-19); until it lands, every call site must uphold
+// this no-concurrent-mutation constraint.
 type MCPServerLister interface {
-	// GetAll returns all server connections regardless of status.
+	// GetAll returns all server connections regardless of status. The
+	// returned pointers alias the pool's live connections; see the
+	// interface-level no-concurrent-mutation constraint.
 	GetAll() []*mcp.ServerConnection
 }
 
@@ -31,6 +41,12 @@ const mcpToolListTimeout = 2 * time.Second
 // It may perform network I/O (ListTools on connected servers), so callers
 // in the TUI must invoke it from a tea.Cmd, never from Update() directly.
 // A nil pool or an empty pool yields a friendly informational message.
+//
+// Concurrency constraint (CR-BF03-2): it reads live connection fields
+// (Status/Error/Client/Config) without synchronization. The caller must
+// guarantee that no pool mutation (Connect/Reconnect/Disconnect) runs
+// concurrently with this call; see MCPServerLister. Snapshot semantics
+// are pending agtkeel BF-19.
 func FormatMCPStatus(ctx context.Context, pool MCPServerLister) string {
 	if pool == nil {
 		return "MCP is not available in this session."
@@ -45,10 +61,16 @@ func FormatMCPStatus(ctx context.Context, pool MCPServerLister) string {
 
 	var sb strings.Builder
 	sb.WriteString("MCP servers:\n\n")
-	for _, c := range conns {
-		sb.WriteString(fmt.Sprintf("  %s (%s): %s", c.Name, mcpTransportLabel(c), mcpStatusLabel(c)))
+	for _, live := range conns {
+		// Defensive snapshot (CR-BF03-2): copy the connection value once so
+		// all fields of one report line are read at a single instant and the
+		// line stays internally consistent. This narrows the read window but
+		// is NOT synchronization: the no-concurrent-mutation constraint above
+		// still applies until agtkeel GetAll returns value snapshots (BF-19).
+		c := *live
+		sb.WriteString(fmt.Sprintf("  %s (%s): %s", c.Name, mcpTransportLabel(&c), mcpStatusLabel(&c)))
 		if c.Status == mcp.StatusConnected {
-			sb.WriteString(mcpToolCountSuffix(ctx, c))
+			sb.WriteString(mcpToolCountSuffix(ctx, &c))
 		}
 		if c.Status == mcp.StatusFailed && c.Error != "" {
 			sb.WriteString(" — " + c.Error)

@@ -412,24 +412,10 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 	}
 
 	// /resume: replace the conversation with the loaded session history.
-	// NewMessages carries a []types.Message (see commands.Result); values of
-	// other types (e.g. /clear's legacy empty slice) are ignored here.
-	if msgs, ok := result.NewMessages.([]types.Message); ok {
-		if m.isLoading {
-			m.messages = append(m.messages, newSystemMessage(
-				"Cannot resume a session while a query is running. Press Esc to interrupt it first."))
-			m.syncViewportContent()
-			return m, nil
-		}
-		m.messages = msgs
-		m.queryEngine.SetMessages(msgs)
-		if result.NewSessionID != "" {
-			m.sessionID = result.NewSessionID
-		}
-		m.streamingText = ""
-		m.streamingHasMsg = false
-		m.pinnedToBottom = true
-		m.syncViewportContent()
+	// A rejection while a query is in flight stops further processing.
+	m, stop := m.applyResumeResult(result)
+	if stop {
+		return m, nil
 	}
 
 	if result.TriggerDream {
@@ -440,6 +426,41 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 		return m, fetchMCPStatusCmd(m.mcpPool)
 	}
 
+	return m.applyDisplayResult(result)
+}
+
+// applyResumeResult consumes Result.NewMessages for /resume: it replaces the
+// display and engine history with the loaded session and adopts NewSessionID.
+// NewMessages carries a []types.Message (see commands.Result); values of other
+// types (e.g. /clear's legacy empty slice) are ignored. Resume is rejected
+// while a query is in flight; the returned bool is true only in that case,
+// telling the caller to stop processing the rest of the result.
+func (m AppModel) applyResumeResult(result commands.Result) (AppModel, bool) {
+	msgs, ok := result.NewMessages.([]types.Message)
+	if !ok {
+		return m, false
+	}
+	if m.isLoading {
+		m.messages = append(m.messages, newSystemMessage(
+			"Cannot resume a session while a query is running. Press Esc to interrupt it first."))
+		m.syncViewportContent()
+		return m, true
+	}
+	m.messages = msgs
+	m.queryEngine.SetMessages(msgs)
+	if result.NewSessionID != "" {
+		m.sessionID = result.NewSessionID
+	}
+	m.streamingText = ""
+	m.streamingHasMsg = false
+	m.pinnedToBottom = true
+	m.syncViewportContent()
+	return m, false
+}
+
+// applyDisplayResult renders result.Text according to the Display mode.
+// DisplayNone with text starts a new query (prompt-style commands).
+func (m AppModel) applyDisplayResult(result commands.Result) (AppModel, tea.Cmd) {
 	switch result.Display {
 	case commands.DisplayMessage:
 		if result.Text != "" {
@@ -456,10 +477,8 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 			m.isLoading = true
 			m.showSpinner = true
 			m.spinner = m.spinner.Reset()
-			queryCmd := startQueryCmd(&m, result.Text)
-			return m, queryCmd
+			return m, startQueryCmd(&m, result.Text)
 		}
 	}
-
 	return m, nil
 }
