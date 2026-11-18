@@ -300,11 +300,14 @@ func cmdDream() *Command {
 func cmdMCP() *Command {
 	return &Command{
 		Name:        "mcp",
-		Description: "List connected MCP servers",
+		Description: "Show MCP server connection status",
 		Execute: func(ctx CommandContext, args string) Result {
+			// The status report may query connected servers (ListTools), so
+			// the TUI fetches it asynchronously via tea.Cmd (see
+			// commands.FormatMCPStatus) instead of blocking Update().
 			return Result{
-				Text:    "MCP server list not yet implemented.",
-				Display: DisplayMessage,
+				Display:        DisplayNone,
+				FetchMCPStatus: true,
 			}
 		},
 	}
@@ -365,11 +368,35 @@ func cmdInit() *Command {
 func cmdResume() *Command {
 	return &Command{
 		Name:        "resume",
-		Description: "Resume a previous session",
+		Description: "List previous sessions, or resume one (/resume <id>)",
 		Execute: func(ctx CommandContext, args string) Result {
+			sessionID := strings.TrimSpace(args)
+			if sessionID == "" {
+				sessions, err := listSessions(ctx.WorkingDir, resumeListLimit)
+				if err != nil {
+					return Result{Text: err.Error(), Display: DisplayError}
+				}
+				if len(sessions) == 0 {
+					return Result{
+						Text:    "No previous sessions found for this project.",
+						Display: DisplayMessage,
+					}
+				}
+				return Result{
+					Text:    formatSessionList(sessions),
+					Display: DisplayMessage,
+				}
+			}
+
+			msgs, err := loadSessionMessages(ctx.WorkingDir, sessionID)
+			if err != nil {
+				return Result{Text: err.Error(), Display: DisplayError}
+			}
 			return Result{
-				Text:    "Session resume not yet implemented.",
-				Display: DisplayMessage,
+				Text:         fmt.Sprintf("Resumed session %s (%d messages).", sessionID, len(msgs)),
+				Display:      DisplayMessage,
+				NewMessages:  msgs,
+				NewSessionID: sessionID,
 			}
 		},
 	}

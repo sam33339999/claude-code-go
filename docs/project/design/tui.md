@@ -1,8 +1,9 @@
 # TUI 层详细设计
 
 > 负责 Agent：Agent-TUI
-> 状态：设计中
-> 日期：2026-04-02
+> 状态：已实现（维护期回填中）
+> 版本：v1.1
+> 日期：2026-11-18（初稿 2026-04-02）
 
 ---
 
@@ -673,6 +674,50 @@ Update() 中 case CommandResultMsg: → 更新 m.commandResult → View() 展示
 
 **Tab 补全**：输入框检测 `/` 前缀时，调用 `registry.CompletePrefix(partial)` 返回候选列表，用 `SlashCommandSuggestions` 组件渲染在输入框上方弹出层。
 
+### 4.1 BF-03：/mcp 与 /resume 的真实实现与依赖注入（2026-11-18）
+
+> 注意：上文 §4 的 `Command`/`CommandContext`/`Result` 代码块为初稿契约；实际生效的契约以
+> `internal/commands/registry.go` 为准（`Execute func(ctx CommandContext, args string) Result`，
+> 无 tea.Cmd 返回值；副作用经 `Result` 标志位由 `applyCommandResult` 驱动）。
+
+**/mcp（异步状态报告，MVU）**：
+
+- `commands.MCPServerLister` 是 /mcp 所需的最小只读池视图接口（`GetAll() []*mcp.ServerConnection`），
+  agtkeel `*mcp.Pool` 天然满足（编译期断言钉住）；测试注入 fake。
+- `/mcp` 的 Execute 只返回 `Result{Display: DisplayNone, FetchMCPStatus: true}`（新增标志位，
+  仿照 `TriggerDream` 先例）。`applyCommandResult` 据此返回 `fetchMCPStatusCmd(m.mcpPool)`。
+- `fetchMCPStatusCmd`（tui/cmds.go）在 Update 循环之外调用 `commands.FormatMCPStatus(ctx, pool)`
+  渲染报告：每个 server 一行（名称、transport、✓ connected / ✗ failed / ⚠ needs authentication /
+  … pending / ○ disabled），connected 的 server 附带 `ListTools` 工具数（每 server 2s 超时、
+  整体 15s 上限，失败降级为 "tools unavailable"）。结果经新增 `MCPStatusMsg{Text}` 回到
+  Update，作为系统消息展示。空池/nil 池输出友好提示。
+- 选择异步的原因：`ListTools` 是网络 I/O，禁止在 Update() 内阻塞。
+
+**/resume（列表 + 按 ID 恢复）**：
+
+- 裸 `/resume`：`listSessions(cwd, 10)` 扫描 `<cwd>/.claude/projects/<ProjectHash>/*.jsonl`
+  （与 CLI `--continue` 同一布局，agtkeel `session`/`utils/fs` 直接复用），按 mtime 倒序取前 10，
+  每行展示 id、修改时间、消息数、首条用户消息片段（60 rune 截断），并提示 `/resume <id>`。
+- `/resume <id>`：`loadSessionMessages` 经 `session.Resume` + `ReadAll` 提取 user/assistant
+  消息（跳过损坏/无关条目，与 bootstrap/session.go 的 CLI 路径行为一致，但在 commands 层独立实现，
+  不 import bootstrap）。ID 做路径穿越校验（拒绝 `/`、`\`、`..`）。
+- 成功时返回 `Result{NewMessages: []types.Message, NewSessionID: id, Text: 确认文案}`。
+  `NewMessages` 为既有 interface{} 字段（本次首次被 TUI 消费）；`NewSessionID` 为新增字段。
+- `applyCommandResult` 对 `NewMessages` 做 `[]types.Message` 类型断言后：替换 `m.messages`、
+  调用 `queryEngine.SetMessages(msgs)`（既有引擎能力，无需新契约）、更新 `m.sessionID`。
+  **查询进行中（isLoading）拒绝恢复**，提示先按 Esc 中断。/clear 的遗留 `[]interface{}{}`
+  值断言失败被忽略，行为不变。
+- 已知局限：交互模式目前不落盘会话 JSONL（持久化接线属 bootstrap/engine 职责，见 BF-03 汇报），
+  故 /resume 列表内容取决于其他路径写入的会话文件。
+
+**依赖注入路径（接口变更，已汇报）**：
+
+- `tui.New(...)` 与内部 `newAppModel` 末尾新增参数 `mcpPool commands.MCPServerLister`（可为 nil），
+  与 `memoryStore` 等既有依赖同一注入模式；`AppModel` 新增 `mcpPool` 字段。
+- 唯一调用点 `internal/bootstrap/root.go runInteractive` 追加传入 `container.MCPPool`（一行接线）。
+- commands 层新增对 agtkeel `mcp`/`session`/`types`/`utils/fs` 的向下依赖（内核库，合法）；
+  未引入对 bootstrap / internal/tools 的任何依赖。
+
 ---
 
 ## 5. internal/coordinator — 多 Agent 协调 UI
@@ -969,3 +1014,12 @@ TS 版通过 `AlternateScreen` + `FullscreenLayout` 支持全屏（tmux-style �
 ### 8.7 与 Agent-Core #6 的集成边界
 
 TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）。接口通过构造器注入 `AppModel`，在 `Agent-Core #6` 完成前，使用 `stubQueryEngine` 开发和测试 TUI 层所有功能，两层完全解耦。
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 修改人 | 变更摘要 |
+|------|------|--------|---------|
+| v1.1 | 2026-11-18 | Agent-TUI | BF-03：/mcp、/resume 真实实现（§4.1）。新增 `commands.MCPServerLister`、`commands.FormatMCPStatus`、`Result.FetchMCPStatus`/`Result.NewSessionID`、`tui.MCPStatusMsg`；`tui.New`/`newAppModel` 新增 `mcpPool` 注入参数（bootstrap 传入 `container.MCPPool`）；`applyCommandResult` 开始消费 `Result.NewMessages`（含 isLoading 保护）。commands 层新增 agtkeel mcp/session/types/utils/fs 向下依赖。 |
+| v1.0 | 2026-04-02 | Agent-TUI | 初稿 |

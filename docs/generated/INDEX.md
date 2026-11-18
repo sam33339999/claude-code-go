@@ -1,6 +1,6 @@
 ---
 type: auto-generated-index
-generated_at: 2026-09-23T11:03:32Z
+generated_at: 2026-11-18T01:17:44Z
 package_count: 25
 ---
 
@@ -34,7 +34,7 @@ package_count: 25
 | `internal/tui` | TUI | AgentColorManager, AgentProgressMsg, AgentStatusMsg, AgentTaskState, AppModel | [CONTEXT](../../internal/tui/CONTEXT.md) |
 | `cmd/claude` | CLI | - | [CONTEXT](../../cmd/claude/CONTEXT.md) |
 | `internal/bootstrap` | CLI | AppContainer, ContainerOptions | [CONTEXT](../../internal/bootstrap/CONTEXT.md) |
-| `internal/commands` | CLI | Command, CommandContext, Registry, Result | [CONTEXT](../../internal/commands/CONTEXT.md) |
+| `internal/commands` | CLI | MCPServerLister(1m), Command, CommandContext, Registry, Result | [CONTEXT](../../internal/commands/CONTEXT.md) |
 
 ---
 *25 packages across 8 layers.*

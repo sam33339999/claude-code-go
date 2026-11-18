@@ -2,13 +2,13 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-09-23T11:03:32Z
+generated_at: 2026-11-18T01:17:44Z
 source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, spinner.go, statusbar.go, styles.go, theme.go, update.go, view.go, welcome.go]
 ---
 
 # internal/tui
 
-> Layer: **TUI** · Files: 17 · Interfaces: 0 · Structs: 35 · Functions: 6
+> Layer: **TUI** · Files: 17 · Interfaces: 0 · Structs: 36 · Functions: 6
 
 ## Structs
 
@@ -16,7 +16,7 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **AgentProgressMsg** — 3 fields: TaskID, Activity, Detail
 - **AgentStatusMsg** — 3 fields: TaskID, Status, Description
 - **AgentTaskState** — 12 fields: ID, Name, AgentType, Description, Status, StartTime, ElapsedMs, OutputTokens, ...
-- **AppModel** — 45 fields
+- **AppModel** — 46 fields
 - **CommandResultMsg** — 2 fields: Text, IsError
 - **CompactDoneMsg** — 1 fields: Summary
 - **CoordinatorPanel** — 3 fields: Tasks, SelectedIndex, TaskOrder
@@ -24,6 +24,7 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **InputChangedMsg** — 1 fields: Text
 - **InputModel** — 4 fields
 - **InputSubmittedMsg** — 1 fields: Text
+- **MCPStatusMsg** — 1 fields: Text
 - **MemdirLoadedMsg** — 2 fields: Paths, ScopedFiles
 - **MessageLookups** — 4 fields: ToolUseToResult, ResolvedToolUseIDs, ErroredToolUseIDs, InProgressToolUseIDs
 - **PermissionDialog** — 8 fields
@@ -52,7 +53,7 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 
 - `IsSlashCommand(text string) bool`
 - `MessageListView(messages []types.Message, width int, darkMode bool, theme Theme, mdRenderer *glamour.TermRenderer, expandedToolResults map[string]bool) string`
-- `New(qe engine.QueryEngine, appStore *state.AppStateStore, vimEnabled bool, dark bool, permAskCh <-chan permissions.AskRequest, permRespCh chan<- permissions.AskResponse, agentCoord tools.AgentCoordinator, agentEventCh <-chan coordinator.Event, mq *msgqueue.MessageQueue, qg *msgqueue.QueryGuard, memoryStore *memdir.MemoryStore) tea.Model`
+- `New(qe engine.QueryEngine, appStore *state.AppStateStore, vimEnabled bool, dark bool, permAskCh <-chan permissions.AskRequest, permRespCh chan<- permissions.AskResponse, agentCoord tools.AgentCoordinator, agentEventCh <-chan coordinator.Event, mq *msgqueue.MessageQueue, qg *msgqueue.QueryGuard, memoryStore *memdir.MemoryStore, mcpPool commands.MCPServerLister) tea.Model`
 - `NewAgentColorManager() *AgentColorManager`
 - `NewInput(vimEnabled bool) InputModel`
 - `NewWelcomeHeader(model string, cwd string) WelcomeHeader`
@@ -89,3 +90,4 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 ## Design Notes
 
 - **2026-09-23 基座换库（agtkeel import-swap）**：可复用 agent 内核已逐字提取到 `github.com/tunsuy/agtkeel`（MIT），本包 import 随之改写：`internal/{api,compact,msgqueue,engine,session,permissions,hooks,mcp,config}` → `agtkeel/*`、`internal/tools`（接口契约+注册表）→ `agtkeel/tools`、`pkg/types` → `agtkeel/types`、`pkg/utils/{fs,ids}` → `agtkeel/utils/*`。本包代码**仅 import 路径重写，零逻辑改动**，`go build`/`go vet`/`go test -race ./...` 全绿。已知表现局限：docgen 依赖图按本模块前缀分类，agtkeel 视作第三方库，故上方 Imports 栏不再展示内核依赖（与 cobra 等一致）。
+- **2026-11-18 BF-03（/mcp、/resume 接线）**：`New()`/`newAppModel` 末尾新增 `mcpPool commands.MCPServerLister` 注入参数（bootstrap `runInteractive` 传入 `container.MCPPool`，与 memoryStore 同一注入模式）；`AppModel` 新增 `mcpPool` 字段。新增 `MCPStatusMsg` 与 `fetchMCPStatusCmd`（/mcp 报告在 Update 循环外生成，整体 15s 超时，MVU 合规）。`applyCommandResult` 新增：`FetchMCPStatus` → 异步 Cmd；`NewMessages`（`[]types.Message` 断言）→ 替换 `m.messages` + `queryEngine.SetMessages` + 采纳 `NewSessionID`，查询进行中拒绝恢复；/clear 的遗留 `[]interface{}{}` 断言失败被忽略，行为不变。未新增引擎契约（复用既有 `SetMessages`）。

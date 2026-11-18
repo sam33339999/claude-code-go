@@ -9,10 +9,10 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tunsuy/claude-code-go/internal/commands"
 	"github.com/tunsuy/agtkeel/engine"
-	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/commands"
+	"github.com/tunsuy/claude-code-go/internal/state"
 )
 
 // ---------------------------------------------------------------------------
@@ -81,7 +81,7 @@ func newTestModel() AppModel {
 	// Pass nil for permission channels in tests (HIL disabled).
 	// Pass nil for agentCoord (multi-agent disabled in basic tests).
 	// Pass nil for agentEventCh (coordinator events disabled in basic tests).
-	m := newAppModel(fe, appStore, false, true, reg, nil, nil, nil, nil, nil, nil, nil)
+	m := newAppModel(fe, appStore, false, true, reg, nil, nil, nil, nil, nil, nil, nil, nil)
 	m.termWidth = 80
 	m.termHeight = 24
 	m.viewport.Width = 80

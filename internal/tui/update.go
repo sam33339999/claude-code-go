@@ -4,9 +4,10 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/tunsuy/agtkeel/msgqueue"
+	"github.com/tunsuy/agtkeel/types"
 	"github.com/tunsuy/claude-code-go/internal/commands"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
-	"github.com/tunsuy/agtkeel/msgqueue"
 	"github.com/tunsuy/claude-code-go/internal/state"
 )
 
@@ -261,6 +262,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.syncViewportContent()
 		return m, nil
 
+	// --- MCP status report (/mcp, fetched asynchronously) ---
+	case MCPStatusMsg:
+		if msg.Text != "" {
+			m.messages = append(m.messages, newSystemMessage(msg.Text))
+			m.syncViewportContent()
+		}
+		return m, nil
+
 	// --- Mid-session message queue events ---
 	case queueChangedMsg:
 		var cmds []tea.Cmd
@@ -402,8 +411,33 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 		m.syncViewportContent()
 	}
 
+	// /resume: replace the conversation with the loaded session history.
+	// NewMessages carries a []types.Message (see commands.Result); values of
+	// other types (e.g. /clear's legacy empty slice) are ignored here.
+	if msgs, ok := result.NewMessages.([]types.Message); ok {
+		if m.isLoading {
+			m.messages = append(m.messages, newSystemMessage(
+				"Cannot resume a session while a query is running. Press Esc to interrupt it first."))
+			m.syncViewportContent()
+			return m, nil
+		}
+		m.messages = msgs
+		m.queryEngine.SetMessages(msgs)
+		if result.NewSessionID != "" {
+			m.sessionID = result.NewSessionID
+		}
+		m.streamingText = ""
+		m.streamingHasMsg = false
+		m.pinnedToBottom = true
+		m.syncViewportContent()
+	}
+
 	if result.TriggerDream {
 		return m, triggerDreamCmd(&m)
+	}
+
+	if result.FetchMCPStatus {
+		return m, fetchMCPStatusCmd(m.mcpPool)
 	}
 
 	switch result.Display {

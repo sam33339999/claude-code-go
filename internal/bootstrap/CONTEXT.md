@@ -2,7 +2,7 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-09-23T11:03:32Z
+generated_at: 2026-11-18T01:17:44Z
 source_files: [auth.go, bootstrap.go, mcp.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, wire.go]
 ---
 
@@ -66,3 +66,4 @@ source_files: [auth.go, bootstrap.go, mcp.go, mcp_health.go, mcp_help.go, mcp_li
   诚实报错，后者从帮助行与建议名中整体移除；JS JSON 解析错误措辞与 Go 不同（外层
   `Invalid JSON syntax: JSON Parse error: …` 格式一致）；hooks 模块文件只做存在性检查，
   不按 JS 加载。
+- **2026-11-18 BF-03（Agent-TUI 最小接线）**：`runInteractive` 的 `tui.New(...)` 调用追加传入 `container.MCPPool`，对应 TUI 层新增的 `mcpPool commands.MCPServerLister` 注入参数（/mcp 斜杠命令展示真实连接状态所需）。本包仅此一行变更，无其他逻辑改动；接口变更详情见 `docs/project/design/tui.md` §4.1。

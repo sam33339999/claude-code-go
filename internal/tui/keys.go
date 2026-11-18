@@ -6,8 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/agtkeel/msgqueue"
+	"github.com/tunsuy/claude-code-go/internal/memdir"
 )
 
 // handleKey dispatches keyboard events based on the active dialog and loading state.

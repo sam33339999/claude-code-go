@@ -3,8 +3,8 @@ package tui
 import (
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/memdir"
 )
 
 // --- User input ---
@@ -112,6 +112,10 @@ type CompactDoneMsg struct{ Summary string }
 type DreamDoneMsg struct {
 	Err string
 }
+
+// MCPStatusMsg carries the rendered /mcp server status report, produced
+// asynchronously by fetchMCPStatusCmd.
+type MCPStatusMsg struct{ Text string }
 
 // AgentStatusMsg is pushed from Agent-Core to update a sub-agent's status.
 type AgentStatusMsg struct {
