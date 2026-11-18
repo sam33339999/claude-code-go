@@ -313,6 +313,63 @@ func TestSleepTool_Call_AbortCh(t *testing.T) {
 	}
 }
 
+// TestSleepTool_Call_OverflowRejected covers CR-BF01-5: durations above the 24h
+// cap (including values that would overflow time.Duration to a negative and
+// fire the timer immediately, falsely reporting success) are rejected honestly
+// and return without sleeping.
+func TestSleepTool_Call_OverflowRejected(t *testing.T) {
+	cases := []struct {
+		name string
+		ms   int
+	}{
+		{"just above 24h cap", 24*60*60*1000 + 1},
+		{"max int (overflow region)", int(^uint(0) >> 1)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in, _ := json.Marshal(misc.SleepInput{Milliseconds: tc.ms})
+			start := time.Now()
+			result, err := misc.SleepTool.Call(in, nil, nil)
+			elapsed := time.Since(start)
+			if err != nil {
+				t.Fatalf("unexpected hard error: %v", err)
+			}
+			if !result.IsError {
+				t.Fatalf("expected honest rejection, got false success: %v", result.Content)
+			}
+			if elapsed > 500*time.Millisecond {
+				t.Errorf("overflow sleep must return immediately, took %v", elapsed)
+			}
+			if !strings.Contains(result.Content.(string), "<=") {
+				t.Errorf("expected upper-bound message, got: %v", result.Content)
+			}
+		})
+	}
+}
+
+// TestSleepTool_Call_AtCapAccepted proves the cap is inclusive without actually
+// sleeping 24h: a pre-cancelled context turns the accepted cap value into a
+// cancellation result (not a cap rejection).
+func TestSleepTool_Call_AtCapAccepted(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	in, _ := json.Marshal(misc.SleepInput{Milliseconds: 24 * 60 * 60 * 1000})
+	result, err := misc.SleepTool.Call(in, &tools.UseContext{Ctx: ctx}, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected cancellation result")
+	}
+	content := result.Content.(string)
+	if strings.Contains(content, "<=") {
+		t.Errorf("cap value should be accepted by validation, got cap rejection: %v", content)
+	}
+	if !strings.Contains(content, "cancel") {
+		t.Errorf("expected cancellation message, got: %v", content)
+	}
+}
+
 // ── SyntheticOutputTool ───────────────────────────────────────────────────────
 
 func TestSyntheticOutputTool_Name(t *testing.T) {

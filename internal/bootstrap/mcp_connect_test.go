@@ -3,11 +3,13 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tunsuy/agtkeel/config"
 	"github.com/tunsuy/agtkeel/mcp"
@@ -295,5 +297,225 @@ func TestProjectMCPApproved(t *testing.T) {
 				t.Errorf("projectMCPApproved = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// ── Slow-handshake regression (CR-BF01-1 / CR-BF03-2 P0) ─────────────────────
+//
+// A server that acknowledges initialize (202) but takes longer than the
+// injected watchdog timeout to produce the handshake result. The fix must
+// bound the boot wait, cancel + fully drain the Connect goroutine, mark the
+// server failed, and leave NO background goroutine able to mutate the pool
+// after boot returns (no late landing).
+
+type slowHandshakeStub struct {
+	url    string
+	done   chan struct{}
+	respCh chan *mcp.JSONRPCMessage
+	delay  time.Duration
+}
+
+func newSlowHandshakeStub(t *testing.T, delay time.Duration) *slowHandshakeStub {
+	t.Helper()
+	s := &slowHandshakeStub{
+		done:   make(chan struct{}),
+		respCh: make(chan *mcp.JSONRPCMessage, 16),
+		delay:  delay,
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "text/event-stream")
+			select {
+			case msg := <-s.respCh:
+				data, err := json.Marshal(msg)
+				if err != nil {
+					return
+				}
+				fmt.Fprintf(w, "data: %s\n\n", data)
+				if f, ok := w.(http.Flusher); ok {
+					f.Flush()
+				}
+			case <-s.done:
+			case <-r.Context().Done():
+			}
+			return
+		}
+		var req mcp.JSONRPCMessage
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Mcp-Session-Id", "slow-stub")
+		if req.ID == nil { // notification
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		if req.Method == "initialize" {
+			// Acknowledge immediately; deliver the result only after delay.
+			w.WriteHeader(http.StatusAccepted)
+			go func() {
+				timer := time.NewTimer(s.delay)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+				case <-s.done:
+					return
+				}
+				raw, err := json.Marshal(map[string]any{
+					"protocolVersion": "2024-11-05",
+					"serverInfo":      map[string]any{"name": "slow-stub", "version": "0.1.0"},
+					"capabilities":    map[string]any{"tools": map[string]any{}},
+				})
+				if err != nil {
+					return
+				}
+				select {
+				case s.respCh <- &mcp.JSONRPCMessage{JSONRPC: "2.0", ID: req.ID, Result: raw}:
+				case <-s.done:
+				}
+			}()
+			return
+		}
+		raw, _ := json.Marshal(map[string]any{"tools": []map[string]any{}})
+		s.respCh <- &mcp.JSONRPCMessage{JSONRPC: "2.0", ID: req.ID, Result: raw}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	t.Cleanup(func() {
+		close(s.done)
+		srv.Close()
+	})
+	s.url = srv.URL
+	return s
+}
+
+func slowStubConfig(url string) mcp.ServerConfig {
+	return mcp.ServerConfig{Transport: mcp.TransportHTTP, HTTP: &mcp.HTTPTransportConfig{URL: url}}
+}
+
+// TestConnectWithWatchdog_SlowHandshakeBoundedAndDrained exercises the timeout
+// branch (previously 0% covered): boot returns bounded by the injected timeout,
+// the server is failed, and the pool record stays unchanged past the point
+// where the slow handshake would have landed late.
+func TestConnectWithWatchdog_SlowHandshakeBoundedAndDrained(t *testing.T) {
+	old := mcpConnectTimeout
+	mcpConnectTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { mcpConnectTimeout = old })
+
+	const handshakeDelay = 600 * time.Millisecond
+	stub := newSlowHandshakeStub(t, handshakeDelay)
+	pool := mcp.NewPool()
+
+	start := time.Now()
+	err := connectWithWatchdog(context.Background(), pool, "slow", slowStubConfig(stub.url))
+	elapsed := time.Since(start)
+
+	if err == nil || !strings.Contains(err.Error(), "timed out") {
+		t.Fatalf("expected handshake timeout error, got: %v", err)
+	}
+	if elapsed > 400*time.Millisecond {
+		t.Errorf("boot wait not bounded: took %v (timeout=%v, handshake delay=%v)", elapsed, mcpConnectTimeout, handshakeDelay)
+	}
+
+	conns := pool.GetAll()
+	if len(conns) != 1 {
+		t.Fatalf("expected one connection record, got %d", len(conns))
+	}
+	c := conns[0]
+	if c.Status != mcp.StatusFailed {
+		t.Errorf("expected failed status, got %q (error=%q)", c.Status, c.Error)
+	}
+	if c.Client != nil {
+		t.Error("failed connection must not hold a live client")
+	}
+
+	// No pool mutation after boot returns: wait past the late-landing point and
+	// assert the record is byte-for-byte stable.
+	snapshot := *c
+	time.Sleep(handshakeDelay + 100*time.Millisecond)
+	after := pool.GetAll()
+	if len(after) != 1 {
+		t.Fatalf("connection count changed after boot: %d", len(after))
+	}
+	got := after[0]
+	if got.Status != snapshot.Status || got.Error != snapshot.Error || got.Client != snapshot.Client {
+		t.Errorf("pool record mutated after boot returned (late landing):\nbefore=%+v\nafter=%+v", snapshot, *got)
+	}
+}
+
+// TestConnectWithWatchdog_CallerCancelDrains covers the ctx.Done branch: a
+// cancelled caller context also cancels + drains Connect (no abandoned
+// goroutine), returning context.Canceled.
+func TestConnectWithWatchdog_CallerCancelDrains(t *testing.T) {
+	old := mcpConnectTimeout
+	mcpConnectTimeout = 5 * time.Second // long: caller cancel must fire first
+	t.Cleanup(func() { mcpConnectTimeout = old })
+
+	stub := newSlowHandshakeStub(t, 2*time.Second)
+	pool := mcp.NewPool()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	start := time.Now()
+	err := connectWithWatchdog(ctx, pool, "slow", slowStubConfig(stub.url))
+	elapsed := time.Since(start)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got: %v", err)
+	}
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("caller-cancel wait not bounded: took %v", elapsed)
+	}
+	conns := pool.GetAll()
+	if len(conns) != 1 || conns[0].Status != mcp.StatusFailed || conns[0].Client != nil {
+		t.Errorf("expected terminal failed record after cancel, got %+v", conns)
+	}
+}
+
+// TestConnectConfiguredMCPServers_SlowHandshakeNonFatal proves a slow server
+// times out non-fatally at boot while other servers still connect and register.
+func TestConnectConfiguredMCPServers_SlowHandshakeNonFatal(t *testing.T) {
+	old := mcpConnectTimeout
+	mcpConnectTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { mcpConnectTimeout = old })
+
+	home, work := t.TempDir(), t.TempDir()
+	slow := newSlowHandshakeStub(t, 600*time.Millisecond)
+	fast := newWiringStubServer(t)
+	store := config.NewMCPStore(home, work)
+	addHTTPServerEntry(t, store, config.MCPScopeUser, "a-slow", slow.url)
+	addHTTPServerEntry(t, store, config.MCPScopeUser, "b-fast", fast.url)
+
+	pool := mcp.NewPool()
+	reg := tools.NewRegistry()
+	RegisterBuiltinTools(reg, pool)
+
+	start := time.Now()
+	err := connectConfiguredMCPServers(context.Background(), reg, pool, nil, home, work)
+	elapsed := time.Since(start)
+	if err == nil || !strings.Contains(err.Error(), "a-slow") {
+		t.Fatalf("expected joined error naming a-slow, got: %v", err)
+	}
+	if elapsed > time.Second {
+		t.Errorf("boot not bounded by slow-server timeout: took %v", elapsed)
+	}
+
+	byName := map[string]*mcp.ServerConnection{}
+	for _, c := range pool.GetAll() {
+		byName[c.Name] = c
+	}
+	if c := byName["a-slow"]; c == nil || c.Status != mcp.StatusFailed || c.Client != nil {
+		t.Errorf("a-slow should be failed with no client, got %+v", c)
+	}
+	if c := byName["b-fast"]; c == nil || c.Status != mcp.StatusConnected {
+		t.Errorf("b-fast should still connect, got %+v", c)
+	}
+	if _, ok := reg.Get("b-fast__echo"); !ok {
+		t.Error("b-fast tools should still be registered despite a-slow timeout")
+	}
+	if reg.Len() != 35 { // 34 builtin + b-fast__echo
+		t.Errorf("expected 35 tools (34 builtin + 1), got %d", reg.Len())
 	}
 }

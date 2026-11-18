@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	agtmcp "github.com/tunsuy/agtkeel/mcp"
 	"github.com/tunsuy/agtkeel/tools"
@@ -36,6 +37,7 @@ type stubMCPServer struct {
 	callContent  []map[string]any
 	callIsError  bool
 	failMethods  map[string]string // method → RPC error message
+	hangMethods  map[string]bool   // method → acknowledge (202) but never respond
 	lastCallName string
 	lastCallArgs map[string]any
 }
@@ -47,6 +49,7 @@ func newStubMCPServer(t *testing.T) *stubMCPServer {
 		done:        make(chan struct{}),
 		sessions:    map[string]chan *agtmcp.JSONRPCMessage{},
 		failMethods: map[string]string{},
+		hangMethods: map[string]bool{},
 		callContent: []map[string]any{{"type": "text", "text": "ok"}},
 		readContent: map[string]any{"uri": "stub://default", "mimeType": "text/plain", "text": "default content"},
 	}
@@ -92,6 +95,15 @@ func (s *stubMCPServer) handlePOST(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	w.Header().Set("Mcp-Session-Id", sid)
 	if req.ID == nil { // notification (e.g. notifications/initialized)
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+	s.mu.Lock()
+	hang := s.hangMethods[req.Method]
+	s.mu.Unlock()
+	if hang {
+		// Acknowledge but never deliver a response: the caller blocks on the
+		// GET stream until its context deadline (slow-tools/list stub).
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
@@ -878,4 +890,310 @@ func TestReadMcpResource_CancelledContext(t *testing.T) {
 func TestAllMCPTools_ImplementToolInterface(t *testing.T) {
 	var _ tools.Tool = mcp.NewListMcpResourcesTool(nil)
 	var _ tools.Tool = mcp.NewReadMcpResourceTool(nil)
+}
+
+// ── Boot ListTools deadline (CR-BF01-2) ──────────────────────────────────────
+
+// TestRegisterServerTools_SlowListTimesOutNonFatal: a server that handshakes
+// but hangs on tools/list must not block registration forever; its ListTools
+// times out (per-server deadline) non-fatally while other servers register.
+func TestRegisterServerTools_SlowListTimesOutNonFatal(t *testing.T) {
+	restore := mcp.SetListToolsTimeoutForTest(100 * time.Millisecond)
+	t.Cleanup(restore)
+
+	hang := newStubMCPServer(t)
+	hang.toolDefs = []map[string]any{echoToolDef()}
+	hang.hangMethods["tools/list"] = true
+	okStub := newStubMCPServer(t)
+	okStub.toolDefs = []map[string]any{echoToolDef()}
+
+	pool := connectStubPool(t, hang, "a-hang")
+	if err := pool.Connect(context.Background(), "b-ok", agtmcp.ServerConfig{
+		Transport: agtmcp.TransportHTTP,
+		HTTP:      &agtmcp.HTTPTransportConfig{URL: okStub.url()},
+	}); err != nil {
+		t.Fatalf("connect b-ok: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := pool.Disconnect("b-ok"); err != nil {
+			t.Errorf("disconnect b-ok: %v", err)
+		}
+	})
+
+	reg := tools.NewRegistry()
+	start := time.Now()
+	n, err := mcp.RegisterServerTools(context.Background(), reg, pool)
+	elapsed := time.Since(start)
+
+	if err == nil || !strings.Contains(err.Error(), "a-hang") {
+		t.Fatalf("expected non-fatal error naming a-hang, got: %v", err)
+	}
+	if elapsed > time.Second {
+		t.Errorf("registration not bounded by ListTools deadline: took %v", elapsed)
+	}
+	if n != 1 {
+		t.Errorf("expected 1 tool from b-ok, got %d", n)
+	}
+	if _, ok := reg.Get("b-ok__echo"); !ok {
+		t.Error("b-ok tools should still register despite a-hang hang")
+	}
+	if _, ok := reg.Get("a-hang__echo"); ok {
+		t.Error("a-hang tools must not register when tools/list times out")
+	}
+}
+
+// ── Pinning guard strengthening (CR-BF01-3) ──────────────────────────────────
+
+// TestRegisterServerTools_FreshRegistrySeesReconnectChanges is the contrast the
+// original guard lacked: it proves the reconnect genuinely changed the live
+// tool list (a FRESH registry sees the new surface) while the boot registry
+// stays pinned — i.e. pinning is per-registry, not a silently broken stub.
+func TestRegisterServerTools_FreshRegistrySeesReconnectChanges(t *testing.T) {
+	stub := newStubMCPServer(t)
+	stub.toolDefs = []map[string]any{echoToolDef()}
+	pool := connectStubPool(t, stub, "srv")
+	reg1 := tools.NewRegistry()
+	if _, err := mcp.RegisterServerTools(context.Background(), reg1, pool); err != nil {
+		t.Fatalf("boot registration: %v", err)
+	}
+
+	stub.mu.Lock()
+	stub.toolDefs = []map[string]any{
+		{
+			"name":        "echo",
+			"description": "CHANGED DESCRIPTION",
+			"inputSchema": map[string]any{
+				"type":       "object",
+				"properties": map[string]any{"y": map[string]any{"type": "integer"}},
+			},
+		},
+		{
+			"name":        "brand-new",
+			"description": "appeared after reconnect",
+			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+	}
+	stub.mu.Unlock()
+	if err := pool.Reconnect(context.Background(), "srv"); err != nil {
+		t.Fatalf("reconnect: %v", err)
+	}
+
+	// Same-session registry stays pinned.
+	n, err := mcp.RegisterServerTools(context.Background(), reg1, pool)
+	if err != nil || n != 0 {
+		t.Fatalf("expected pinned no-op (0, nil), got (%d, %v)", n, err)
+	}
+	if _, ok := reg1.Get("srv__brand-new"); ok {
+		t.Error("boot registry must not gain brand-new mid-session")
+	}
+
+	// A fresh registry (new session) sees the changed live surface.
+	reg2 := tools.NewRegistry()
+	n2, err2 := mcp.RegisterServerTools(context.Background(), reg2, pool)
+	if err2 != nil {
+		t.Fatalf("fresh registration: %v", err2)
+	}
+	if n2 != 2 {
+		t.Fatalf("fresh registry should see 2 tools, got %d", n2)
+	}
+	if _, ok := reg2.Get("srv__brand-new"); !ok {
+		t.Error("fresh registry should see the brand-new tool (proves live list changed)")
+	}
+	echo2, _ := reg2.Get("srv__echo")
+	if got := echo2.Description(nil, nil); got != "CHANGED DESCRIPTION" {
+		t.Errorf("fresh registry should see changed description, got %q", got)
+	}
+	schema := echo2.InputSchema()
+	if _, ok := schema.Properties["y"]; !ok {
+		t.Error("fresh registry should see new schema property 'y'")
+	}
+	if _, ok := schema.Properties["x"]; ok {
+		t.Error("fresh registry schema should no longer carry boot property 'x'")
+	}
+}
+
+// TestRegisterServerTools_FailureAlsoPins verifies the documented lifecycle:
+// even a wholly failed registration pins the registry, so a later re-pass is a
+// no-op (boot failure is not recoverable mid-session by retrying).
+func TestRegisterServerTools_FailureAlsoPins(t *testing.T) {
+	mcp.ResetPinnedRegistriesForTest()
+	t.Cleanup(mcp.ResetPinnedRegistriesForTest)
+
+	stub := newStubMCPServer(t)
+	stub.failMethods["tools/list"] = "boom"
+	pool := connectStubPool(t, stub, "srv")
+	reg := tools.NewRegistry()
+
+	if _, err := mcp.RegisterServerTools(context.Background(), reg, pool); err == nil {
+		t.Fatal("expected error when tools/list fails")
+	}
+	// Repair the server, then re-pass: still a pinned no-op.
+	stub.mu.Lock()
+	delete(stub.failMethods, "tools/list")
+	stub.toolDefs = []map[string]any{echoToolDef()}
+	stub.mu.Unlock()
+	n, err := mcp.RegisterServerTools(context.Background(), reg, pool)
+	if err != nil || n != 0 {
+		t.Fatalf("failure should still pin: expected (0, nil), got (%d, %v)", n, err)
+	}
+	if reg.Len() != 0 {
+		t.Errorf("no tools should be registered after failed-then-pinned, got %d", reg.Len())
+	}
+}
+
+// ── Resource-tool test gaps (CR-BF01-4) ──────────────────────────────────────
+
+// TestListMcpResources_PartialFailureNote covers the entries>0 && errs>0 branch:
+// one server succeeds, one fails; output carries the good resources plus an
+// honest Note appendix naming the failed server.
+func TestListMcpResources_PartialFailureNote(t *testing.T) {
+	good := newStubMCPServer(t)
+	good.resources = []map[string]any{{"uri": "file://a.txt", "name": "a", "mimeType": "text/plain"}}
+	bad := newStubMCPServer(t)
+	bad.failMethods["resources/list"] = "list failed"
+	pool := connectStubPool(t, good, "alpha")
+	if err := pool.Connect(context.Background(), "beta", agtmcp.ServerConfig{
+		Transport: agtmcp.TransportHTTP,
+		HTTP:      &agtmcp.HTTPTransportConfig{URL: bad.url()},
+	}); err != nil {
+		t.Fatalf("connect beta: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := pool.Disconnect("beta"); err != nil {
+			t.Errorf("disconnect beta: %v", err)
+		}
+	})
+
+	tool := mcp.NewListMcpResourcesTool(pool)
+	result, err := tool.Call(nil, useCtx(), nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("partial failure with some resources should not be an error result: %v", result.Content)
+	}
+	content := result.Content.(string)
+	if !strings.Contains(content, "file://a.txt") {
+		t.Errorf("expected the successful server's resource, got: %s", content)
+	}
+	if !strings.Contains(content, "Note: some servers failed") || !strings.Contains(content, "beta") {
+		t.Errorf("expected honest Note appendix naming beta, got: %s", content)
+	}
+}
+
+// TestListMcpResources_NilUseContext covers callContext's nil fallbacks (nil
+// UseContext and UseContext with nil Ctx) — both must behave like Background.
+func TestListMcpResources_NilUseContext(t *testing.T) {
+	stub := newStubMCPServer(t)
+	stub.resources = []map[string]any{{"uri": "file://nil.txt", "name": "n"}}
+	pool := connectStubPool(t, stub, "srv")
+	tool := mcp.NewListMcpResourcesTool(pool)
+
+	for _, uctx := range []*tools.UseContext{nil, {}} {
+		result, err := tool.Call(nil, uctx, nil)
+		if err != nil {
+			t.Fatalf("unexpected hard error: %v", err)
+		}
+		if result.IsError {
+			t.Fatalf("nil-ctx fallback should succeed, got: %v", result.Content)
+		}
+		if !strings.Contains(result.Content.(string), "file://nil.txt") {
+			t.Errorf("expected resource with nil-ctx fallback, got: %v", result.Content)
+		}
+	}
+}
+
+func TestListMcpResources_CancelledContext(t *testing.T) {
+	stub := newStubMCPServer(t)
+	stub.resources = []map[string]any{{"uri": "file://x.txt"}}
+	pool := connectStubPool(t, stub, "srv")
+	tool := mcp.NewListMcpResourcesTool(pool)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	result, err := tool.Call(nil, &tools.UseContext{Ctx: ctx}, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected IsError=true when the call context is cancelled")
+	}
+}
+
+func TestReadMcpResource_NilUseContext(t *testing.T) {
+	stub := newStubMCPServer(t)
+	stub.readContent = map[string]any{"uri": "file://doc.txt", "mimeType": "text/plain", "text": "nil ctx body"}
+	pool := connectStubPool(t, stub, "srv")
+	tool := mcp.NewReadMcpResourceTool(pool)
+	in, _ := json.Marshal(mcp.ReadMcpResourceInput{ServerName: "srv", URI: "file://doc.txt"})
+
+	for _, uctx := range []*tools.UseContext{nil, {}} {
+		result, err := tool.Call(in, uctx, nil)
+		if err != nil {
+			t.Fatalf("unexpected hard error: %v", err)
+		}
+		if result.IsError || result.Content != "nil ctx body" {
+			t.Errorf("nil-ctx fallback should read content, got: %+v", result)
+		}
+	}
+}
+
+// TestReadMcpResource_EmptyContent covers the branch where the server returns a
+// content item with neither text nor blob.
+func TestReadMcpResource_EmptyContent(t *testing.T) {
+	stub := newStubMCPServer(t)
+	stub.readContent = map[string]any{"uri": "file://empty", "mimeType": "text/plain", "text": "", "blob": ""}
+	pool := connectStubPool(t, stub, "srv")
+	tool := mcp.NewReadMcpResourceTool(pool)
+	in, _ := json.Marshal(mcp.ReadMcpResourceInput{ServerName: "srv", URI: "file://empty"})
+
+	result, err := tool.Call(in, useCtx(), nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("empty content should be a graceful result, got: %v", result.Content)
+	}
+	if !strings.Contains(result.Content.(string), "empty content") {
+		t.Errorf("expected empty-content message, got: %v", result.Content)
+	}
+}
+
+// TestListMcpResources_TruncatedAtCap covers the aggregated-output cap
+// (CR-BF01-4 optional item; cache-first gate Q2 window-small): a resource-heavy
+// server yields at most maxResourceEntries entries plus an honest truncation
+// note, never an unbounded tool result.
+func TestListMcpResources_TruncatedAtCap(t *testing.T) {
+	stub := newStubMCPServer(t)
+	for i := 0; i < 250; i++ {
+		stub.resources = append(stub.resources, map[string]any{
+			"uri":  fmt.Sprintf("file://r%d.txt", i),
+			"name": fmt.Sprintf("r%d", i),
+		})
+	}
+	pool := connectStubPool(t, stub, "heavy")
+
+	tool := mcp.NewListMcpResourcesTool(pool)
+	result, err := tool.Call(nil, useCtx(), nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result.Content)
+	}
+	content := result.Content.(string)
+	jsonPart := content
+	if idx := strings.Index(content, "\n\nNote:"); idx >= 0 {
+		jsonPart = content[:idx]
+	}
+	var entries []map[string]any
+	if err := json.Unmarshal([]byte(jsonPart), &entries); err != nil {
+		t.Fatalf("unmarshal entries: %v", err)
+	}
+	if len(entries) != 200 {
+		t.Errorf("expected exactly 200 entries (cap), got %d", len(entries))
+	}
+	if !strings.Contains(content, "truncated at 200") {
+		t.Errorf("expected honest truncation note, got tail: %s", content[len(content)-200:])
+	}
 }
