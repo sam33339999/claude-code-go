@@ -148,7 +148,7 @@ RegisterBuiltinTools 不含 CodeMode（依赖 checker，同 plan/HIL 工具模�
 
 ## 5. 已知局限（v3 后）
 
-- 无 rollback 自动还原（git checkpoint 评估中，WP-5）；审计清单已就位
+- 无 rollback 自动还原（WP-5 git checkpoint：人类决策 2026-11-18「v3 先跑一阵子再评估」——依审计清单实际副作用形态再立项）；审计清单已就位
 - write 闸门为「首个写＋范围声明」单次批准，非完整计划预览（两阶段执行留后续）
 - replay 使用历史记录的 code（≤2000 字符）；长工作流应 save_as snippet
 - import/snippet 仅 host 预置目录（沙箱不能创建模块——无 fs，结构性限制）

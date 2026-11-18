@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version"></a>
+  <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version"></a>
   <a href="https://goreportcard.com/report/github.com/tunsuy/claude-code-go"><img src="https://goreportcard.com/badge/github.com/tunsuy/claude-code-go?style=flat-square" alt="Go Report Card"></a>
   <a href="https://codecov.io/gh/tunsuy/claude-code-go"><img src="https://codecov.io/gh/tunsuy/claude-code-go/branch/main/graph/badge.svg?style=flat-square" alt="codecov"></a>
   <a href="https://pkg.go.dev/github.com/tunsuy/claude-code-go"><img src="https://pkg.go.dev/badge/github.com/tunsuy/claude-code-go.svg" alt="Go Reference"></a>
@@ -64,11 +64,12 @@ This project is a **complete Go reimplementation of [Claude Code](https://claude
 ## Features
 
 - **Interactive TUI** — Full-featured terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), with dark/light themes
-- **Agentic tool use** — 34 built-in tools (file, shell, search, web, tasks, sub-agents, …), all mediated through a 9-layer permission pipeline
+- **Agentic tool use** — 35 built-in tools (file, shell, search, web, tasks, sub-agents, …), all mediated through a 9-layer permission pipeline
+- **Code Mode** — The model writes JavaScript/TypeScript that composes many tool calls in ONE sandboxed execution (pure-Go [moejs](https://github.com/MoeForge/moejs) engine): replay, reusable snippets, write auditing, batch approvals — see [Code Mode](#code-mode)
 - **CLI subcommands** — `claude mcp …`, `claude plugin …`, `claude auth …`, `claude doctor`, `claude update`; the `mcp` and `plugin` groups produce byte-for-byte identical output to the TypeScript CLI
 - **Plugin management** — Install/enable/disable plugins from local marketplaces, with full manifest validation (`claude plugin validate`)
 - **Multi-agent coordination** — Spawn background sub-agents for parallel tasks
-- **MCP support** — Connect external tools via the [Model Context Protocol](https://modelcontextprotocol.io) (stdio + HTTP transports), importable from Claude Desktop
+- **MCP support** — Connect external tools via the [Model Context Protocol](https://modelcontextprotocol.io) (stdio + HTTP + WebSocket transports), importable from Claude Desktop; server push notifications wake the agent event-driven (zero polling)
 - **CLAUDE.md memory** — Auto-loads project context from `CLAUDE.md` files up the directory tree
 - **Session management** — Resume previous conversations; compact long histories automatically
 - **Vim mode** — Optional Vim key bindings in the input area
@@ -84,16 +85,16 @@ Claude Code Go is organized in six layers:
 ┌─────────────────────────────────────┐
 │  CLI (cmd/claude)                   │  cobra entry point
 ├─────────────────────────────────────┤
-│  TUI (internal/tui)                 │  Bubble Tea MVU interface
+│  TUI (internal/tui)                 │  Bubble Tea v2 MVU interface
 ├─────────────────────────────────────┤
-│  Tools (internal/tools/*)           │  file, shell, search, MCP tools
+│  Tools (internal/tools/*)           │  file, shell, search, MCP, CodeMode
 ├─────────────────────────────────────┤
-│  Core Engine (agtkeel/engine)       │  streaming, tool dispatch, coordinator
+│  Core Engine (internal/engine)      │  streaming, tool dispatch, coordinator
 ├─────────────────────────────────────┤
-│  Services (agtkeel/api, oauth,      │  Anthropic API, OAuth, MCP client
-│            agtkeel/mcp, compact)    │
+│  Services (internal/api, oauth,     │  Anthropic API, OAuth, MCP client
+│            mcp, compact)            │
 ├─────────────────────────────────────┤
-│  Infra (agtkeel/types, config,      │  types, config, state, hooks, plugins
+│  Infra (pkg/types, internal/config, │  types, config, state, hooks, plugins
 │         state, session, hooks)      │
 └─────────────────────────────────────┘
 ```
@@ -102,7 +103,7 @@ See [`docs/project/architecture.md`](docs/project/architecture.md) for a detaile
 
 ## Requirements
 
-- Go 1.21 or later
+- Go 1.26 or later
 - An [Anthropic API key](https://console.anthropic.com/) **or** Claude.ai account (OAuth)
 
 ## Installation
@@ -313,7 +314,59 @@ Type `/` in the input to see all available commands:
 | `/diff` | Show the current git diff |
 | `/init` | Generate a CLAUDE.md for this project |
 
-`/config`, `/mcp`, `/resume`, and `/terminal-setup` are registered but not yet implemented — use the CLI subcommands above for MCP management in the meantime.
+`/config`, `/mcp`, `/resume`, and `/terminal-setup` are fully implemented (session resume, MCP status, interactive settings, terminal keybinding setup).
+
+## Code Mode
+
+Instead of one LLM round trip per tool call, the model writes **JavaScript or TypeScript that composes many tool calls in a single sandboxed execution** — the `CodeMode` tool, backed by the pure-Go [moejs](https://github.com/MoeForge/moejs) engine (no CGO). Intermediate data stays inside the sandbox; only the return value and `console.log` output come back to the model (fewer round trips, less context).
+
+```js
+// Written by the model, executed in the sandbox:
+const src = await tools.Read({ file_path: "main.go" });
+const todos = src.split("\n").filter(l => l.includes("TODO"));
+console.log("found", todos.length);
+return { count: todos.length, lines: todos };
+```
+
+### Sandbox API
+
+| Inside the sandbox | What it does |
+|--------------------|--------------|
+| `tools.<Name>(input)` | Call any registered tool (async). `Promise.all` runs calls in parallel. **Every call goes through the full permission pipeline.** |
+| `codemode.search(query)` / `describe(name)` | Progressive tool discovery (ranked names → full schema on demand) |
+| `codemode.history(limit)` | Recent executions (id, code, outcome) for reuse |
+| `codemode.replay(id)` | Re-run a recorded execution — permissions still apply |
+| `codemode.run(name)` / `snippets()` | Run / list named reusable snippets |
+| `codemode.audit(id)` | Write side effects recorded for one execution |
+| `codemode.approvals()` / `revoke(tool)` | List / revoke persistent CodeMode-scoped approvals |
+| `import { x } from "name"` | Controlled shared modules from a host-managed directory |
+| `console.log(...)` | Captured output |
+
+Tool input fields: `code`, `typescript` (type-stripping compile), `replay` (re-run by history id), `save_as` (save a successful run as a named snippet), `batch_writes` (one approval for all writes).
+
+### Safety model
+
+- **Sandboxing is not authorization** — every inner tool call runs the same 9-layer permission pipeline as a direct call. No filesystem, network, env, or `eval` access; execution is bounded by a timeout and a memory limit.
+- **Batch approval** — when a tool prompts and you approve, later calls to the *same* tool within that execution are pre-approved (execution scope only). Rule-based allows are re-checked on every call, so live permission-mode changes (Shift+Tab) apply immediately. Denials are never cached.
+- **Persistent approvals** — the permission dialog offers "always allow *tool* inside CodeMode": a CodeMode-scoped, user-granted, revocable approval (`codemode.revoke`). Deny rules always win over it.
+- **Write gate** — with `batch_writes: true`, the first write call asks once (with an execution-wide scope note); the decision covers all writes of that execution. Reads keep the normal flow.
+- **Result spill** — outputs over 32 KiB are written to a file; the model gets a 4 KiB preview plus a pointer it can `Read`/`Grep`.
+
+### Workflow features
+
+- **Replay**: re-run any recorded execution by id (`replay` input or `codemode.replay`), with full provenance (`replay_of`) in the history.
+- **Snippets**: turn successful runs into named, reusable scripts (`save_as` → `codemode.run`). Snippets store the full code; nested runs share the caller's approval scope (recursion depth capped at 3).
+- **Write audit**: every executed write call is recorded (`tool` + input summary) per execution — an honest trail of *what changed*, queryable via `codemode.audit`.
+
+Runtime data lives under `~/.claude/codemode/`: `history.jsonl`, `spill/`, `modules/`, `snippets/`, `approvals.json`.
+
+### Event-driven standby (zero polling)
+
+MCP server push notifications are routed into the message queue and wake the agent automatically — no polling loops burning tokens. Combined with Code Mode: a script performs the handshake/subscription, the agent idles, and the service's notification triggers the next run (which can reuse snippet logic).
+
+**Known limitations**: no automatic rollback (the audit trail tells you what changed; git-checkpoint restore is under evaluation), replay uses the recorded code (≤2000 chars — save long workflows as snippets), and the write gate approves on the first concrete write plus a scope note rather than a full two-phase plan preview.
+
+Design details: [`docs/project/design/codemode.md`](docs/project/design/codemode.md).
 
 ## Built entirely by AI agents
 
@@ -341,7 +394,7 @@ This is a real-world demonstration that a non-trivial, multi-layer Go applicatio
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.26+
 - `golangci-lint` (optional, for linting)
 
 ### Build & test
@@ -378,6 +431,7 @@ claude-code-go/
 │   ├── compact/         # Conversation compaction
 │   ├── config/          # Configuration (file + env)
 │   ├── coordinator/     # Multi-agent coordinator
+│   ├── codemode/        # Code Mode sandbox engine (moejs)
 │   ├── engine/          # Query engine, tool dispatch
 │   ├── hooks/           # Pre/post-tool hooks
 │   ├── mcp/             # MCP server management
@@ -389,6 +443,7 @@ claude-code-go/
 │   ├── state/           # Application state
 │   ├── tools/           # Tool interface, registry & built-in implementations
 │   │   ├── agent/       #   sub-agent & send-message tools
+│   │   ├── codemode/    #   CodeMode tool (sandboxed JS/TS tool composition)
 │   │   ├── fileops/     #   file read/write/edit/glob/grep tools
 │   │   ├── interact/    #   user-interaction & worktree tools
 │   │   ├── mcp/         #   MCP tool adapter
@@ -410,6 +465,7 @@ The initial build (April 2026) delivered the full six-layer architecture in 9 da
 
 Recent milestones:
 
+- **2026-11-18** — Code Mode v1→v3 (sandboxed JS/TS tool composition: batch approval, TypeScript, history, spill, controlled imports, replay, snippets, write audit, persistent approvals, write gate); event-driven MCP wake (server notifications → agent, zero polling); kernel re-internalized (no external engine dependency); Bubble Tea v2 migration; all 26 remaining user-visible stubs backfilled (debt: 0 stubs)
 - **2026-09-05** — `mcp` (7 commands) and `plugin` (8 commands + `marketplace` subtree) CLI groups landed, output byte-identical to the TS CLI; user-visible stubs reduced 42 → 27
 - **2026-08-30** — `--version` format parity; full subcommand inventory against the TS CLI (§B11)
 - **2026-08-29** — maintenance-mode process landed: CI-enforced debt red lines, parity test skeleton
@@ -419,11 +475,12 @@ The original phased plan (v0.2.0 → v1.0.0) is preserved with per-phase complet
 ### Current Status
 
 ```
-✅ Done:  Core engine + streaming, TUI, 34 tools, 17 slash commands (4 stubs),
-          mcp/plugin/auth/doctor CLI subcommands, 9-layer permission pipeline,
-          context compaction (snip/micro/auto), OAuth, session persistence
+✅ Done:  Core engine + streaming, TUI, 35 tools + Code Mode sandbox (v3),
+          17 slash commands, mcp/plugin/auth/doctor CLI subcommands,
+          9-layer permission pipeline, context compaction (snip/micro/auto),
+          OAuth, session persistence, event-driven MCP wake (zero polling)
 🔧 Mode:  Maintenance — gap-ledger-driven parity work vs. the TypeScript CLI
-📉 Debt:  56 TODO(dep) / 27 user-visible stubs, CI-enforced only-down red lines
+📉 Debt:  11 TODO(dep) / 0 user-visible stubs, CI-enforced only-down red lines
 🚀 Release: v0.8.0, 5-platform binaries
 ```
 
