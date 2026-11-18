@@ -2,7 +2,7 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-18T01:42:09Z
+generated_at: 2026-11-18T03:33:33Z
 source_files: [auth.go, bootstrap.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, wire.go]
 ---
 
@@ -28,7 +28,7 @@ source_files: [auth.go, bootstrap.go, mcp.go, mcp_connect.go, mcp_health.go, mcp
 
 ## Dependencies
 
-**Imports:** `internal/agentctx`, `internal/agenttype`, `internal/coordinator`, `internal/memdir`, `internal/oauth`, `internal/state`, `internal/tools/agent`, `internal/tools/fileops`, `internal/tools/interact`, `internal/tools/mcp`, `internal/tools/memory`, `internal/tools/misc`, `internal/tools/shell`, `internal/tools/tasks`, `internal/tools/web`, `internal/tui`
+**Imports:** `internal/agentctx`, `internal/agenttype`, `internal/coordinator`, `internal/memdir`, `internal/oauth`, `internal/state`, `internal/tools/agent`, `internal/tools/fileops`, `internal/tools/interact`, `internal/tools/mcp`, `internal/tools/memory`, `internal/tools/misc`, `internal/tools/shell`, `internal/tools/tasks`, `internal/tools/web`, `internal/transcript`, `internal/tui`
 
 **Imported by:** `cmd/claude`
 
@@ -93,3 +93,5 @@ source_files: [auth.go, bootstrap.go, mcp.go, mcp_connect.go, mcp_health.go, mcp
   RegisterServerTools 的 boot ListTools 加每服务器 deadline（listToolsTimeout，生产 10s，
   可注入），hung server 不再无限阻塞启动；超时为非致命单服务器失败。
   回归测试：慢握手 bounded+drained、caller-cancel drain、慢 list 非致命（原超时分支 0% 覆盖已补）。
+- **2026-11-18 BF-03（Agent-TUI 最小接线）**：`runInteractive` 的 `tui.New(...)` 调用追加传入 `container.MCPPool`，对应 TUI 层新增的 `mcpPool commands.MCPServerLister` 注入参数（/mcp 斜杠命令展示真实连接状态所需）。本包仅此一行变更，无其他逻辑改动；接口变更详情见 `docs/project/design/tui.md` §4.1。
+- **2026-11-18 BF-18 持久化接线**：openTranscript（session.go）统一建立 recorder——resume/continue 以已加载历史为基线，否则新建；失败非致命（stderr 警告＋nil）。runInteractive 经 tui.New 注入并于退出 Close；runHeadless 于 headlessRun 返回后 Record 完整对话再 Close。loadSessionMessages/resumeSessionByID/continueMostRecentSession 签名改为返回 (sessionID, messages, error)（内部函数，测试已同步）。

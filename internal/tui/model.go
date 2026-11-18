@@ -8,15 +8,16 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
-	"github.com/tunsuy/claude-code-go/internal/commands"
-	"github.com/tunsuy/claude-code-go/internal/coordinator"
 	"github.com/tunsuy/agtkeel/engine"
-	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/agtkeel/msgqueue"
 	"github.com/tunsuy/agtkeel/permissions"
-	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/agtkeel/tools"
 	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/commands"
+	"github.com/tunsuy/claude-code-go/internal/coordinator"
+	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/claude-code-go/internal/state"
+	"github.com/tunsuy/claude-code-go/internal/transcript"
 )
 
 // dialogKind enumerates active modal dialogs.
@@ -99,6 +100,10 @@ type AppModel struct {
 	// --- Dependencies (injected via New()) ---
 	queryEngine engine.QueryEngine
 	appState    *state.AppStateStore
+	// mcpPool exposes MCP server connection state for /mcp (may be nil).
+	mcpPool commands.MCPServerLister
+	// transcript persists conversation turns to the session JSONL (may be nil).
+	transcript *transcript.Recorder
 
 	// --- Multi-agent coordinator (injected via New()) ---
 	// agentCoordinator is the tools-facing adapter for the coordinator.
@@ -162,6 +167,8 @@ func newAppModel(
 	mq *msgqueue.MessageQueue,
 	qg *msgqueue.QueryGuard,
 	memoryStore *memdir.MemoryStore,
+	mcpPool commands.MCPServerLister,
+	rec *transcript.Recorder,
 ) AppModel {
 	st := appStore.GetState()
 	cwd := st.WorkingDir
@@ -178,6 +185,9 @@ func newAppModel(
 		effort:              "medium", // default effort level
 		queryEngine:         qe,
 		appState:            appStore,
+		mcpPool:             mcpPool,
+		transcript:          rec,
+		sessionID:           rec.SessionID(),
 		agentCoordinator:    agentCoord,
 		coordinatorMode:     agentCoord != nil,
 		commandRegistry:     reg,

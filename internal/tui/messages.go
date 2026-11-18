@@ -3,8 +3,8 @@ package tui
 import (
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/memdir"
 )
 
 // --- User input ---
@@ -112,6 +112,14 @@ type CompactDoneMsg struct{ Summary string }
 type DreamDoneMsg struct {
 	Err string
 }
+
+// MCPStatusMsg carries the rendered /mcp server status report, produced
+// asynchronously by fetchMCPStatusCmd.
+type MCPStatusMsg struct{ Text string }
+
+// TranscriptErrMsg reports a session-persistence failure (BF-18). The TUI
+// surfaces it as a system warning; the conversation itself is unaffected.
+type TranscriptErrMsg struct{ Err error }
 
 // AgentStatusMsg is pushed from Agent-Core to update a sub-agent's status.
 type AgentStatusMsg struct {

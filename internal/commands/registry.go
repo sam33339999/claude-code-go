@@ -29,8 +29,12 @@ type Result struct {
 	Display ResultDisplay
 	// ShouldExit signals the TUI to quit.
 	ShouldExit bool
-	// NewMessages replaces the conversation history (used by /clear, /compact).
-	NewMessages interface{} // []types.Message — typed as interface{} to avoid import cycle
+	// NewMessages replaces the conversation history (used by /clear, /compact, /resume).
+	// Carries a []types.Message; typed as interface{} to keep this package free of
+	// kernel type imports in the registry contract. The TUI layer type-asserts.
+	NewMessages interface{}
+	// NewSessionID is set by /resume to adopt the resumed session's ID.
+	NewSessionID string
 	// NewTheme is set by /theme to change the active theme.
 	NewTheme string
 	// NewModel is set by /model.
@@ -47,6 +51,10 @@ type Result struct {
 	ClearHistory bool
 	// TriggerDream requests a manual memory consolidation (/dream).
 	TriggerDream bool
+	// FetchMCPStatus requests an asynchronous MCP server status report (/mcp).
+	// The TUI builds the report off the Update loop via commands.FormatMCPStatus
+	// and displays it as a system message.
+	FetchMCPStatus bool
 }
 
 // CommandContext carries the read-only application context available to commands.

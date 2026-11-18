@@ -4,9 +4,10 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/tunsuy/agtkeel/msgqueue"
+	"github.com/tunsuy/agtkeel/types"
 	"github.com/tunsuy/claude-code-go/internal/commands"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
-	"github.com/tunsuy/agtkeel/msgqueue"
 	"github.com/tunsuy/claude-code-go/internal/state"
 )
 
@@ -145,11 +146,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			_ = m.queryGuard.End(m.queryGen)
 		}
 
+		// BF-18: persist the completed turn off the Update loop.
+		cmds := []tea.Cmd{persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages())}
+
 		// P1: Between-turn drain — process queued commands now that the query finished.
 		if m.msgQueue != nil && m.msgQueue.Len() > 0 {
-			return m, processQueueCmd(&m)
+			cmds = append(cmds, processQueueCmd(&m))
 		}
-		return m, nil
+		return m, tea.Batch(cmds...)
 
 	case StreamErrorMsg:
 		m.isLoading = false
@@ -161,6 +165,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streamingHasMsg = false
 		errText := "Error: " + msg.Err.Error()
 		m.messages = append(m.messages, newSystemMessage(errText))
+		m.syncViewportContent()
+		// BF-18: persist the partial turn (user input + any streamed output).
+		return m, persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages())
+
+	// --- Session persistence failure (BF-18) ---
+	case TranscriptErrMsg:
+		m.messages = append(m.messages, newSystemMessage("Session persistence failed: "+msg.Err.Error()))
 		m.syncViewportContent()
 		return m, nil
 
@@ -259,6 +270,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.messages = append(m.messages, newSystemMessage("Dream consolidation completed."))
 		}
 		m.syncViewportContent()
+		return m, nil
+
+	// --- MCP status report (/mcp, fetched asynchronously) ---
+	case MCPStatusMsg:
+		if msg.Text != "" {
+			m.messages = append(m.messages, newSystemMessage(msg.Text))
+			m.syncViewportContent()
+		}
 		return m, nil
 
 	// --- Mid-session message queue events ---
@@ -402,10 +421,69 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 		m.syncViewportContent()
 	}
 
-	if result.TriggerDream {
-		return m, triggerDreamCmd(&m)
+	// /resume: replace the conversation with the loaded session history.
+	// A rejection while a query is in flight stops further processing.
+	m, stop := m.applyResumeResult(result)
+	if stop {
+		return m, nil
 	}
 
+	var cmds []tea.Cmd
+	// BF-18: adopt the resumed session file so later turns append there.
+	if result.NewSessionID != "" && m.transcript != nil {
+		cmds = append(cmds, switchTranscriptCmd(m.transcript, result.NewSessionID, len(m.messages)))
+	}
+
+	if result.TriggerDream {
+		return m, tea.Batch(append(cmds, triggerDreamCmd(&m))...)
+	}
+
+	if result.FetchMCPStatus {
+		return m, tea.Batch(append(cmds, fetchMCPStatusCmd(m.mcpPool))...)
+	}
+
+	m, displayCmd := m.applyDisplayResult(result)
+	if displayCmd != nil {
+		cmds = append(cmds, displayCmd)
+	}
+	if len(cmds) == 0 {
+		return m, nil
+	}
+	return m, tea.Batch(cmds...)
+}
+
+// applyResumeResult consumes Result.NewMessages for /resume: it replaces the
+// display and engine history with the loaded session and adopts NewSessionID.
+// NewMessages carries a []types.Message (see commands.Result); values of other
+// types (e.g. /clear's legacy empty slice) are ignored. Resume is rejected
+// while a query is in flight; the returned bool is true only in that case,
+// telling the caller to stop processing the rest of the result.
+func (m AppModel) applyResumeResult(result commands.Result) (AppModel, bool) {
+	msgs, ok := result.NewMessages.([]types.Message)
+	if !ok {
+		return m, false
+	}
+	if m.isLoading {
+		m.messages = append(m.messages, newSystemMessage(
+			"Cannot resume a session while a query is running. Press Esc to interrupt it first."))
+		m.syncViewportContent()
+		return m, true
+	}
+	m.messages = msgs
+	m.queryEngine.SetMessages(msgs)
+	if result.NewSessionID != "" {
+		m.sessionID = result.NewSessionID
+	}
+	m.streamingText = ""
+	m.streamingHasMsg = false
+	m.pinnedToBottom = true
+	m.syncViewportContent()
+	return m, false
+}
+
+// applyDisplayResult renders result.Text according to the Display mode.
+// DisplayNone with text starts a new query (prompt-style commands).
+func (m AppModel) applyDisplayResult(result commands.Result) (AppModel, tea.Cmd) {
 	switch result.Display {
 	case commands.DisplayMessage:
 		if result.Text != "" {
@@ -422,10 +500,8 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 			m.isLoading = true
 			m.showSpinner = true
 			m.spinner = m.spinner.Reset()
-			queryCmd := startQueryCmd(&m, result.Text)
-			return m, queryCmd
+			return m, startQueryCmd(&m, result.Text)
 		}
 	}
-
 	return m, nil
 }

@@ -203,11 +203,17 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 	applyPermissionFlags(container, f)
 
 	// Restore session history if --resume or --continue was requested.
-	if msgs, err := loadSessionMessages(opts.WorkingDir, f); err != nil {
+	sid, msgs, err := loadSessionMessages(opts.WorkingDir, f)
+	if err != nil {
 		return err
-	} else if len(msgs) > 0 {
+	}
+	if len(msgs) > 0 {
 		container.QueryEngine.SetMessages(msgs)
 	}
+
+	// BF-18: persist conversation turns to the session JSONL.
+	rec := openTranscript(opts.WorkingDir, sid, len(msgs))
+	defer rec.Close()
 
 	// Set up graceful shutdown on SIGINT / SIGTERM.
 	sigCh := make(chan os.Signal, 1)
@@ -231,6 +237,8 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 		container.MsgQueue,
 		container.QueryGuard,
 		container.MemoryStore,
+		container.MCPPool,
+		rec,
 	)
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
@@ -250,11 +258,17 @@ func runHeadless(f *rootFlags, extraArgs []string, opts ContainerOptions) error 
 	applyPermissionFlags(container, f)
 
 	// Restore session history if --resume or --continue was requested.
-	if msgs, err := loadSessionMessages(opts.WorkingDir, f); err != nil {
+	sid, msgs, err := loadSessionMessages(opts.WorkingDir, f)
+	if err != nil {
 		return err
-	} else if len(msgs) > 0 {
+	}
+	if len(msgs) > 0 {
 		container.QueryEngine.SetMessages(msgs)
 	}
+
+	// BF-18: persist the headless turn to the session JSONL.
+	rec := openTranscript(opts.WorkingDir, sid, len(msgs))
+	defer rec.Close()
 
 	// Collect the prompt: positional args, then fall back to stdin.
 	prompt, err := collectHeadlessPrompt(extraArgs)
@@ -269,5 +283,10 @@ func runHeadless(f *rootFlags, extraArgs []string, opts ContainerOptions) error 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT)
 
-	return headlessRun(container, prompt, f, sigCh)
+	runErr := headlessRun(container, prompt, f, sigCh)
+	// BF-18: persist the completed (or partial) headless conversation.
+	if perr := rec.Record(container.QueryEngine.GetMessages()); perr != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", perr)
+	}
+	return runErr
 }

@@ -2,12 +2,15 @@ package tui
 
 import (
 	"context"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tunsuy/agtkeel/engine"
-	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/agtkeel/tools"
 	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/commands"
+	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/claude-code-go/internal/transcript"
 )
 
 // startQueryCmd builds a tea.Cmd that launches a new query against the engine.
@@ -226,4 +229,44 @@ func errString(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+// mcpStatusTimeout bounds the whole /mcp status fetch (per-server ListTools
+// calls are additionally bounded inside commands.FormatMCPStatus).
+const mcpStatusTimeout = 15 * time.Second
+
+// fetchMCPStatusCmd builds the /mcp status report off the Update loop.
+// The report may query connected MCP servers, so it must run as a tea.Cmd;
+// the resulting MCPStatusMsg is rendered by Update as a system message.
+func fetchMCPStatusCmd(pool commands.MCPServerLister) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), mcpStatusTimeout)
+		defer cancel()
+		return MCPStatusMsg{Text: commands.FormatMCPStatus(ctx, pool)}
+	}
+}
+
+// persistTranscriptCmd appends the not-yet-saved conversation tail to the
+// session JSONL off the Update loop (BF-18). The message slice is copied at
+// Cmd creation so later engine mutations cannot race the write. A nil
+// recorder is a no-op; failures surface as TranscriptErrMsg.
+func persistTranscriptCmd(rec *transcript.Recorder, msgs []types.Message) tea.Cmd {
+	snapshot := append([]types.Message(nil), msgs...)
+	return func() tea.Msg {
+		if err := rec.Record(snapshot); err != nil {
+			return TranscriptErrMsg{Err: err}
+		}
+		return nil
+	}
+}
+
+// switchTranscriptCmd adopts the session loaded by /resume so subsequent
+// turns append to the resumed file instead of the original one (BF-18).
+func switchTranscriptCmd(rec *transcript.Recorder, sessionID string, existing int) tea.Cmd {
+	return func() tea.Msg {
+		if err := rec.SwitchSession(sessionID, existing); err != nil {
+			return TranscriptErrMsg{Err: err}
+		}
+		return nil
+	}
 }

@@ -4,14 +4,15 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tunsuy/claude-code-go/internal/commands"
-	"github.com/tunsuy/claude-code-go/internal/coordinator"
 	"github.com/tunsuy/agtkeel/engine"
-	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/agtkeel/msgqueue"
 	"github.com/tunsuy/agtkeel/permissions"
-	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/commands"
+	"github.com/tunsuy/claude-code-go/internal/coordinator"
+	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/claude-code-go/internal/state"
+	"github.com/tunsuy/claude-code-go/internal/transcript"
 )
 
 // New creates a fully-initialised AppModel and returns it as a tea.Model.
@@ -23,6 +24,8 @@ import (
 // agentEventCh receives sub-agent progress/status events; if nil, coordinator panel is disabled.
 // mq is the unified command queue for mid-session message processing; may be nil.
 // qg is the query dispatch guard; may be nil.
+// mcpPool exposes MCP server connection state for /mcp; may be nil.
+// rec persists conversation turns to the session JSONL (BF-18); may be nil.
 func New(
 	qe engine.QueryEngine,
 	appStore *state.AppStateStore,
@@ -35,11 +38,13 @@ func New(
 	mq *msgqueue.MessageQueue,
 	qg *msgqueue.QueryGuard,
 	memoryStore *memdir.MemoryStore,
+	mcpPool commands.MCPServerLister,
+	rec *transcript.Recorder,
 ) tea.Model {
 	reg := commands.NewRegistry()
 	commands.RegisterBuiltins(reg)
 
-	m := newAppModel(qe, appStore, vimEnabled, dark, reg, permAskCh, permRespCh, agentCoord, agentEventCh, mq, qg, memoryStore)
+	m := newAppModel(qe, appStore, vimEnabled, dark, reg, permAskCh, permRespCh, agentCoord, agentEventCh, mq, qg, memoryStore, mcpPool, rec)
 	return m
 }
 

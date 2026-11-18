@@ -209,6 +209,11 @@ main() → bootstrap.Run()
 - Cobra 在此模式下注册全部子命令（约 52 个交互型命令）
 - 支持 `--resume`（按 session ID 恢复）、`--continue`（恢复最近会话）
 - 首次启动展示 workspace trust 对话框，accept 后才执行 git 相关操作
+- **会话持久化（BF-18）**：`openTranscript` 建立 `internal/transcript.Recorder`
+  （resume 时以已加载历史为写入基线），经 `tui.New` 末位参数注入；TUI 在 turn 边界
+  （StreamDone/StreamError）落盘，/resume 中途切换目标会话文件。初始化失败降级为
+  stderr 警告＋nil recorder（对话不受影响）。`loadSessionMessages` 签名改为
+  返回 (sessionID, messages, error) 以支持 recorder 基线。
 
 ### 4.2 非交互式模式（-p / --print）
 
@@ -221,6 +226,8 @@ main() → bootstrap.Run()
 - 支持 `--max-turns`、`--max-budget-usd` 等限制参数
 - 支持管道输入（stdin → prompt）
 - SIGINT 注册自己的 handler，中止当前查询后优雅退出
+- **会话持久化（BF-18）**：与交互模式同一 `openTranscript` 路径；`headlessRun` 返回后
+  `rec.Record(engine.GetMessages())` 落盘完整（或部分）对话，再 Close。
 
 **流程**：
 ```

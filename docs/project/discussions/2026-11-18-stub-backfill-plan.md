@@ -70,7 +70,9 @@
 
 ## 4. 并发与批次纪律
 
-- 代码实现（重）并发 ≤ 2；修复（轻）≤ 3；评审 ≤ 2（PM 容量管控规范）
+- **并发 Agent 上限 3 个（含主会话）**——人类 2026-11-18 指示；即子 Agent 最多 2 个。
+  代码实现（重）≤2；修复（轻）≤3 且受总数上限约束；评审 ≤2。
+- 配额受限时优先主会话直接执行（维护模式单人负责人＋主会话，AGENTS.md），少开子 Agent。
 - 每个开发 Agent 在独立 worktree/feat 分支工作，**不触碰主工作区未提交的用户改动**
   （go.mod replace、wire.go OpenAI 修复、.agtkeel-uncommitted.diff）
 - 跨层接口变更：先 Tech Lead 契约评审，再实现（Contract-First）
@@ -80,16 +82,18 @@
 
 | ID | 状态 | worktree/分支 | 备注 |
 |----|------|---------------|------|
-| BF-00 | blocked（配额）→ 排队 | bf-docs-roadmap | 头部注记+概览框已完成（未提交）；人类决策不调整配额，待 BF-01/02/03 完成后与 BF-17 合并重派续做 |
-| BF-17 | pending（排队） | 待建（与 BF-00 同批） | cache-first 门控制度化，2026-11-18 人类决策采纳 |
-| BF-01 | in_progress（退回修复） | bf-tools-b1 | 评审 NOT pass-ready（报告 4e25721）：CR-BF01-1 P0（看門狗遲到落地＝會話期 pool 寫入，真實 race）+ CR-BF01-2 P1（boot ListTools 無 deadline）；BF-01-F1/F2 修复中 |
-| BF-02 | in_progress（随 BF-01 修复） | bf-tools-b1 | Sleep 本體通過；CR-BF01-5 duration overflow（P2）併入 F1 |
-| BF-01-F1/F2 | in_progress | bf-tools-b1 | F1 代碼修复（CR-BF01-1/2/3 hygiene/5/6）；F2 測試補充（慢握手回歸、慢 list、guard 強化、output-cap）；分開提交 |
+| BF-00 | completed | bf-docs-roadmap | 提交 42e0fe0；Phase 2 虚报全修正（含会话持久化勘误），与 cases.md 对齐 |
+| BF-17 | completed | bf-docs-roadmap | 提交 726e0f4；参考规范入库＋CONTRIBUTING 闸门节＋映射表＋tech-lead 维护期补充 |
+| BF-01 | completed（评审通过） | bf-tools-b1 | 实现 1732d65＋修复 50b2427＋复核 f7a9eb1；P0 关闭，pass-ready；待 QA／人类 PR 确认 |
+| BF-02 | completed（评审通过） | bf-tools-b1 | 同上；Sleep overflow 上限已补 |
+| BF-01-F1/F2 | completed | bf-tools-b1 | 主会话接手（子 Agent 四度配额失败）；F1=50b2427、F2=de4ab23；复核记录 f7a9eb1；全仓 -race 绿、docs-check/debt-check 通过（22/44） |
 | BF-03-F1/F2 | blocked（配额）→ 排队 | bf-tui-b1 | 修复 Agent 撞配额中断；待评审 Agent 完成后重派 |
 | BF-20 | pending（P2） | 待建 | 全仓 gofmt 清理（HEAD 既有 23 个未格式化文件，跨层，独立 chore 任务避免噪声） |
-| BF-03 | in_progress（退回修复） | bf-tui-b1 | 评审通过（0 P0/2 P1/4 P2，报告 ca72211）；CR-BF03-1/2 退回 Agent-TUI（BF-03-F1/F2）；修复后 Tech Lead 复核 → QA |
+| BF-03 | completed（评审通过） | bf-tui-b1 | 实现 286e0c7＋修复 1637769/10df48b＋复核 4b38842；P1 全关闭，pass-ready；CR-BF03-2 升级条件已解除（BF-01-F1 消除会话期 pool 写入）；待 QA／人类 PR 确认 |
+| BF-03-F1/F2 | completed | bf-tui-b1 | 主会话接手（配额）；F1=1637769（CR-BF03-1/2/3/4/5）、F2=10df48b（CR-BF03-6 守护测试）；全仓 -race 绿、docs-check/debt-check 通过（24） |
 | BF-19 | pending（跨仓） | 待建 | CR-BF03-2 根因修复：agtkeel Pool 快照式 GetAll API（现返回共享可变指针）。**BF-01 合并前置依赖**——评审已裁决 CR-BF03-2 经 CR-BF01-1 升级 P0（看門狗遲到落地路径），BF-01-F1 修复后回落为 BF-03 侧潜在 P1。范围补充：CR-BF01-7 内核 inherited 限制（jsonRPC reader 绑定 initialize ctx、httptest/HTTP Close 语义）併案处理。API 形态由 Tech Lead 裁决 |
-| BF-18 | pending | — | Batch 2；BF-03 验收中发现的新缺口 |
-| BF-05..BF-16 | pending | — | 按批次派发 |
+| BF-18 | completed（待评审） | bf-tui-b1 | 提交 a75c1c7（stacked on BF-05）；internal/transcript Recorder＋TUI turn 边界落盘＋headless 收尾＋/resume 换文件；全仓 -race 绿、docs-check 通过；/clear 追加-only 局限文档化 |
+| BF-05 | completed（待评审） | bf-tui-b1 | 提交 e7411d4（stacked on BF-03）；/config 只读面板＋/terminal-setup 检测；debt 24→22；全仓 -race/docs-check 绿 |
+| BF-06..BF-16 | pending | — | 按批次派发 |
 
 > 状态变更由 PM 独家更新本表；Agent 汇报按 agent-output.md JSON 格式。
