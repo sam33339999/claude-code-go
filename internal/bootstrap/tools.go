@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	agtmcp "github.com/tunsuy/agtkeel/mcp"
 	"github.com/tunsuy/agtkeel/tools"
 	"github.com/tunsuy/claude-code-go/internal/tools/agent"
 	"github.com/tunsuy/claude-code-go/internal/tools/fileops"
@@ -15,7 +16,13 @@ import (
 
 // RegisterBuiltinTools registers all built-in tool singletons into reg.
 // Order follows the canonical tool ordering in the TS implementation.
-func RegisterBuiltinTools(reg *tools.Registry) {
+//
+// pool is the MCP connection pool injected into the MCP resource tools
+// (ListMcpResources / ReadMcpResource). It may be nil, in which case those
+// tools report that no MCP pool is configured. Per-server MCP proxy tools are
+// registered separately via mcp.RegisterServerTools once connections exist
+// (see connectConfiguredMCPServers) — a one-shot, session-pinned registration.
+func RegisterBuiltinTools(reg *tools.Registry, pool *agtmcp.Pool) {
 	// ── File operations ──────────────────────────────────────────────────────
 	reg.Register(fileops.FileReadTool)
 	reg.Register(fileops.FileWriteTool)
@@ -53,8 +60,8 @@ func RegisterBuiltinTools(reg *tools.Registry) {
 	reg.Register(interact.ExitWorktreeTool)
 
 	// ── MCP meta-tools ───────────────────────────────────────────────────────
-	reg.Register(mcp.ListMcpResourcesTool)
-	reg.Register(mcp.ReadMcpResourceTool)
+	reg.Register(mcp.NewListMcpResourcesTool(pool))
+	reg.Register(mcp.NewReadMcpResourceTool(pool))
 
 	// ── Misc ─────────────────────────────────────────────────────────────────
 	reg.Register(misc.SkillTool)

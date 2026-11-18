@@ -1,8 +1,10 @@
 package misc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/tunsuy/agtkeel/tools"
 )
@@ -160,7 +162,6 @@ type SleepInput struct {
 }
 
 // SleepTool is the exported singleton instance.
-// TODO(dep): Requires Agent-Core task scheduler integration.
 var SleepTool tools.Tool = &sleepTool{}
 
 type sleepTool struct{ tools.BaseTool }
@@ -195,9 +196,44 @@ func (t *sleepTool) UserFacingName(input tools.Input) string {
 	return "Sleep"
 }
 
-func (t *sleepTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement with context-aware sleep.
-	return &tools.Result{IsError: true, Content: "Sleep tool not yet implemented (TODO(dep))"}, nil
+func (t *sleepTool) Call(input tools.Input, uctx *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	// Validate presence first: encoding/json leaves absent fields at zero,
+	// which would otherwise be indistinguishable from an explicit 0ms sleep.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(input, &raw); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("Sleep: invalid input: %v", err)}, nil
+	}
+	if _, ok := raw["milliseconds"]; !ok {
+		return &tools.Result{IsError: true, Content: "Sleep: missing required field 'milliseconds'"}, nil
+	}
+	var in SleepInput
+	if err := json.Unmarshal(input, &in); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("Sleep: invalid input: %v", err)}, nil
+	}
+	if in.Milliseconds < 0 {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("Sleep: milliseconds must be >= 0, got %d", in.Milliseconds)}, nil
+	}
+
+	ctx := context.Background()
+	var abortCh <-chan struct{}
+	if uctx != nil {
+		if uctx.Ctx != nil {
+			ctx = uctx.Ctx
+		}
+		abortCh = uctx.AbortCh
+	}
+
+	timer := time.NewTimer(time.Duration(in.Milliseconds) * time.Millisecond)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		return &tools.Result{Content: fmt.Sprintf("Slept for %d milliseconds", in.Milliseconds)}, nil
+	case <-ctx.Done():
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("Sleep: cancelled before completing %dms: %v", in.Milliseconds, ctx.Err())}, nil
+	case <-abortCh:
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("Sleep: aborted before completing %dms", in.Milliseconds)}, nil
+	}
 }
 
 // ── SyntheticOutput ───────────────────────────────────────────────────────────

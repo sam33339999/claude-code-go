@@ -1,8 +1,11 @@
 package misc_test
 
 import (
+	"context"
 	"encoding/json"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/tunsuy/agtkeel/tools"
 	"github.com/tunsuy/claude-code-go/internal/tools/misc"
@@ -166,14 +169,147 @@ func TestSleepTool_UserFacingName(t *testing.T) {
 	}
 }
 
-func TestSleepTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(misc.SleepInput{Milliseconds: 100})
+func TestSleepTool_Call_Completes(t *testing.T) {
+	in, _ := json.Marshal(misc.SleepInput{Milliseconds: 20})
+	start := time.Now()
+	result, err := misc.SleepTool.Call(in, &tools.UseContext{Ctx: context.Background()}, nil)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected success, got: %v", result.Content)
+	}
+	if elapsed < 20*time.Millisecond {
+		t.Errorf("sleep returned too early: %v", elapsed)
+	}
+	if !strings.Contains(result.Content.(string), "20") {
+		t.Errorf("expected duration in result, got: %v", result.Content)
+	}
+}
+
+func TestSleepTool_Call_ZeroMilliseconds(t *testing.T) {
+	in, _ := json.Marshal(misc.SleepInput{Milliseconds: 0})
 	result, err := misc.SleepTool.Call(in, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected hard error: %v", err)
 	}
+	if result.IsError {
+		t.Errorf("0ms sleep should succeed immediately, got: %v", result.Content)
+	}
+}
+
+func TestSleepTool_Call_NilUseContext(t *testing.T) {
+	in, _ := json.Marshal(misc.SleepInput{Milliseconds: 1})
+	result, err := misc.SleepTool.Call(in, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if result.IsError {
+		t.Errorf("nil UseContext should fall back to background context, got: %v", result.Content)
+	}
+}
+
+func TestSleepTool_Call_InvalidInput(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"negative", `{"milliseconds":-5}`, ">="},
+		{"missing field", `{}`, "missing"},
+		{"wrong type", `{"milliseconds":"soon"}`, "invalid input"},
+		{"not json", `not json`, "invalid input"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := misc.SleepTool.Call(json.RawMessage(tc.input), nil, nil)
+			if err != nil {
+				t.Fatalf("unexpected hard error: %v", err)
+			}
+			if !result.IsError {
+				t.Fatalf("expected IsError=true for %s", tc.name)
+			}
+			if !strings.Contains(result.Content.(string), tc.want) {
+				t.Errorf("expected message containing %q, got: %v", tc.want, result.Content)
+			}
+		})
+	}
+}
+
+func TestSleepTool_Call_ContextCancelledBeforeCall(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	in, _ := json.Marshal(misc.SleepInput{Milliseconds: 5000})
+	start := time.Now()
+	result, err := misc.SleepTool.Call(in, &tools.UseContext{Ctx: ctx}, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
 	if !result.IsError {
-		t.Error("expected IsError=true")
+		t.Error("expected IsError=true for pre-cancelled context")
+	}
+	if time.Since(start) > time.Second {
+		t.Error("cancelled sleep should return immediately")
+	}
+}
+
+func TestSleepTool_Call_ContextCancelledDuringSleep(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	time.AfterFunc(20*time.Millisecond, cancel)
+	in, _ := json.Marshal(misc.SleepInput{Milliseconds: 5000})
+	start := time.Now()
+	result, err := misc.SleepTool.Call(in, &tools.UseContext{Ctx: ctx}, nil)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected IsError=true when cancelled mid-sleep")
+	}
+	if elapsed > time.Second {
+		t.Errorf("sleep should stop promptly on cancellation, took %v", elapsed)
+	}
+	if !strings.Contains(result.Content.(string), "cancel") {
+		t.Errorf("expected cancellation message, got: %v", result.Content)
+	}
+}
+
+func TestSleepTool_Call_DeadlineExceeded(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	in, _ := json.Marshal(misc.SleepInput{Milliseconds: 5000})
+	result, err := misc.SleepTool.Call(in, &tools.UseContext{Ctx: ctx}, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected IsError=true when the deadline expires mid-sleep")
+	}
+	if !strings.Contains(result.Content.(string), "deadline") {
+		t.Errorf("expected deadline message, got: %v", result.Content)
+	}
+}
+
+func TestSleepTool_Call_AbortCh(t *testing.T) {
+	abortCh := make(chan struct{})
+	time.AfterFunc(20*time.Millisecond, func() { close(abortCh) })
+	in, _ := json.Marshal(misc.SleepInput{Milliseconds: 5000})
+	start := time.Now()
+	result, err := misc.SleepTool.Call(in, &tools.UseContext{Ctx: context.Background(), AbortCh: abortCh}, nil)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected IsError=true when AbortCh is closed mid-sleep")
+	}
+	if elapsed > time.Second {
+		t.Errorf("sleep should stop promptly on abort, took %v", elapsed)
+	}
+	if !strings.Contains(result.Content.(string), "abort") {
+		t.Errorf("expected abort message, got: %v", result.Content)
 	}
 }
 

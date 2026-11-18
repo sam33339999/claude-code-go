@@ -2,13 +2,13 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-09-23T11:03:32Z
-source_files: [auth.go, bootstrap.go, mcp.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, wire.go]
+generated_at: 2026-11-18T01:42:09Z
+source_files: [auth.go, bootstrap.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, wire.go]
 ---
 
 # internal/bootstrap
 
-> Layer: **CLI** · Files: 22 · Interfaces: 0 · Structs: 2 · Functions: 8
+> Layer: **CLI** · Files: 23 · Interfaces: 0 · Structs: 2 · Functions: 8
 
 ## Structs
 
@@ -22,7 +22,7 @@ source_files: [auth.go, bootstrap.go, mcp.go, mcp_health.go, mcp_help.go, mcp_li
 - `BuildHeadlessContainer(opts ContainerOptions) (*AppContainer, error)`
 - `Execute() error`
 - `HandleFastPath(args []string) bool`
-- `RegisterBuiltinTools(reg *tools.Registry)`
+- `RegisterBuiltinTools(reg *tools.Registry, pool *agtmcp.Pool)`
 - `Run(args []string) error`
 - `RunHeadless(container *AppContainer, prompt string, outputFormat string, maxTurns int) error`
 
@@ -66,3 +66,16 @@ source_files: [auth.go, bootstrap.go, mcp.go, mcp_health.go, mcp_help.go, mcp_li
   诚实报错，后者从帮助行与建议名中整体移除；JS JSON 解析错误措辞与 Go 不同（外层
   `Invalid JSON syntax: JSON Parse error: …` 格式一致）；hooks 模块文件只做存在性检查，
   不按 JS 加载。
+- **2026-11-18 BF-01 MCP 启动接线（桩回填）**：`RegisterBuiltinTools` 签名新增
+  `pool *agtmcp.Pool` 参数（最小接口变更，可为 nil），MCP 资源工具构造期注入 pool。
+  `BuildContainer`/`BuildContainerWithClient` 先建 pool 再注册工具，随后
+  `connectConfiguredMCPServers`（mcp_connect.go）连接已配置服务器并经
+  `mcptools.RegisterServerTools` 一次性注册各服务器工具（会话钉住，见
+  internal/tools/mcp CONTEXT.md 的 cache-stability 决策）。服务器选择沿用
+  `mcp list` 语义（ListMCPServers），另加 project 作用域批准门
+  （enableAllProjectMcpServers / enabledMcpjsonServers）。连接失败非致命：
+  状态记录在 pool（供 /mcp 展示），错误仅在 Debug 模式打印。
+  **agtkeel 内核约束**：jsonRPCClient 的后台读协程绑定首次调用（initialize）
+  的 ctx，故 Connect 必须用长生命周期 context；启动等待用 30s 看门狗
+  （connectWithWatchdog）约束，而不是可取消的 timeout ctx——后者会在启动后
+  立即撕掉连接。迟到的握手仍会落入 pool，其工具下个会话生效。

@@ -165,6 +165,14 @@ func BuildContainer(cfg *config.Config) (*AppContainer, error) {
 }
 ```
 
+**MCP 启动接线（BF-01，2026-11-18）**：实际实现中 `BuildContainer` /
+`BuildContainerWithClient` 先创建 `mcp.Pool`，再以
+`RegisterBuiltinTools(reg, pool)` 注册内置工具（MCP 资源工具构造期注入 pool），
+随后 `connectConfiguredMCPServers`（`mcp_connect.go`）连接已配置的 MCP 服务器
+（project 作用域需用户批准；每服务器 30s 握手看门狗；失败非致命，状态记录在
+pool 供 `mcp list` / `/mcp` 展示），并经 `mcp.RegisterServerTools` 将各服务器
+工具动态注册进 reg。详见 `docs/project/design/tools.md` §4.4。
+
 ### 3.3 各运行模式的启动路径
 
 | 入口判断条件 | 路径 |
