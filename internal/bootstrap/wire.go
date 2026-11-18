@@ -48,6 +48,9 @@ type ContainerOptions struct {
 	Verbose       bool
 	Debug         bool
 	DebugFile     string // File path for debug log output (empty = stderr when Debug is true)
+	// Headless marks non-interactive (-p) runs: user-question HIL is disabled
+	// (AskUserQuestion reports an honest error instead of blocking).
+	Headless bool
 }
 
 // AppContainer holds all wired application dependencies.
@@ -67,6 +70,11 @@ type AppContainer struct {
 	PermAskCh <-chan permissions.AskRequest
 	// PermRespCh is used by TUI to send permission responses back to the engine.
 	PermRespCh chan<- permissions.AskResponse
+	// QuestionAskCh receives AskUserQuestion requests for the TUI (BF-08);
+	// nil in headless mode.
+	QuestionAskCh <-chan types.QuestionRequest
+	// QuestionRespCh sends user answers back to the waiting tool; nil in headless.
+	QuestionRespCh chan<- types.QuestionResponse
 	// Coordinator manages multi-agent lifecycle and message routing.
 	Coordinator coordinator.Coordinator
 	// AgentCoordinator is the tools-facing adapter for the coordinator.
@@ -152,6 +160,17 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	askCh := make(chan permissions.AskRequest, 1)
 	respCh := make(chan permissions.AskResponse, 1)
 
+	// BF-08: AskUserQuestion HIL channels (same pattern as permissions).
+	// Headless runs have no user to answer: nil channels make the tool report
+	// an honest error instead of blocking.
+	var qAskCh chan types.QuestionRequest
+	var qRespCh chan types.QuestionResponse
+	if !opts.Headless {
+		qAskCh = make(chan types.QuestionRequest, 1)
+		qRespCh = make(chan types.QuestionResponse, 1)
+	}
+	reg.Register(interact.NewAskUserQuestionTool(qAskCh, qRespCh))
+
 	// Build the permission checker with the tool registry and channels.
 	permChecker := permissions.NewChecker(permissions.CheckerConfig{
 		PermCtx:    appState.ToolPermissionContext,
@@ -206,6 +225,8 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 		Settings:         settings,
 		PermAskCh:        askCh,
 		PermRespCh:       respCh,
+		QuestionAskCh:    qAskCh,
+		QuestionRespCh:   qRespCh,
 		Coordinator:      coord,
 		AgentCoordinator: agentCoord,
 		AgentEventCh:     agentEventCh,
@@ -261,6 +282,15 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	askCh := make(chan permissions.AskRequest, 1)
 	respCh := make(chan permissions.AskResponse, 1)
 
+	// BF-08: AskUserQuestion HIL channels (nil in headless → honest error).
+	var qAskCh chan types.QuestionRequest
+	var qRespCh chan types.QuestionResponse
+	if !opts.Headless {
+		qAskCh = make(chan types.QuestionRequest, 1)
+		qRespCh = make(chan types.QuestionResponse, 1)
+	}
+	reg.Register(interact.NewAskUserQuestionTool(qAskCh, qRespCh))
+
 	permChecker := permissions.NewChecker(permissions.CheckerConfig{
 		PermCtx:    appState.ToolPermissionContext,
 		Dispatcher: hooks.NewDispatcher(nil, false),
@@ -312,6 +342,8 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 		Settings:         settings,
 		PermAskCh:        askCh,
 		PermRespCh:       respCh,
+		QuestionAskCh:    qAskCh,
+		QuestionRespCh:   qRespCh,
 		Coordinator:      coord,
 		AgentCoordinator: agentCoord,
 		AgentEventCh:     agentEventCh,

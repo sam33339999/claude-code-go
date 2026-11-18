@@ -88,6 +88,9 @@ func (m AppModel) View() string {
 	case dialogConfig:
 		sb.WriteString("\n")
 		sb.WriteString(m.renderConfigDialog())
+	case dialogQuestion:
+		sb.WriteString("\n")
+		sb.WriteString(renderQuestionDialog(m.questionReq, m.theme))
 	}
 
 	return sb.String()
@@ -116,6 +119,32 @@ func (m *AppModel) syncViewportContent() {
 	if m.pinnedToBottom {
 		m.viewport.GotoBottom()
 	}
+}
+
+// renderQuestionDialog renders the AskUserQuestion dialog (BF-08): question,
+// numbered options (selected marked), free-text answer buffer, key hints.
+// Display-only apart from the HIL response callback invoked by key handling.
+func renderQuestionDialog(q *questionState, theme Theme) string {
+	if q == nil {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString(warningStyle(theme).Bold(true).Render("Question"))
+	sb.WriteString("\n")
+	sb.WriteString(mutedStyle(theme).Render(q.question))
+	sb.WriteString("\n")
+	for i, opt := range q.options {
+		marker := "  "
+		if i == q.selected {
+			marker = "> "
+		}
+		sb.WriteString(mutedStyle(theme).Render(fmt.Sprintf("%s%d. %s", marker, i+1, opt)))
+		sb.WriteString("\n")
+	}
+	sb.WriteString(mutedStyle(theme).Render("Answer: " + q.answer))
+	sb.WriteString("\n")
+	sb.WriteString(mutedStyle(theme).Render("(1-9 select · type answer · Enter submit · Esc dismiss)"))
+	return sb.String()
 }
 
 // renderTodoPanel renders the session todo list (BF-07) above the input area.

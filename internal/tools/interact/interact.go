@@ -1,12 +1,14 @@
 package interact
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/claude-code-go/pkg/utils/ids"
 )
 
 // ── TodoWrite ─────────────────────────────────────────────────────────────────
@@ -123,11 +125,20 @@ type AskUserQuestionInput struct {
 	Options []string `json:"options,omitempty"`
 }
 
-// AskUserQuestionTool is the exported singleton instance.
-// TODO(dep): Requires Agent-Core UI/interaction layer.
-var AskUserQuestionTool tools.Tool = &askUserQuestionTool{}
+// NewAskUserQuestionTool constructs the AskUserQuestion tool backed by the
+// HIL channel pair (BF-08), mirroring the permission dialog pipeline: the
+// tool sends a QuestionRequest and blocks until the TUI returns a response.
+// Nil channels (headless mode) make every call report an honest error instead
+// of blocking forever.
+func NewAskUserQuestionTool(askCh chan<- types.QuestionRequest, respCh <-chan types.QuestionResponse) tools.Tool {
+	return &askUserQuestionTool{askCh: askCh, respCh: respCh}
+}
 
-type askUserQuestionTool struct{ tools.BaseTool }
+type askUserQuestionTool struct {
+	tools.BaseTool
+	askCh  chan<- types.QuestionRequest
+	respCh <-chan types.QuestionResponse
+}
 
 func (t *askUserQuestionTool) Name() string { return "AskUserQuestion" }
 
@@ -164,7 +175,45 @@ func (t *askUserQuestionTool) InterruptBehavior() tools.InterruptBehavior {
 }
 func (t *askUserQuestionTool) UserFacingName(_ tools.Input) string { return "AskUserQuestion" }
 
-func (t *askUserQuestionTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement via Agent-Core UI layer (bubbletea input).
-	return &tools.Result{IsError: true, Content: "AskUserQuestion not yet implemented (TODO(dep))"}, nil
+func (t *askUserQuestionTool) Call(input tools.Input, uctx *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	if t.askCh == nil || t.respCh == nil {
+		return &tools.Result{IsError: true, Content: "AskUserQuestion: not available in non-interactive mode"}, nil
+	}
+	var in AskUserQuestionInput
+	if err := json.Unmarshal(input, &in); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("AskUserQuestion: invalid input: %v", err)}, nil
+	}
+	if in.Question == "" {
+		return &tools.Result{IsError: true, Content: "AskUserQuestion: question is required"}, nil
+	}
+
+	ctx := context.Background()
+	var abortCh <-chan struct{}
+	if uctx != nil {
+		if uctx.Ctx != nil {
+			ctx = uctx.Ctx
+		}
+		abortCh = uctx.AbortCh
+	}
+
+	req := types.QuestionRequest{ID: string(ids.NewSessionId()), Question: in.Question, Options: in.Options}
+	select {
+	case t.askCh <- req:
+	case <-ctx.Done():
+		return &tools.Result{IsError: true, Content: "AskUserQuestion: cancelled before the question was delivered"}, nil
+	case <-abortCh:
+		return &tools.Result{IsError: true, Content: "AskUserQuestion: aborted"}, nil
+	}
+
+	select {
+	case resp := <-t.respCh:
+		if resp.Dismissed {
+			return &tools.Result{Content: "The user dismissed the question without answering. Proceed with your best judgment or ask again later if still blocked."}, nil
+		}
+		return &tools.Result{Content: "User answered: " + resp.Answer}, nil
+	case <-ctx.Done():
+		return &tools.Result{IsError: true, Content: "AskUserQuestion: cancelled while waiting for the user's answer"}, nil
+	case <-abortCh:
+		return &tools.Result{IsError: true, Content: "AskUserQuestion: aborted while waiting for the user's answer"}, nil
+	}
 }

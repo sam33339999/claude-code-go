@@ -39,6 +39,8 @@ func (m AppModel) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.activeDialog = dialogNone
 		}
 		return m, nil
+	case dialogQuestion:
+		return m.handleQuestionKey(key)
 	}
 
 	// --- Normal / idle state ---
@@ -424,4 +426,56 @@ func (m AppModel) collectToolUseIDs() []string {
 		}
 	}
 	return ids
+}
+
+// handleQuestionKey handles keys while the AskUserQuestion dialog is open
+// (BF-08): number keys pick an option, runes edit a free-text answer,
+// Enter submits, Esc dismisses. The response travels through the HIL
+// callback (same side-effect pattern as the permission dialog).
+func (m AppModel) handleQuestionKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	q := m.questionReq
+	if q == nil {
+		m.activeDialog = dialogNone
+		return m, nil
+	}
+	switch key.String() {
+	case "esc":
+		q.respFn("", true)
+		m.questionReq = nil
+		m.activeDialog = dialogNone
+		return m, nil
+	case "enter", "ctrl+j":
+		answer := q.answer
+		if answer == "" && q.selected >= 0 && q.selected < len(q.options) {
+			answer = q.options[q.selected]
+		}
+		if answer == "" {
+			return m, nil // nothing to submit yet
+		}
+		q.respFn(answer, false)
+		m.questionReq = nil
+		m.activeDialog = dialogNone
+		return m, nil
+	case "backspace":
+		if len(q.answer) > 0 {
+			runes := []rune(q.answer)
+			q.answer = string(runes[:len(runes)-1])
+			q.selected = -1
+		}
+		return m, nil
+	}
+	if key.Type == tea.KeyRunes {
+		text := string(key.Runes)
+		if len(text) == 1 && text[0] >= '1' && text[0] <= '9' {
+			idx := int(text[0] - '1')
+			if idx < len(q.options) {
+				q.selected = idx
+				q.answer = q.options[idx]
+				return m, nil
+			}
+		}
+		q.answer += text
+		q.selected = -1
+	}
+	return m, nil
 }

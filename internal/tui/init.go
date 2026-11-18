@@ -13,6 +13,7 @@ import (
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/transcript"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // New creates a fully-initialised AppModel and returns it as a tea.Model.
@@ -40,11 +41,13 @@ func New(
 	memoryStore *memdir.MemoryStore,
 	mcpPool commands.MCPServerLister,
 	rec *transcript.Recorder,
+	questionAskCh <-chan types.QuestionRequest,
+	questionRespCh chan<- types.QuestionResponse,
 ) tea.Model {
 	reg := commands.NewRegistry()
 	commands.RegisterBuiltins(reg)
 
-	m := newAppModel(qe, appStore, vimEnabled, dark, reg, permAskCh, permRespCh, agentCoord, agentEventCh, mq, qg, memoryStore, mcpPool, rec)
+	m := newAppModel(qe, appStore, vimEnabled, dark, reg, permAskCh, permRespCh, agentCoord, agentEventCh, mq, qg, memoryStore, mcpPool, rec, questionAskCh, questionRespCh)
 	return m
 }
 
@@ -62,6 +65,10 @@ func (m AppModel) Init() tea.Cmd {
 	// Start listening for permission requests if HIL is enabled.
 	if m.permAskCh != nil {
 		cmds = append(cmds, listenForPermissionRequest(m.permAskCh, m.permRespCh))
+	}
+	// BF-08: listen for AskUserQuestion requests if the HIL channels exist.
+	if m.questionAskCh != nil {
+		cmds = append(cmds, listenForQuestionRequest(m.questionAskCh, m.questionRespCh))
 	}
 	// Start listening for agent events if coordinator is enabled.
 	if m.agentEventCh != nil {
@@ -123,6 +130,30 @@ func listenForPermissionRequest(
 					Decision:    decision,
 					AlwaysAllow: allow && alwaysAllow,
 				}
+			},
+		}
+	}
+}
+
+// listenForQuestionRequest returns a Cmd that blocks on the AskUserQuestion
+// HIL channel (BF-08) and converts the request into a QuestionRequestMsg.
+// The RespFn callback sends the user's answer back through respCh, waking the
+// tool call that is blocked waiting for it (permission listener precedent).
+func listenForQuestionRequest(
+	askCh <-chan types.QuestionRequest,
+	respCh chan<- types.QuestionResponse,
+) tea.Cmd {
+	return func() tea.Msg {
+		req, ok := <-askCh
+		if !ok {
+			return nil
+		}
+		return QuestionRequestMsg{
+			RequestID: req.ID,
+			Question:  req.Question,
+			Options:   req.Options,
+			RespFn: func(answer string, dismissed bool) {
+				respCh <- types.QuestionResponse{ID: req.ID, Answer: answer, Dismissed: dismissed}
 			},
 		}
 	}

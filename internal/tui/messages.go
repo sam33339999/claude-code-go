@@ -121,6 +121,16 @@ type MCPStatusMsg struct{ Text string }
 // surfaces it as a system warning; the conversation itself is unaffected.
 type TranscriptErrMsg struct{ Err error }
 
+// QuestionRequestMsg is sent when the AskUserQuestion tool needs user input
+// (BF-08). RespFn delivers the answer back to the waiting tool through the
+// HIL response channel (same callback pattern as PermissionRequestMsg).
+type QuestionRequestMsg struct {
+	RequestID string
+	Question  string
+	Options   []string
+	RespFn    func(answer string, dismissed bool)
+}
+
 // AgentStatusMsg is pushed from Agent-Core to update a sub-agent's status.
 type AgentStatusMsg struct {
 	TaskID      string

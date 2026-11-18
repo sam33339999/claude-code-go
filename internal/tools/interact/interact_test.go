@@ -1,6 +1,7 @@
 package interact_test
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -120,26 +121,24 @@ func TestTodoWriteTool_NilStore(t *testing.T) {
 
 // ── AskUserQuestionTool ───────────────────────────────────────────────────────
 
-func TestAskUserQuestionTool_Name(t *testing.T) {
-	if interact.AskUserQuestionTool.Name() != "AskUserQuestion" {
-		t.Errorf("expected AskUserQuestion, got %q", interact.AskUserQuestionTool.Name())
-	}
+func newQuestionTool() (tools.Tool, chan types.QuestionRequest, chan types.QuestionResponse) {
+	ask := make(chan types.QuestionRequest, 1)
+	resp := make(chan types.QuestionResponse, 1)
+	return interact.NewAskUserQuestionTool(ask, resp), ask, resp
 }
 
-func TestAskUserQuestionTool_IsConcurrencySafe_False(t *testing.T) {
-	if interact.AskUserQuestionTool.IsConcurrencySafe(nil) {
-		t.Error("AskUserQuestionTool must not be concurrency-safe")
+func TestAskUserQuestionTool_Metadata(t *testing.T) {
+	tool, _, _ := newQuestionTool()
+	if tool.Name() != "AskUserQuestion" {
+		t.Errorf("expected AskUserQuestion, got %q", tool.Name())
 	}
-}
-
-func TestAskUserQuestionTool_IsReadOnly_True(t *testing.T) {
-	if !interact.AskUserQuestionTool.IsReadOnly(nil) {
-		t.Error("AskUserQuestionTool should be read-only")
+	if tool.IsConcurrencySafe(nil) {
+		t.Error("AskUserQuestion must not be concurrency-safe")
 	}
-}
-
-func TestAskUserQuestionTool_InputSchema(t *testing.T) {
-	schema := interact.AskUserQuestionTool.InputSchema()
+	if !tool.IsReadOnly(nil) {
+		t.Error("AskUserQuestion should be read-only")
+	}
+	schema := tool.InputSchema()
 	if _, ok := schema.Properties["question"]; !ok {
 		t.Error("schema missing 'question'")
 	}
@@ -148,14 +147,85 @@ func TestAskUserQuestionTool_InputSchema(t *testing.T) {
 	}
 }
 
-func TestAskUserQuestionTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(interact.AskUserQuestionInput{Question: "what to do?"})
-	result, err := interact.AskUserQuestionTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
+func TestAskUserQuestionTool_AnswerFlow(t *testing.T) {
+	tool, ask, resp := newQuestionTool()
+	in, _ := json.Marshal(interact.AskUserQuestionInput{Question: "which db?", Options: []string{"postgres", "sqlite"}})
+	done := make(chan *tools.Result, 1)
+	go func() {
+		result, err := tool.Call(in, nil, nil)
+		if err != nil {
+			t.Errorf("hard error: %v", err)
+		}
+		done <- result
+	}()
+	req := <-ask
+	if req.Question != "which db?" || len(req.Options) != 2 || req.ID == "" {
+		t.Fatalf("unexpected request: %+v", req)
 	}
+	resp <- types.QuestionResponse{ID: req.ID, Answer: "postgres"}
+	result := <-done
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result.Content)
+	}
+	if !strings.Contains(result.Content.(string), "User answered: postgres") {
+		t.Errorf("expected answer in result, got %v", result.Content)
+	}
+}
+
+func TestAskUserQuestionTool_Dismissed(t *testing.T) {
+	tool, ask, resp := newQuestionTool()
+	in, _ := json.Marshal(interact.AskUserQuestionInput{Question: "q?"})
+	done := make(chan *tools.Result, 1)
+	go func() {
+		result, _ := tool.Call(in, nil, nil)
+		done <- result
+	}()
+	req := <-ask
+	resp <- types.QuestionResponse{ID: req.ID, Dismissed: true}
+	result := <-done
+	if result.IsError {
+		t.Error("dismissal is a normal outcome, not an error")
+	}
+	if !strings.Contains(result.Content.(string), "dismissed") {
+		t.Errorf("expected dismissal text, got %v", result.Content)
+	}
+}
+
+func TestAskUserQuestionTool_ContextCancel(t *testing.T) {
+	tool, ask, _ := newQuestionTool()
+	ctx, cancel := context.WithCancel(context.Background())
+	in, _ := json.Marshal(interact.AskUserQuestionInput{Question: "q?"})
+	done := make(chan *tools.Result, 1)
+	go func() {
+		result, _ := tool.Call(in, &tools.UseContext{Ctx: ctx}, nil)
+		done <- result
+	}()
+	<-ask // question delivered; now cancel while waiting for the answer
+	cancel()
+	result := <-done
+	if !result.IsError || !strings.Contains(result.Content.(string), "cancelled") {
+		t.Errorf("expected cancellation error, got %+v", result)
+	}
+}
+
+func TestAskUserQuestionTool_HeadlessNilChannels(t *testing.T) {
+	tool := interact.NewAskUserQuestionTool(nil, nil)
+	in, _ := json.Marshal(interact.AskUserQuestionInput{Question: "q?"})
+	result, err := tool.Call(in, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError || !strings.Contains(result.Content.(string), "non-interactive") {
+		t.Errorf("headless must report honest error, got %+v", result)
+	}
+}
+
+func TestAskUserQuestionTool_EmptyQuestion(t *testing.T) {
+	tool, _, _ := newQuestionTool()
+	in, _ := json.Marshal(interact.AskUserQuestionInput{})
+	result, _ := tool.Call(in, nil, nil)
 	if !result.IsError {
-		t.Error("expected IsError=true for stub tool")
+		t.Error("empty question must be rejected")
 	}
 }
 
@@ -317,7 +387,7 @@ func TestExitWorktreeTool_Call_ReturnsError(t *testing.T) {
 
 func TestAllInteractTools_ImplementToolInterface(t *testing.T) {
 	var _ tools.Tool = interact.NewTodoWriteTool(nil)
-	var _ tools.Tool = interact.AskUserQuestionTool
+	var _ tools.Tool = interact.NewAskUserQuestionTool(nil, nil)
 	var _ tools.Tool = interact.EnterPlanModeTool
 	var _ tools.Tool = interact.ExitPlanModeTool
 	var _ tools.Tool = interact.EnterWorktreeTool

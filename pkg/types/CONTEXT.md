@@ -2,13 +2,13 @@
 package: types
 import_path: pkg/types
 layer: types
-generated_at: 2026-11-18T04:38:36Z
-source_files: [command.go, hooks.go, ids.go, logs.go, message.go, permissions.go, plugin.go, todo.go, types.go]
+generated_at: 2026-11-18T04:49:22Z
+source_files: [command.go, hooks.go, ids.go, logs.go, message.go, permissions.go, plugin.go, question.go, todo.go, types.go]
 ---
 
 # pkg/types
 
-> Layer: **Types (zero-dep)** · Files: 9 · Interfaces: 2 · Structs: 28 · Functions: 2
+> Layer: **Types (zero-dep)** · Files: 10 · Interfaces: 2 · Structs: 30 · Functions: 2
 
 ## Interfaces
 
@@ -56,6 +56,8 @@ type MCPConnection interface {
 - **PluginConfig** — 3 fields: Name, Enabled, Options
 - **PluginError** — 3 fields: PluginName, Message, Fatal
 - **PromptCommand** — 8 fields: ContentLength, ArgNames, AllowedTools, Model, Context, Agent, GetPrompt (embeds CommandBase)
+- **QuestionRequest** — 3 fields: ID, Question, Options
+- **QuestionResponse** — 3 fields: ID, Answer, Dismissed
 - **SerializedMessage** — 8 fields: Message, CWD, UserType, SessionId, Timestamp, Version, GitBranch, Slug
 - **SummaryEntry** — 3 fields: Type, Summary, LeafId
 - **TodoItem** — 4 fields: ID, Content, Status, Priority
@@ -168,6 +170,8 @@ type MCPConnection interface {
 - `Message` → `internal/bootstrap/run.go`, `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/commands/registry.go` + 32 more
 - `PluginConfig` → `internal/plugin/plugin.go`
 - `PluginError` → `internal/plugin/plugin.go`
+- `QuestionRequest` → `internal/bootstrap/wire.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/init.go`, `internal/tui/model.go` + 1 more
+- `QuestionResponse` → `internal/bootstrap/wire.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/init.go`, `internal/tui/model.go` + 1 more
 - `SerializedMessage` → `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/commands/resume.go`, `internal/commands/resume_test.go` (test), `internal/transcript/recorder.go` + 2 more
 - `TodoItem` → `internal/state/store.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/transcript_tui_test.go` (test), `internal/tui/view.go`
 - `ToolPermissionContext` → `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test), `internal/permissions/denial_test.go` (test), `internal/permissions/persist_test.go` (test), `internal/state/store.go`

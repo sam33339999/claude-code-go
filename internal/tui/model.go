@@ -29,7 +29,20 @@ const (
 	dialogCompact               // /compact confirmation
 	dialogExit                  // exit confirmation
 	dialogConfig                // /config
+	dialogQuestion              // AskUserQuestion (BF-08)
 )
+
+// questionState holds the active AskUserQuestion dialog (BF-08): the question,
+// optional numbered options, a free-text answer buffer, and the response
+// callback into the HIL channel.
+type questionState struct {
+	requestID string
+	question  string
+	options   []string
+	answer    string
+	selected  int // option index chosen via number key; -1 = none
+	respFn    func(answer string, dismissed bool)
+}
 
 // AppModel is the root BubbleTea Model for the entire TUI application.
 // It corresponds to TS REPL.tsx, with all useState/useRef fields unified here.
@@ -104,6 +117,11 @@ type AppModel struct {
 	mcpPool commands.MCPServerLister
 	// transcript persists conversation turns to the session JSONL (may be nil).
 	transcript *transcript.Recorder
+	// questionAskCh/questionRespCh carry AskUserQuestion HIL traffic (BF-08);
+	// nil disables the question dialog (headless/tests).
+	questionAskCh  <-chan types.QuestionRequest
+	questionRespCh chan<- types.QuestionResponse
+	questionReq    *questionState
 
 	// --- Multi-agent coordinator (injected via New()) ---
 	// agentCoordinator is the tools-facing adapter for the coordinator.
@@ -169,6 +187,8 @@ func newAppModel(
 	memoryStore *memdir.MemoryStore,
 	mcpPool commands.MCPServerLister,
 	rec *transcript.Recorder,
+	questionAskCh <-chan types.QuestionRequest,
+	questionRespCh chan<- types.QuestionResponse,
 ) AppModel {
 	st := appStore.GetState()
 	cwd := st.WorkingDir
@@ -187,6 +207,8 @@ func newAppModel(
 		appState:            appStore,
 		mcpPool:             mcpPool,
 		transcript:          rec,
+		questionAskCh:       questionAskCh,
+		questionRespCh:      questionRespCh,
 		sessionID:           rec.SessionID(),
 		agentCoordinator:    agentCoord,
 		coordinatorMode:     agentCoord != nil,

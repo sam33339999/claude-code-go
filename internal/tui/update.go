@@ -192,6 +192,22 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	// --- AskUserQuestion dialog (BF-08) ---
+	case QuestionRequestMsg:
+		m.activeDialog = dialogQuestion
+		m.questionReq = &questionState{
+			requestID: msg.RequestID,
+			question:  msg.Question,
+			options:   msg.Options,
+			selected:  -1,
+			respFn:    msg.RespFn,
+		}
+		// Continue listening for the next question.
+		if m.questionAskCh != nil {
+			return m, listenForQuestionRequest(m.questionAskCh, m.questionRespCh)
+		}
+		return m, nil
+
 	// --- Slash command result ---
 	case CommandResultMsg:
 		m.commandResult = &msg

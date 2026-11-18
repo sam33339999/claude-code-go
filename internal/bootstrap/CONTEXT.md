@@ -2,7 +2,7 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-18T04:38:36Z
+generated_at: 2026-11-18T04:49:22Z
 source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, update_cmd.go, wire.go]
 ---
 
@@ -12,8 +12,8 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 
 ## Structs
 
-- **AppContainer** — 14 fields: QueryEngine, AppStateStore, ToolRegistry, MCPPool, Settings, PermAskCh, PermRespCh, Coordinator, ...
-- **ContainerOptions** — 6 fields: HomeDir, WorkingDir, ModelOverride, Verbose, Debug, DebugFile
+- **AppContainer** — 16 fields: QueryEngine, AppStateStore, ToolRegistry, MCPPool, Settings, PermAskCh, PermRespCh, QuestionAskCh, ...
+- **ContainerOptions** — 7 fields: HomeDir, WorkingDir, ModelOverride, Verbose, Debug, DebugFile, Headless
 
 ## Functions
 
@@ -97,3 +97,4 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 - **2026-11-18 BF-18 持久化接线**：openTranscript（session.go）统一建立 recorder——resume/continue 以已加载历史为基线，否则新建；失败非致命（stderr 警告＋nil）。runInteractive 经 tui.New 注入并于退出 Close；runHeadless 于 headlessRun 返回后 Record 完整对话再 Close。loadSessionMessages/resumeSessionByID/continueMostRecentSession 签名改为返回 (sessionID, messages, error)（内部函数，测试已同步）。
 - **2026-11-18 BF-06 CLI 三命令（oracle 形态对齐）**：agents 单一列表命令＋--setting-sources（User/Project/Built-in 分组＋shadow 标记，对齐 oracle main.tsx；local 源接受但无目录——分歧文档化）；update＋upgrade 别名经 GitHub releases 检查版本（endpoint vars 可注入，compareVersions 数值比较），v1 不自安装（提示 claude install）；install [target] 下载 goreleaser archive 解压原子安装 ~/.local/bin（--force、PATH 提示、tar.gz/zip 双格式）。releaseSource vars 为测试注入点。misc.go 仅留 doctor。
 - **2026-11-18 BF-07 TodoWrite 注册点变更**：TodoWrite 移出 RegisterBuiltinTools（余 33），wire.go 两条路径于 store 建立后 reg.Register(interact.NewTodoWriteTool(store))——工具需 live store，注册顺序约束文档化。
+- **2026-11-18 BF-08 AskUserQuestion 接线**：ContainerOptions.Headless（runHeadless 设 true）；Phase 7 question channel 对（headless nil→tool 诚实报错）＋注册；AppContainer.QuestionAskCh/RespCh；RegisterBuiltinTools 余 32（TodoWrite/AskUserQuestion 均 wire.go 注册）。
