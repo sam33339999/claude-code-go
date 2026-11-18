@@ -3,7 +3,8 @@
     "allow": [
       "Bash",
       "TodoWrite",
-      "Edit(/root/go/agtkeel-src/api/openai_types.go/**)"
+      "Edit(/root/go/agtkeel-src/api/openai_types.go/**)",
+      "CodeMode"
     ]
   }
 }
