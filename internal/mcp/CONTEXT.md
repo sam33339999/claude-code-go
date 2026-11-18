@@ -116,3 +116,8 @@ type Transport interface {
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->
+
+## Design Notes
+
+- **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
+- **已知限制与待办**：WebSocket transport 为桩（BF-16，搬回后进入 debt 扫描范围，基线 18→19 属 scope 变化）；jsonRPCClient 后台读协程绑定 initialize ctx、httpTransport.Close 仅置旗标——根因修复待 BF-19（Pool 快照式 GetAll＋reader 生命周期解耦，原跨仓任务现为同仓）。产品侧规避见 bootstrap/mcp_connect.go 有界不遗弃 boot 连接与 tools/mcp 会话钉住。
