@@ -515,14 +515,32 @@ func TestSyntheticOutputTool_InputSchema(t *testing.T) {
 	}
 }
 
-func TestSyntheticOutputTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(misc.SyntheticOutputInput{Content: "test"})
+func TestSyntheticOutputTool_EchoesContent(t *testing.T) {
+	in, _ := json.Marshal(misc.SyntheticOutputInput{Content: "synthetic result payload"})
 	result, err := misc.SyntheticOutputTool.Call(in, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected hard error: %v", err)
 	}
-	if !result.IsError {
-		t.Error("expected IsError=true")
+	if result.IsError {
+		t.Error("normal synthetic output must not be an error")
+	}
+	if result.Content != "synthetic result payload" {
+		t.Errorf("content must be echoed verbatim, got %v", result.Content)
+	}
+}
+
+func TestSyntheticOutputTool_ErrorFlagPropagates(t *testing.T) {
+	in, _ := json.Marshal(misc.SyntheticOutputInput{Content: "failure detail", IsError: true})
+	result, _ := misc.SyntheticOutputTool.Call(in, nil, nil)
+	if !result.IsError || result.Content != "failure detail" {
+		t.Errorf("is_error must propagate with content, got %+v", result)
+	}
+}
+
+func TestSyntheticOutputTool_InvalidJSON(t *testing.T) {
+	result, err := misc.SyntheticOutputTool.Call([]byte("not-json"), nil, nil)
+	if err != nil || !result.IsError {
+		t.Errorf("invalid input must be an error result, got %+v err=%v", result, err)
 	}
 }
 

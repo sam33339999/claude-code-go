@@ -621,8 +621,12 @@ type SyntheticOutputInput struct {
 	IsError bool `json:"is_error,omitempty"`
 }
 
-// SyntheticOutputTool is the exported singleton instance.
-// TODO(dep): Requires Agent-Core turn / conversation manipulation layer.
+// SyntheticOutputTool is the exported singleton instance (BF-15).
+// Oracle parity (SyntheticOutputTool.ts): the tool validates its input and
+// returns it as the output — no real tool execution. Here the input content
+// becomes the tool result itself (the synthetic injection), with is_error
+// propagated. The oracle's SDK structured_output variant is a documented
+// divergence (this repo's schema is {content, is_error}).
 var SyntheticOutputTool tools.Tool = &syntheticOutputTool{}
 
 type syntheticOutputTool struct{ tools.BaseTool }
@@ -653,7 +657,12 @@ func (t *syntheticOutputTool) IsConcurrencySafe(_ tools.Input) bool { return fal
 func (t *syntheticOutputTool) IsReadOnly(_ tools.Input) bool        { return true }
 func (t *syntheticOutputTool) UserFacingName(_ tools.Input) string  { return "SyntheticOutput" }
 
-func (t *syntheticOutputTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement via Agent-Core conversation manipulation layer.
-	return &tools.Result{IsError: true, Content: "SyntheticOutput not yet implemented (TODO(dep))"}, nil
+func (t *syntheticOutputTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	var in SyntheticOutputInput
+	if err := json.Unmarshal(input, &in); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("SyntheticOutput: invalid input: %v", err)}, nil
+	}
+	// The tool result IS the synthetic injection: echo content verbatim and
+	// propagate the error flag. No side effects, no real tool execution.
+	return &tools.Result{Content: in.Content, IsError: in.IsError}, nil
 }

@@ -2,7 +2,7 @@
 package: misc
 import_path: internal/tools/misc
 layer: tools
-generated_at: 2026-11-18T05:30:27Z
+generated_at: 2026-11-18T05:32:18Z
 source_files: [doc.go, misc.go]
 ---
 
@@ -41,3 +41,4 @@ source_files: [doc.go, misc.go]
 - **2026-11-18 BF-12 ToolSearch 实现**：NewToolSearchTool(reg) 注册表注入（RegisterBuiltinTools 自引用注册）；关键词评分（name camelCase 拆词×3／SearchHint×2／description×1，前缀匹配），top-10 JSON [{name,description}]；空 query 拒绝、无匹配诚实提示、nil registry 诚实报错。schema 字节不变。
 - **2026-11-18 BF-14 Brief 实现**：抽取式摘要（确定性、零 LLM 调用——cache gate Q3 友好）；句子词频评分（停用词排除＋长度归一＋首尾位置加分），top budget（3..8）按原序输出＋压缩统计头；≤3 句全文保留；200k 字符输入上限。**分歧文档化**：oracle legacy Brief=SendUserMessage（Kairos feature-gated），本仓设计规格定义为内容摘要器，按规格实现。
 - **2026-11-18 BF-13 Skill 实现**：NewSkillTool(dirsFn) live 搜索目录（project .claude/skills 优先＋user ~/.claude/skills，worktree 切换生效）；<name>/SKILL.md 或 <name>.md，YAML frontmatter 剥离，100k 字符上限；not-found 列可用 skills；路径穿越拒绝。**分歧**：oracle 在隔离子代理执行 skill prompt，本实现载入指令到主会话上下文（文档化）。wire.go 注册（RegisterBuiltinTools 余 27）。
+- **2026-11-18 BF-15 SyntheticOutput 实现**：echo 语义——tool result 即合成注入（content 原样返回、is_error 传播），零副作用。oracle 对齐（SyntheticOutputTool.ts：validate+return input）；分歧：oracle SDK structured_output 变体 vs 本仓 {content,is_error} schema（文档化）。
