@@ -3,6 +3,7 @@ package misc_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -95,14 +96,53 @@ func TestBriefTool_InputSchema(t *testing.T) {
 	}
 }
 
-func TestBriefTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(misc.BriefInput{Content: "some text"})
+func TestBriefTool_ShortContentKeptInFull(t *testing.T) {
+	in, _ := json.Marshal(misc.BriefInput{Content: "One sentence. Two sentences."})
 	result, err := misc.BriefTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
+	if err != nil || result.IsError {
+		t.Fatalf("unexpected failure: err=%v result=%+v", err, result)
 	}
+	content := result.Content.(string)
+	if !strings.Contains(content, "kept in full") || !strings.Contains(content, "Two sentences.") {
+		t.Errorf("short content must be kept in full, got: %s", content)
+	}
+}
+
+func TestBriefTool_LongContentCompressedInOrder(t *testing.T) {
+	var sb strings.Builder
+	for i := 0; i < 20; i++ {
+		fmt.Fprintf(&sb, "Sentence %d discusses the deployment pipeline and its verification steps in detail. ", i)
+	}
+	in, _ := json.Marshal(misc.BriefInput{Content: sb.String()})
+	result, err := misc.BriefTool.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("unexpected failure: err=%v result=%+v", err, result)
+	}
+	content := result.Content.(string)
+	if !strings.Contains(content, "sentences)") {
+		t.Errorf("expected compression header, got: %s", content)
+	}
+	// Kept sentences must appear in original order (Sentence 0 before Sentence 19 if both kept).
+	i0 := strings.Index(content, "Sentence 0 ")
+	i19 := strings.Index(content, "Sentence 19 ")
+	if i0 >= 0 && i19 >= 0 && i0 > i19 {
+		t.Error("kept sentences must preserve original order")
+	}
+	if len(content) >= len(sb.String()) {
+		t.Error("brief must be shorter than the input")
+	}
+	// Deterministic: same input → same output.
+	result2, _ := misc.BriefTool.Call(in, nil, nil)
+	if result2.Content != result.Content {
+		t.Error("extractive brief must be deterministic")
+	}
+}
+
+func TestBriefTool_EmptyContentRejected(t *testing.T) {
+	in, _ := json.Marshal(misc.BriefInput{Content: "   "})
+	result, _ := misc.BriefTool.Call(in, nil, nil)
 	if !result.IsError {
-		t.Error("expected IsError=true")
+		t.Error("empty content must be rejected")
 	}
 }
 
