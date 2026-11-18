@@ -2,7 +2,7 @@
 package: types
 import_path: pkg/types
 layer: types
-generated_at: 2026-11-18T07:14:42Z
+generated_at: 2026-11-18T08:28:02Z
 source_files: [command.go, hooks.go, ids.go, logs.go, message.go, permissions.go, plugin.go, question.go, todo.go, types.go]
 ---
 
@@ -174,7 +174,7 @@ type MCPConnection interface {
 - `QuestionResponse` → `internal/bootstrap/wire.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/init.go`, `internal/tui/model.go` + 1 more
 - `SerializedMessage` → `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/commands/resume.go`, `internal/commands/resume_test.go` (test), `internal/transcript/recorder.go` + 2 more
 - `TodoItem` → `internal/state/store.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/dialog_visibility_test.go` (test), `internal/tui/transcript_tui_test.go` (test) + 1 more
-- `ToolPermissionContext` → `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test), `internal/permissions/denial_test.go` (test), `internal/permissions/persist_test.go` (test), `internal/state/store.go`
+- `ToolPermissionContext` → `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test), `internal/permissions/codemode_scope_test.go` (test), `internal/permissions/denial_test.go` (test), `internal/permissions/persist_test.go` (test) + 1 more
 
 ## Dependencies
 

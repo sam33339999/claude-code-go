@@ -38,6 +38,12 @@ globalThis.codemode = {
 	search: (q) => __search(String(q)),
 	describe: (n) => __describe(String(n)),
 	history: (n) => __history(Number(n) || 10),
+	replay: (id) => __replay(String(id)),
+	run: (n) => __run(String(n)),
+	snippets: () => __snippets(),
+	audit: (id) => __audit(String(id)),
+	approvals: () => __approvals(),
+	revoke: (n) => __revoke(String(n)),
 };
 `
 
@@ -157,6 +163,36 @@ func (m *MoejsRuntime) Execute(ctx context.Context, code string, call CallFunc, 
 	})); err != nil {
 		return nil, fmt.Errorf("codemode: install __history: %w", err)
 	}
+	// CM-03 v3 hooks: replay / snippets / audit / approvals. Each is optional
+	// (nil → "not available" error inside the sandbox). Replay/Run block the
+	// loop while the nested execution runs (synchronous semantics, shared
+	// approval scope); the outer timeout/cancellation still applies via ctx.
+	hooks := []struct {
+		name string
+		fn   func(arg string) (any, error)
+	}{
+		{"__replay", opts.Replay},
+		{"__run", opts.Run},
+		{"__audit", opts.Audit},
+		{"__revoke", opts.Revoke},
+	}
+	for _, h := range hooks {
+		if err := installStringHook(rt, h.name, h.fn); err != nil {
+			return nil, fmt.Errorf("codemode: install %s: %w", h.name, err)
+		}
+	}
+	for _, h := range []struct {
+		name string
+		fn   func() (any, error)
+	}{
+		{"__snippets", opts.Snippets},
+		{"__approvals", opts.Approvals},
+	} {
+		if err := installNullaryHook(rt, h.name, h.fn); err != nil {
+			return nil, fmt.Errorf("codemode: install %s: %w", h.name, err)
+		}
+	}
+
 	if err := rt.SetGlobal("__capture", moejs.NativeFunc(func(_ *moejs.Realm, _ moejs.Value, args []moejs.Value) (moejs.Value, error) {
 		v, err := rt.ToGoWith(moejs.Arg(args, 0), moejs.DecodeOptions{})
 		if err != nil {

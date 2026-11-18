@@ -138,6 +138,10 @@ type ValidationResult struct {
 type PermissionResult struct {
 	Behavior PermissionBehavior // the tool's permission decision
 	Reason   string             // human-readable explanation
+	// AlwaysInCodeMode is true when the user approved with "always allow this
+	// tool inside CodeMode" (CM-03 v3). The CodeMode bridge persists this as a
+	// CodeMode-scoped approval; it is NOT a project-wide allow rule.
+	AlwaysInCodeMode bool
 }
 
 // Result is the output of a successful tool Call.

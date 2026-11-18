@@ -1,6 +1,7 @@
-// Package codemode provides the CodeMode tool (CM-01/CM-02): one tool that
-// executes model-written JavaScript/TypeScript composing other tools inside a
-// permission-gated sandbox. See internal/codemode for the engine and catalog.
+// Package codemode provides the CodeMode tool (CM-01/CM-02/CM-03): one tool
+// that executes model-written JavaScript/TypeScript composing other tools
+// inside a permission-gated sandbox. See internal/codemode for the engine and
+// catalog.
 package codemode
 
 import (
@@ -26,10 +27,11 @@ const maxResultBytes = 32 << 10 // 32 KiB
 // spillPreviewBytes is the inline preview kept when a result spills to disk.
 const spillPreviewBytes = 4 << 10 // 4 KiB
 
-// maxModuleBytes caps one imported module's source (CM-02 v2).
+// maxModuleBytes caps one imported module's or snippet's source (CM-02/CM-03).
 const maxModuleBytes = 256 << 10 // 256 KiB
 
-// historyCodeCap bounds the code stored/returned per history entry.
+// historyCodeCap bounds the code stored/returned per history entry. Replay
+// uses the stored code; long workflows should be saved as snippets (full code).
 const historyCodeCap = 2000
 
 // codeModeTool is the CodeMode tool instance.
@@ -39,17 +41,19 @@ type codeModeTool struct {
 	checker permissions.Checker
 	engine  codemode.Runtime
 	catalog []codemode.CatalogEntry
-	dataDir string // history/spill/modules root ("" disables persistence features)
+	dataDir string // history/spill/modules/snippets/approvals root ("" disables persistence)
 	callSeq atomic.Int64
+	// approvalMu serializes approvals.json read-modify-write cycles.
+	approvalMu sync.Mutex
 }
 
 // NewCodeModeTool constructs the CodeMode tool. reg supplies the callable
 // tool surface and the discovery catalog; checker enforces the full
 // permission pipeline on EVERY inner call (sandboxing is not authorization);
 // engine is the sandbox runtime (moejs primary); dataDir roots execution
-// history, result spill files and the controlled import module directory
-// ("" disables those v2 features). The catalog is snapshotted at construction
-// — the tool surface is session-pinned (cache-stable).
+// history, result spill files, controlled imports, snippets and persisted
+// CodeMode approvals ("" disables those features). The catalog is snapshotted
+// at construction — the tool surface is session-pinned (cache-stable).
 func NewCodeModeTool(reg *tools.Registry, checker permissions.Checker, engine codemode.Runtime, dataDir string) tools.Tool {
 	return &codeModeTool{
 		reg:     reg,
@@ -76,8 +80,13 @@ Available inside the sandbox:
   SAME tool within this execution are pre-approved (execution scope only).
 - codemode.search(query) — rank tool names by keyword (progressive discovery).
 - codemode.describe(name) — full description + input schema of one tool.
-- codemode.history(limit) — recent CodeMode executions (id, code, outcome) for
-  reuse: read a past entry and adapt its code.
+- codemode.history(limit) — recent CodeMode executions (id, code, outcome).
+- codemode.replay(id) — re-run a recorded execution (permissions still apply).
+- codemode.run(name) / codemode.snippets() — run/list named reusable snippets
+  (save one with the save_as input field after a successful run).
+- codemode.audit(id) — write side effects recorded for one execution.
+- codemode.approvals() / codemode.revoke(tool) — list/revoke persistent
+  CodeMode-scoped approvals (granted by the user in the permission dialog).
 - import { x } from "name" — controlled shared modules from the host module
   directory (if configured by the host; otherwise imports are disabled).
 - console.log(...) — captured output.
@@ -93,14 +102,26 @@ func (t *codeModeTool) InputSchema() tools.InputSchema {
 		map[string]json.RawMessage{
 			"code": tools.PropSchema(map[string]any{
 				"type":        "string",
-				"description": "JavaScript/TypeScript async function body composing tools.* calls; return the final result",
+				"description": "JavaScript/TypeScript async function body composing tools.* calls; return the final result. Required unless replay is set.",
 			}),
 			"typescript": tools.PropSchema(map[string]any{
 				"type":        "boolean",
 				"description": "Compile the code as TypeScript (type stripping); default false",
 			}),
+			"replay": tools.PropSchema(map[string]any{
+				"type":        "string",
+				"description": "Re-run a recorded execution by history id (mutually exclusive with code); permissions still apply",
+			}),
+			"save_as": tools.PropSchema(map[string]any{
+				"type":        "string",
+				"description": "After a successful run, save the code as a named snippet for codemode.run(name) (flat name)",
+			}),
+			"batch_writes": tools.PropSchema(map[string]any{
+				"type":        "boolean",
+				"description": "Gate ALL write calls behind ONE approval (first write prompts with the execution-wide scope); reads keep the normal flow",
+			}),
 		},
-		[]string{"code"},
+		nil, // code OR replay — validated at call time
 	)
 }
 
@@ -110,21 +131,28 @@ func (t *codeModeTool) UserFacingName(_ tools.Input) string  { return "CodeMode"
 
 // codeModeInput is the tool input.
 type codeModeInput struct {
-	Code       string `json:"code"`
-	Typescript bool   `json:"typescript,omitempty"`
+	Code        string `json:"code"`
+	Typescript  bool   `json:"typescript,omitempty"`
+	Replay      string `json:"replay,omitempty"`
+	SaveAs      string `json:"save_as,omitempty"`
+	BatchWrites bool   `json:"batch_writes,omitempty"`
 }
 
-// historyEntry is one recorded execution (CM-02 v2).
+// historyEntry is one recorded execution (CM-02 v2; CM-03 v3 provenance and
+// write audit fields).
 type historyEntry struct {
-	ID         string   `json:"id"`
-	Timestamp  string   `json:"ts"`
-	OK         bool     `json:"ok"`
-	DurationMS int64    `json:"duration_ms"`
-	Typescript bool     `json:"typescript,omitempty"`
-	Code       string   `json:"code"`
-	Tools      []string `json:"tools,omitempty"`
-	Preview    string   `json:"preview,omitempty"`
-	Error      string   `json:"error,omitempty"`
+	ID          string       `json:"id"`
+	Timestamp   string       `json:"ts"`
+	OK          bool         `json:"ok"`
+	DurationMS  int64        `json:"duration_ms"`
+	Typescript  bool         `json:"typescript,omitempty"`
+	Code        string       `json:"code"`
+	Tools       []string     `json:"tools,omitempty"`
+	Preview     string       `json:"preview,omitempty"`
+	Error       string       `json:"error,omitempty"`
+	ReplayOf    string       `json:"replay_of,omitempty"`
+	Snippet     string       `json:"snippet,omitempty"`
+	SideEffects []sideEffect `json:"side_effects,omitempty"`
 }
 
 func (t *codeModeTool) Call(input tools.Input, uctx *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
@@ -132,8 +160,19 @@ func (t *codeModeTool) Call(input tools.Input, uctx *tools.UseContext, _ tools.O
 	if err := json.Unmarshal(input, &in); err != nil {
 		return &tools.Result{IsError: true, Content: fmt.Sprintf("CodeMode: invalid input: %v", err)}, nil
 	}
+	replayOf := ""
+	if in.Replay != "" {
+		if strings.TrimSpace(in.Code) != "" {
+			return &tools.Result{IsError: true, Content: "CodeMode: code and replay are mutually exclusive"}, nil
+		}
+		e := t.findHistory(in.Replay)
+		if e == nil {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("CodeMode: no execution %q in history (replay requires a data directory)", in.Replay)}, nil
+		}
+		in.Code, in.Typescript, replayOf = e.Code, e.Typescript, e.ID
+	}
 	if strings.TrimSpace(in.Code) == "" {
-		return &tools.Result{IsError: true, Content: "CodeMode: code is required"}, nil
+		return &tools.Result{IsError: true, Content: "CodeMode: code is required (or replay with a history id)"}, nil
 	}
 	if t.engine == nil {
 		return &tools.Result{IsError: true, Content: "CodeMode: no sandbox engine configured"}, nil
@@ -161,165 +200,48 @@ func (t *codeModeTool) Call(input tools.Input, uctx *tools.UseContext, _ tools.O
 	}
 
 	execID := fmt.Sprintf("%d-%d", time.Now().UnixMilli(), t.callSeq.Add(1))
-	var (
-		mu        sync.Mutex
-		usedTools []string
-		seen      = make(map[string]bool)
-		// execAllow: tools the user explicitly approved via Ask during THIS
-		// execution (CM-02 v2 batch approval). Direct rule-Allows are NOT
-		// cached, so live mode changes (Shift+Tab) still apply to them.
-		execAllow = make(map[string]bool)
-	)
-	recordTool := func(name string) {
-		mu.Lock()
-		defer mu.Unlock()
-		if !seen[name] {
-			seen[name] = true
-			usedTools = append(usedTools, name)
-		}
-	}
+	st := newExecState(in.BatchWrites)
 
-	opts := codemode.Options{
-		Typescript: in.Typescript,
-		Search: func(query string) (any, error) {
-			return codemode.Search(t.catalog, query), nil
-		},
-		Describe: func(name string) (any, error) {
-			e, ok := codemode.Describe(t.catalog, name)
-			if !ok {
-				return nil, fmt.Errorf("unknown tool %q", name)
-			}
-			return e, nil
-		},
-		History: func(limit int) (any, error) {
-			return t.readHistory(limit), nil
-		},
-	}
-	if t.dataDir != "" {
-		opts.ImportModule = t.resolveModule
-	}
-
+	opts := t.sandboxOptions(ctx, uctx, st)
+	opts.Typescript = in.Typescript
 	start := time.Now()
-	result, execErr := t.engine.Execute(ctx, in.Code, t.bridge(ctx, uctx, execAllow, recordTool), opts)
+	result, execErr := t.engine.Execute(ctx, in.Code, t.bridge(ctx, uctx, st), opts)
 	duration := time.Since(start).Milliseconds()
 
 	var content string
 	if execErr != nil {
 		content = execErr.Error()
 	} else {
+		if result != nil && len(st.extraLogs) > 0 {
+			result.Logs = append(result.Logs, st.extraLogs...)
+		}
 		content = t.formatResult(execID, result)
+		if in.SaveAs != "" {
+			if serr := t.saveSnippet(in.SaveAs, in.Code); serr != nil {
+				content += fmt.Sprintf("\n(snippet save failed: %v)", serr)
+			} else {
+				content += fmt.Sprintf("\n(saved as snippet %q — reuse with codemode.run)", in.SaveAs)
+			}
+		}
 	}
 	t.recordHistory(historyEntry{
-		ID:         execID,
-		Timestamp:  start.UTC().Format(time.RFC3339),
-		OK:         execErr == nil,
-		DurationMS: duration,
-		Typescript: in.Typescript,
-		Code:       capString(in.Code, historyCodeCap),
-		Tools:      usedTools,
-		Preview:    capString(content, 200),
-		Error:      errorString(execErr),
+		ID:          execID,
+		Timestamp:   start.UTC().Format(time.RFC3339),
+		OK:          execErr == nil,
+		DurationMS:  duration,
+		Typescript:  in.Typescript,
+		Code:        capString(in.Code, historyCodeCap),
+		Tools:       st.snapshotTools(),
+		Preview:     capString(content, 200),
+		Error:       errorString(execErr),
+		ReplayOf:    replayOf,
+		SideEffects: st.snapshotSideEffects(),
 	})
 
 	if execErr != nil {
 		return &tools.Result{IsError: true, Content: content}, nil
 	}
 	return &tools.Result{Content: content}, nil
-}
-
-// bridge builds the CallFunc dispatching one inner tool call through the SAME
-// flow the engine uses (orchestration.go), plus CM-02 v2 batch approval:
-// an Ask that the user approves pre-approves the SAME tool for the rest of
-// this execution (execution scope; never persisted).
-func (t *codeModeTool) bridge(ctx context.Context, outer *tools.UseContext, execAllow map[string]bool, recordTool func(string)) codemode.CallFunc {
-	var allowMu sync.Mutex
-	return func(_ context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
-		tool, ok := t.reg.Get(name)
-		if !ok {
-			return nil, fmt.Errorf("unknown tool %q (use codemode.search to discover tools)", name)
-		}
-		recordTool(name)
-		inner := &tools.UseContext{Ctx: ctx}
-		if outer != nil {
-			inner.AbortCh = outer.AbortCh
-			inner.PermCtx = outer.PermCtx
-			inner.Coordinator = outer.Coordinator
-			inner.AgentID = outer.AgentID
-			inner.MemoryStore = outer.MemoryStore
-		}
-
-		vr, err := tool.ValidateInput(tools.Input(input), inner)
-		if err != nil {
-			return nil, fmt.Errorf("%s: input validation: %w", name, err)
-		}
-		if !vr.OK {
-			return nil, fmt.Errorf("%s: invalid input: %s", name, vr.Reason)
-		}
-
-		prelim, err := tool.CheckPermissions(tools.Input(input), inner)
-		if err != nil {
-			return nil, fmt.Errorf("%s: permission check: %w", name, err)
-		}
-		if prelim.Behavior == tools.PermissionDeny {
-			return nil, fmt.Errorf("%s: denied: %s", name, prelim.Reason)
-		}
-
-		if t.checker != nil {
-			allowMu.Lock()
-			preApproved := execAllow[name]
-			allowMu.Unlock()
-			if !preApproved {
-				req := permissions.PermissionRequest{
-					ToolName:   name,
-					ToolUseID:  fmt.Sprintf("codemode-%d", t.callSeq.Add(1)),
-					Input:      tools.Input(input),
-					ToolResult: prelim,
-				}
-				// CanUseTool first: only an explicit Ask→user-approval populates
-				// the execution cache; direct rule-Allows are re-checked every
-				// call so live permission-mode changes keep applying.
-				can, cerr := t.checker.CanUseTool(ctx, name, tools.Input(input), inner)
-				if cerr != nil {
-					return nil, fmt.Errorf("%s: permission check: %w", name, cerr)
-				}
-				if can.Behavior == tools.PermissionDeny {
-					return nil, fmt.Errorf("%s: denied: %s", name, can.Reason)
-				}
-				if can.Behavior == tools.PermissionAsk {
-					perm, perr := t.checker.RequestPermission(ctx, req, inner)
-					if perr != nil {
-						return nil, fmt.Errorf("%s: permission check: %w", name, perr)
-					}
-					if perm.Behavior == tools.PermissionDeny {
-						reason := perm.Reason
-						if reason == "" {
-							reason = "permission denied by user or policy"
-						}
-						return nil, fmt.Errorf("%s: denied: %s", name, reason)
-					}
-					allowMu.Lock()
-					execAllow[name] = true
-					allowMu.Unlock()
-				}
-			}
-		}
-
-		res, err := tool.Call(tools.Input(input), inner, nil)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
-		}
-		if res.IsError {
-			return nil, fmt.Errorf("%s: %v", name, res.Content)
-		}
-		switch c := res.Content.(type) {
-		case string:
-			return json.Marshal(c)
-		case nil:
-			return json.Marshal(nil)
-		default:
-			return json.Marshal(c)
-		}
-	}
 }
 
 // formatResult renders logs + return value; results over maxResultBytes spill

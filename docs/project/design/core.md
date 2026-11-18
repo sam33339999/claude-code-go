@@ -1753,4 +1753,5 @@ type MCPClientInfo struct {
 
 ## 维护期变更记录
 
+- **2026-11-18 CM-03（CodeMode-scoped 审批）**：PermissionRequest/AskRequest +FromCodeMode bool＋Note string（Note 附加到用户可见讯息）；AskResponse/PermissionResult +AlwaysInCodeMode bool。askUser：AlwaysInCodeMode 批准**不落项目规则**（由 CodeMode bridge 持久化到 dataDir/approvals.json），Reason 标注 "always in CodeMode"。Checker 接口零变更；既有字段行为不变（向后兼容）。
 - **2026-11-18 BF-09/BF-21（CheckerConfig.ModeFn）**：permissions.CheckerConfig 新增可选 `ModeFn func() types.PermissionMode`——设置后每次检查读 live mode（覆盖 PermCtx.Mode 快照），支持会话中 Shift+Tab 模式循环与 plan-mode 工具切换。wire.go 接 AppStateStore。Checker 接口本身零变更；nil ModeFn 行为不变（向后兼容）。锁序：checker.mu → store.mu（store 不回调 checker，无死锁）。

@@ -114,21 +114,25 @@ func listenForPermissionRequest(
 		// Convert the permissions.AskRequest to a TUI PermissionRequestMsg.
 		// The RespFn callback will send the response back through respCh.
 		return PermissionRequestMsg{
-			RequestID:   req.ID,
-			ToolName:    req.ToolName,
-			ToolUseID:   req.ToolUseID,
-			Message:     req.Message,
-			Input:       string(req.Input),
-			ProjectPath: req.ProjectPath,
+			RequestID:    req.ID,
+			ToolName:     req.ToolName,
+			ToolUseID:    req.ToolUseID,
+			Message:      req.Message,
+			Input:        string(req.Input),
+			ProjectPath:  req.ProjectPath,
+			FromCodeMode: req.FromCodeMode,
 			RespFn: func(allow, alwaysAllow bool) {
 				decision := tools.PermissionDeny
 				if allow {
 					decision = tools.PermissionAllow
 				}
 				respCh <- permissions.AskResponse{
-					ID:          req.ID,
-					Decision:    decision,
-					AlwaysAllow: allow && alwaysAllow,
+					ID:       req.ID,
+					Decision: decision,
+					// CM-03: inside CodeMode the "always allow" choice is
+					// CodeMode-scoped, never a project-wide rule.
+					AlwaysAllow:      allow && alwaysAllow && !req.FromCodeMode,
+					AlwaysInCodeMode: allow && alwaysAllow && req.FromCodeMode,
 				}
 			},
 		}
