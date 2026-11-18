@@ -2,7 +2,7 @@
 package: mcp
 import_path: internal/mcp
 layer: services
-generated_at: 2026-11-18T05:38:06Z
+generated_at: 2026-11-18T07:56:44Z
 source_files: [adapter.go, client.go, jsonrpc.go, pool.go, transport.go, transport_ws.go]
 ---
 
@@ -49,7 +49,7 @@ type Transport interface {
 - **MCPResourceContent** — 4 fields: URI, MIMEType, Text, Blob
 - **MCPToolDef** — 3 fields: Name, Description, InputSchema
 - **MCPToolResult** — 3 fields: Content, IsError, Meta
-- **Pool** — 2 fields
+- **Pool** — 3 fields
 - **SSETransportConfig** — 3 fields: URL, Headers, OAuth
 - **ServerCapabilities** — 3 fields: Tools, Resources, Prompts
 - **ServerConfig** — 6 fields: Transport, Stdio, SSE, HTTP, WS, Scope
@@ -57,6 +57,11 @@ type Transport interface {
 - **ServerInfo** — 4 fields: Name, Version, Capabilities, Instructions
 - **StdioTransportConfig** — 3 fields: Command, Args, Env
 - **WSTransportConfig** — 3 fields: URL, Headers, OAuth
+
+## Function Types
+
+- `NotificationHandler` — `func(method string, params json.RawMessage)`
+- `ServerNotificationHandler` — `func(server string, method string, params json.RawMessage)`
 
 ## Functions
 
@@ -122,3 +127,4 @@ type Transport interface {
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
 - **已知限制与待办**：WebSocket transport 为桩（BF-16，搬回后进入 debt 扫描范围，基线 18→19 属 scope 变化）；jsonRPCClient 后台读协程绑定 initialize ctx、httpTransport.Close 仅置旗标——根因修复待 BF-19（Pool 快照式 GetAll＋reader 生命周期解耦，原跨仓任务现为同仓）。产品侧规避见 bootstrap/mcp_connect.go 有界不遗弃 boot 连接与 tools/mcp 会话钉住。
 - **2026-11-18 BF-16 WebSocket transport**：transport_ws.go（gorilla/websocket v1.5.3，Tech Lead 选型）；背景 reader＋recvCh/errCh（stdio 先例）、Recv ctx 取消、Send 写串行＋deadline、Close 幂等；ServerConfig.WS＋dialServer 分支（dial 用调用者 ctx）。测试：round-trip/取消/Close/dial 错误/Pool 全链路握手（initialize→tools/list）/nil config。自动重连待 BF-19（避免会话期后台 pool 变更）。
+- **2026-11-18 EV-01 通知路由**：jsonRPCClient.notify（NotificationHandler）——reader 对 ID=nil＋method 的消息分发 handler（此前丢弃）；notify 读写 under c.mu（锁外调用，-race 钉住）。Pool.SetNotificationHandler（ServerNotificationHandler 含 server 名）覆盖既有＋未来连接含 Reconnect；dialServer 于 initialize 前设置。wire 转 msgqueue.ModeExternalPrompt 唤醒代理（零轮询事件驱动）。

@@ -117,6 +117,15 @@ RegisterBuiltinTools 不含 CodeMode（依赖 checker，同 plan/HIL 工具模�
 - import 仅 host 预置模块（沙箱不能创建模块——无 fs，结构性限制）
 - moejs alpha：API 可能变动（钉版 v0.1.1＋介面隔离缓解）
 
+## 5.1 事件驱动待命模式（EV-01 搭配）
+
+Code Mode＋MCP 通知路由组成零轮询待命：
+1. CodeMode 脚本握手＋订阅：`await tools.mcp__svc__subscribe({...})`（MCP 连接
+   由 Pool 管理，initialize 握手自动；订阅调服务工具）
+2. 脚本返回，代理待命——不烧 token
+3. 服务有事 → MCP notification → Pool handler → msgqueue（ModeExternalPrompt）
+   → TUI drain 唤醒代理 → 代理处理（可再跑 CodeMode 编排，codemode.history 复用逻辑）
+
 ## 6. 测试覆盖
 
 - `internal/codemode`：return/logs、bridge async、Promise.all 并行计时、

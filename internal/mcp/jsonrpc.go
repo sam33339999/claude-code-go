@@ -8,6 +8,12 @@ import (
 	"sync/atomic"
 )
 
+// NotificationHandler receives server-initiated MCP notifications
+// (JSON-RPC messages with no ID and a method, e.g. notifications/message or
+// service-specific events). EV-01: handlers must be non-blocking — they run
+// on the client's reader goroutine.
+type NotificationHandler func(method string, params json.RawMessage)
+
 // jsonRPCClient implements MCPClient over any Transport using JSON-RPC 2.0.
 type jsonRPCClient struct {
 	transport  Transport
@@ -17,6 +23,7 @@ type jsonRPCClient struct {
 	pending    map[int64]chan *JSONRPCMessage
 	recvErr    chan error // buffered(1); background reader writes the first error then exits
 	startOnce  sync.Once  // ensures startReader is called only once
+	notify     NotificationHandler
 }
 
 func newJSONRPCClient(transport Transport) *jsonRPCClient {
@@ -43,6 +50,19 @@ func (c *jsonRPCClient) startReader(ctx context.Context) {
 					default:
 					}
 					return
+				}
+				// Server-initiated notification (no ID): dispatch to the handler
+				// instead of dropping it (EV-01 event-driven wake).
+				if msg.ID == nil {
+					if msg.Method != "" {
+						c.mu.Lock()
+						fn := c.notify
+						c.mu.Unlock()
+						if fn != nil {
+							fn(msg.Method, msg.Params)
+						}
+					}
+					continue
 				}
 				// Determine the response ID.
 				var respID int64

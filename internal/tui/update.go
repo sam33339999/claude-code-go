@@ -377,6 +377,17 @@ func processQueueCmd(m *AppModel) tea.Cmd {
 		m.showSpinner = true
 		m.spinner = m.spinner.Reset()
 		return startQueryCmd(m, cmd.Value)
+	case msgqueue.ModeExternalPrompt:
+		// EV-01: externally injected event (e.g. MCP server notification).
+		// The display message was NOT appended at enqueue time — do it here,
+		// then start the query so the agent reacts to the event.
+		m.messages = append(m.messages, newUserMessage(cmd.Value))
+		m.pinnedToBottom = true
+		m.syncViewportContent()
+		m.isLoading = true
+		m.showSpinner = true
+		m.spinner = m.spinner.Reset()
+		return startQueryCmd(m, cmd.Value)
 	}
 	return nil
 }
