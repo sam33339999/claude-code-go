@@ -52,8 +52,11 @@ func forkTestProfiles() *agenttype.Registry {
 	return r
 }
 
-func forkTestState() state.AppState {
-	return state.AppState{MainLoopModel: state.ModelSetting{ModelID: "claude-parent"}}
+func forkTestState() *state.AppStateStore {
+	return state.NewAppStateStore(state.AppState{
+		MainLoopModel: state.ModelSetting{ModelID: "claude-parent"},
+		WorkingDir:    "/tmp/fork-test-cwd",
+	})
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -222,6 +225,9 @@ func TestBuildRunAgentFn_ForkAndResume(t *testing.T) {
 	first := eng.calls[0]
 	if first.SystemPrompt.Parts[0].Text != "parent system" || first.ExcludeTools != nil || !first.NoWriteBack {
 		t.Error("fork run must inherit parent prefix, full tools, and NoWriteBack")
+	}
+	if first.ToolUseContext == nil || first.ToolUseContext.WorkingDir != "/tmp/fork-test-cwd" {
+		t.Error("sub-agent must inherit the session WorkingDir")
 	}
 
 	// Resume: a follow-up via the inbox continues the retained history.

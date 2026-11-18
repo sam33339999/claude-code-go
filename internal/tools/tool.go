@@ -133,6 +133,11 @@ type UseContext struct {
 	// each turn boundary. The Agent tool passes it to spawned forks so they
 	// reuse the parent's prompt cache. Nil outside an engine query loop.
 	CacheParams any
+	// WorkingDir is the session working directory for this call. Tools resolve
+	// relative paths and run commands against it instead of the process CWD,
+	// so delegated agents and worktree sessions operate in the right directory.
+	// Empty means fall back to the process CWD.
+	WorkingDir string
 }
 
 // ValidationResult is the output of ValidateInput.

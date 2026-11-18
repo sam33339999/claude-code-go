@@ -102,12 +102,12 @@ func (t *notebookEditTool) GetPath(input tools.Input) string {
 // (map[string]json.RawMessage) so unknown top-level and cell fields survive
 // the round trip. Source may be a string or []string on input (both are valid
 // Jupyter); it is always written as []string split after newlines.
-func (t *notebookEditTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+func (t *notebookEditTool) Call(input tools.Input, ctx *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
 	var in NotebookEditInput
 	if err := json.Unmarshal(input, &in); err != nil {
 		return &tools.Result{IsError: true, Content: "invalid input: " + err.Error()}, nil
 	}
-	path := expandPath(in.NotebookPath)
+	path := expandPathFrom(in.NotebookPath, workDirOf(ctx))
 	if !filepath.IsAbs(path) {
 		return &tools.Result{IsError: true, Content: "notebook_path must be an absolute path"}, nil
 	}

@@ -54,6 +54,7 @@ func headlessRun(
 	useCtx := &tools.UseContext{
 		Ctx:         ctx,
 		Coordinator: container.AgentCoordinator,
+		WorkingDir:  container.AppStateStore.GetState().WorkingDir,
 	}
 
 	params := engine.QueryParams{

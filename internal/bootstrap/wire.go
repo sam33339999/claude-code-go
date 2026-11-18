@@ -243,7 +243,7 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 
 	coord := coordinator.New(coordinator.Config{
 		CoordinatorMode:  true,
-		RunAgent:         buildRunAgentFn(eng, reg, appState, onProgress, agentProfiles),
+		RunAgent:         buildRunAgentFn(eng, reg, store, onProgress, agentProfiles),
 		OnProgress:       onProgress,
 		OnStatusChange:   onStatusChange,
 		SummaryGenerator: coordinator.DefaultSummaryGenerator,
@@ -386,7 +386,7 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 
 	coord := coordinator.New(coordinator.Config{
 		CoordinatorMode:  true,
-		RunAgent:         buildRunAgentFn(eng, reg, appState, onProgress, agentProfilesTest),
+		RunAgent:         buildRunAgentFn(eng, reg, store, onProgress, agentProfilesTest),
 		OnProgress:       onProgress,
 		OnStatusChange:   onStatusChange,
 		SummaryGenerator: coordinator.DefaultSummaryGenerator,
@@ -496,16 +496,21 @@ var coordinatorToolNames = map[string]bool{
 func buildRunAgentFn(
 	eng engine.QueryEngine,
 	reg *tools.Registry,
-	appState state.AppState,
+	store *state.AppStateStore,
 	onProgress coordinator.OnProgressFn,
 	agentProfiles *agenttype.Registry,
 ) coordinator.RunAgentFn {
-	parentModel := appState.MainLoopModel.ModelID
 	// runStates retains per-agent query state (params + latest history) for
 	// resume-on-message. sync.Map is safe for concurrent access; values are
 	// engine.QueryParams with Messages holding the collected conversation.
 	var runStates sync.Map
 	return func(ctx context.Context, agentID coordinator.AgentID, req coordinator.SpawnRequest, inboxCh <-chan string) (string, error) {
+		// Live state: model and working directory may change mid-session
+		// (/model, EnterWorktree); each spawn reads the current values so
+		// delegated agents inherit the session's directory.
+		st := store.GetState()
+		parentModel := st.MainLoopModel.ModelID
+
 		desc := req.Description
 		agentName := req.Name
 		agentTypeName := req.SubagentType
@@ -534,9 +539,10 @@ func buildRunAgentFn(
 		// further sub-agents. For forks the Agent tool stays in the schema
 		// (cache identity) but fails closed here if called anyway.
 		params.ToolUseContext = &tools.UseContext{
-			Ctx:     agentCtx,
-			AbortCh: make(chan struct{}),
-			AgentID: string(agentID),
+			Ctx:        agentCtx,
+			AbortCh:    make(chan struct{}),
+			AgentID:    string(agentID),
+			WorkingDir: st.WorkingDir,
 		}
 
 		// Run the query loop.

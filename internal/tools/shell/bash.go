@@ -173,6 +173,11 @@ func (t *bashTool) Call(input tools.Input, ctx *tools.UseContext, _ tools.OnProg
 	defer cancel()
 
 	cmd := exec.CommandContext(timeoutCtx, "bash", "-c", in.Command)
+	// Run against the session working directory (delegated agents and
+	// worktree sessions inherit it); empty falls back to the process CWD.
+	if ctx != nil && ctx.WorkingDir != "" {
+		cmd.Dir = ctx.WorkingDir
+	}
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

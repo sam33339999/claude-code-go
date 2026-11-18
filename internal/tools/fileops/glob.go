@@ -100,16 +100,19 @@ func (t *globTool) Call(input tools.Input, ctx *tools.UseContext, _ tools.OnProg
 		return &tools.Result{IsError: true, Content: fmt.Sprintf("invalid input: %v", err)}, nil
 	}
 
-	// Resolve base directory.
+	// Resolve base directory against the session working directory.
 	baseDir := in.Path
 	if baseDir == "" {
-		var err error
-		baseDir, err = os.Getwd()
-		if err != nil {
-			return &tools.Result{IsError: true, Content: "could not determine working directory: " + err.Error()}, nil
+		baseDir = workDirOf(ctx)
+		if baseDir == "" {
+			var err error
+			baseDir, err = os.Getwd()
+			if err != nil {
+				return &tools.Result{IsError: true, Content: "could not determine working directory: " + err.Error()}, nil
+			}
 		}
 	} else {
-		baseDir = expandPath(baseDir)
+		baseDir = expandPathFrom(baseDir, workDirOf(ctx))
 	}
 
 	// Verify the base directory exists.

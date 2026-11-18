@@ -61,3 +61,19 @@ func TestStartQueryCmd_NoCoordinatorMode(t *testing.T) {
 		t.Errorf("single stable part marker = %q, want ephemeral", parts[0].CacheControl)
 	}
 }
+
+func TestStartQueryCmd_WorkingDirFromAppState(t *testing.T) {
+	m := newTestModel() // appState WorkingDir = "/tmp"
+	fe := m.queryEngine.(*fakeEngine)
+
+	cmd := startQueryCmd(&m, "hello")
+	if cmd == nil {
+		t.Fatal("startQueryCmd returned nil")
+	}
+	_ = cmd()
+
+	uctx := fe.lastParams.ToolUseContext
+	if uctx == nil || uctx.WorkingDir != "/tmp" {
+		t.Errorf("ToolUseContext.WorkingDir = %v, want /tmp (from AppState)", uctx)
+	}
+}

@@ -148,15 +148,18 @@ func (t *grepTool) Call(input tools.Input, ctx *tools.UseContext, _ tools.OnProg
 		return &tools.Result{IsError: true, Content: "invalid regex: " + err.Error()}, nil
 	}
 
-	// Resolve search root.
+	// Resolve search root against the session working directory.
 	root := in.Path
 	if root == "" {
-		root, err = os.Getwd()
-		if err != nil {
-			return &tools.Result{IsError: true, Content: "could not determine working directory: " + err.Error()}, nil
+		root = workDirOf(ctx)
+		if root == "" {
+			root, err = os.Getwd()
+			if err != nil {
+				return &tools.Result{IsError: true, Content: "could not determine working directory: " + err.Error()}, nil
+			}
 		}
 	} else {
-		root = expandPath(root)
+		root = expandPathFrom(root, workDirOf(ctx))
 	}
 
 	// Determine effective output mode.

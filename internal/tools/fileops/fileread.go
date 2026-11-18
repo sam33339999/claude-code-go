@@ -135,7 +135,7 @@ func (t *fileReadTool) Call(input tools.Input, ctx *tools.UseContext, _ tools.On
 		return &tools.Result{IsError: true, Content: "invalid input: " + err.Error()}, nil
 	}
 
-	fullPath := expandPath(in.FilePath)
+	fullPath := expandPathFrom(in.FilePath, workDirOf(ctx))
 
 	// Block device files.
 	if isBlockedDevicePath(fullPath) {

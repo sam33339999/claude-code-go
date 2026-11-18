@@ -90,11 +90,17 @@ resume_test.go、bootstrap wire_fork_test.go、tools/agent fork 語義×2、tui 
 守護測試：TestSpawnAgent_SurvivesParentContextCancel、TestSendMessage_ResumeAfterParentContextCancel、
 TestInterrupt_NotHijackedByBackgroundQuery。
 
-### CWD 事實（使用者提問）
+### CWD 事實（使用者提問）→ 已修正（feat/agent-cwd）
 
-**委派無 per-agent CWD 設定**：Bash 工具不設 `cmd.Dir`（繼承 process CWD）、fileops/glob/grep
-用 `os.Getwd()`。sub-agent 與主會話共用同一個 process 工作目錄，無隔离。這非失敗根因，但與
-leak 的 `isolation: "worktree"`（agent 獨立 git worktree）有差距——列為後續項。
+原狀：**委派無 per-agent CWD 設定**——Bash 不設 `cmd.Dir`、fileops/glob/grep 用 `os.Getwd()`，
+sub-agent 與主會話共用 process CWD。且 EnterWorktree 只改 AppState.WorkingDir 不 chdir，
+主會話進 worktree 後工具也仍在舊目錄。
+
+修正：`tools.UseContext.WorkingDir`（per-call 會話工作目錄）——Bash cmd.Dir、fileops
+expandPathFrom、Glob/Grep 預設目錄皆讀它；TUI／headless／buildRunAgentFn 三條接線從
+AppStateStore live 讀注入（buildRunAgentFn 改收 store，model 也 live）。空值 fallback
+process CWD（向後兼容）。sub-agent 繼承會話目錄；**per-agent 獨立 worktree isolation**
+（leak 的 isolation:"worktree"）仍列 Phase 2。
 另確認 PermCtx=nil 安全（所有 CheckPermissions override 忽略 UseContext；checker 用自身快照＋ModeFn）。
 
 ## Phase 2（未落地，後續任務）

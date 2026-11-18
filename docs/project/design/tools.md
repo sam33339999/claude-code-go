@@ -3,7 +3,7 @@
 > 负责 Agent：Agent-Tools
 > 状态：设计中
 > 日期：2026-04-02
-> 最近更新：2026-11-18（v1.1，BF-01/BF-02 回填，见文末变更记录）
+> 最近更新：2026-11-18（v1.8，feat/agent-cwd WorkingDir 接線，见文末变更记录）
 
 ---
 
@@ -1042,5 +1042,6 @@ FileEdit 要求 `old_string` 在文件中唯一出现一次。实现：
 | v1.9 | 2026-11-18 | 主会话 | BF-13 Skill 实现：NewSkillTool(dirsFn) live 目录搜索（project 优先）、SKILL.md/flat .md、frontmatter 剥离、not-found 列表、穿越拒绝；分歧：oracle 隔离子代理执行，本实现载入主会话上下文。RegisterBuiltinTools 27 工具。 |
 | v1.8 | 2026-11-18 | 主会话 | BF-10 Worktree 工具实现：git worktree add/remove 自包含（os/exec），AppState.Worktree 状态＋WorkingDir 切换；remove 未提交变更守卫（discard_changes 强制）；分支保留（分歧文档化）。RegisterBuiltinTools 28 工具（interact 全数 wire.go 注册）。 |
 | v1.7 | 2026-11-18 | 主会话 | BF-14 Brief 实现：抽取式摘要（词频评分＋位置加分，确定性零 LLM 调用）；分歧：oracle Brief=SendUserMessage（Kairos gated），按本仓设计规格实现摘要器。 |
+| v1.8 | 2026-11-18 | 主会话 | feat/agent-cwd：UseContext +WorkingDir string（per-call 會話工作目錄）。Bash 設 cmd.Dir；fileops expandPathFrom(raw, workDir)（Read/Write/Edit/NotebookEdit Call）；Glob/Grep 預設目錄讀 uctx.WorkingDir；空值 fallback process CWD（向後兼容）。修 EnterWorktree 只改 AppState 不 chdir 導致工具仍在舊目錄、委派 agent 無目錄繼承。接線：TUI/headless/buildRunAgentFn（改收 *state.AppStateStore，live 讀 WorkingDir＋model）。schema 字節不變（WorkingDir 非 tool input）。守護測試×4 檔。 |
 | v1.6 | 2026-11-18 | 主会话 | BF-12 ToolSearch 实现：NewToolSearchTool(reg) 注册表注入，关键词评分（name×3/hint×2/desc×1，camelCase 拆词），top-10 JSON。BF-11 NotebookEdit 实现：.ipynb loose-JSON round trip（保留未知字段）、replace/insert/delete、source 双格式、markdown 转换清 outputs、原子写。两者 schema 字节不变。 |
 | v1.0 | 2026-04-02 | Agent-Tools | 初稿 |
