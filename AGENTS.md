@@ -29,7 +29,7 @@ normalizeBaseURL、ReasoningContent）。原 agtkeel 包恢復原始路徑：
 - `cmd/claude`（Cobra 入口）、`internal/bootstrap`（DI 連線點 `AppContainer`、啟動接線）
 - `internal/tui` + `internal/commands`（Bubble Tea MVU、slash 命令）
 - `internal/tools/<category>`（具體工具實現）
-- `internal/coordinator、oauth、plugin、state、memdir、agentctx、agenttype、transcript`；`pkg/utils、pkg/testutil`
+- `internal/coordinator、oauth、plugin、state、memdir、agentctx、agenttype、transcript、codemode（CM-01 JS 沙箱）`；`pkg/utils、pkg/testutil`
 
 依賴鐵律（CI 評審會查）：
 - 下層禁止 import 上層；**TUI/commands 禁止 import bootstrap**（接線是 bootstrap 的職責，依賴用建構子注入）。

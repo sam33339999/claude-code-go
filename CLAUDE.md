@@ -43,6 +43,7 @@ Infra (pkg/types, internal/config, internal/session, internal/hooks, internal/st
 | `charm.land/bubbletea/v2` v2.1.1 | TUI framework (Elm-style MVU; UPD-01 v2 migration) |
 | `charm.land/lipgloss/v2` v2.1.1 | TUI styling (Color is now a func returning image/color.Color) |
 | `github.com/charmbracelet/glamour` v1.0.0 | Markdown terminal rendering (internal lipgloss v1 coexists) |
+| `github.com/MoeForge/moejs` v0.1.1 | Code Mode JS sandbox (CM-01; pure Go, alpha pinned, Runtime interface isolates it) |
 | `github.com/yuin/goldmark` | Markdown parsing |
 
 ## Build & Test
@@ -174,6 +175,14 @@ type Tool interface {
 type BaseTool struct{} // default implementations for optional methods
 type myTool struct{ tools.BaseTool } // only override what's needed
 ```
+
+### Code Mode (CM-01)
+
+`CodeMode` tool executes model-written JS in a moejs sandbox composing other tools
+(`tools.*`, async/await, Promise.all parallel). Every inner call goes through the
+full permission pipeline — sandboxing is not authorization. Progressive discovery
+via `codemode.search/describe`; MemoryLimit/Timeout/eval-disabled guards; 32KiB
+result cap. See `docs/project/design/codemode.md`.
 
 ### Permission Pipeline (9 Layers)
 ```

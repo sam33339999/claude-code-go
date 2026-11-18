@@ -1,7 +1,7 @@
 ---
 type: auto-generated-index
-generated_at: 2026-11-18T05:27:09Z
-package_count: 39
+generated_at: 2026-11-18T06:40:49Z
+package_count: 41
 ---
 
 # Package Index
@@ -36,6 +36,7 @@ package_count: 39
 | `internal/engine` | Core | QueryEngine(5m), BudgetTracker, CacheSafeParams, Config, ForkedAgentConfig | [CONTEXT](../../internal/engine/CONTEXT.md) |
 | `internal/tools` | Tools | AgentCoordinator(9m), MCPToolInfo(1m), PathTool(1m), PermissionContext(1m), SearchOrReadTool(1m), ... | [CONTEXT](../../internal/tools/CONTEXT.md) |
 | `internal/tools/agent` | Tools | AgentInput, AgentOutput, GetAgentStatusInput, GetAgentStatusOutput, SendMessageInput | [CONTEXT](../../internal/tools/agent/CONTEXT.md) |
+| `internal/tools/codemode` | Tools | - | [CONTEXT](../../internal/tools/codemode/CONTEXT.md) |
 | `internal/tools/fileops` | Tools | FileEditInput, FileReadInput, FileReadOutput, FileWriteInput, GlobInput | [CONTEXT](../../internal/tools/fileops/CONTEXT.md) |
 | `internal/tools/interact` | Tools | AskUserQuestionInput, EnterPlanModeInput, EnterWorktreeInput, ExitPlanModeInput, ExitWorktreeInput | [CONTEXT](../../internal/tools/interact/CONTEXT.md) |
 | `internal/tools/mcp` | Tools | ListMcpResourcesInput, ReadMcpResourceInput | [CONTEXT](../../internal/tools/mcp/CONTEXT.md) |
@@ -50,4 +51,4 @@ package_count: 39
 | `internal/commands` | CLI | MCPServerLister(1m), Command, CommandContext, Registry, Result | [CONTEXT](../../internal/commands/CONTEXT.md) |
 
 ---
-*39 packages across 8 layers.*
+*41 packages across 8 layers.*

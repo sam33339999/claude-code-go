@@ -2,7 +2,7 @@
 package: permissions
 import_path: internal/permissions
 layer: services
-generated_at: 2026-11-18T05:05:54Z
+generated_at: 2026-11-18T06:40:49Z
 source_files: [ask.go, checker.go, denial.go, filesystem.go, persist.go]
 ---
 
@@ -43,19 +43,22 @@ type Checker interface {
 
 ## Change Impact
 
+**Test Mocks (must add new methods when interfaces change):**
+- `fakeChecker` in `internal/tools/codemode/tool_test.go`
+
 **Exported type references (files that use types from this package):**
 - `AskRequest` → `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`
 - `AskResponse` → `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`
-- `Checker` → `internal/bootstrap/wire.go`, `internal/engine/engine.go`, `internal/engine/orchestration.go`
+- `Checker` → `internal/bootstrap/wire.go`, `internal/engine/engine.go`, `internal/engine/orchestration.go`, `internal/tools/codemode/tool.go`, `internal/tools/codemode/tool_test.go` (test)
 - `CheckerConfig` → `internal/bootstrap/wire.go`
-- `PermissionRequest` → `internal/engine/orchestration.go`
+- `PermissionRequest` → `internal/engine/orchestration.go`, `internal/tools/codemode/tool.go`, `internal/tools/codemode/tool_test.go` (test)
 - `PersistConfig` → `internal/bootstrap/wire.go`
 
 ## Dependencies
 
 **Imports:** `internal/config`, `internal/hooks`, `internal/tools`, `pkg/types`
 
-**Imported by:** `internal/bootstrap`, `internal/engine`, `internal/tui`
+**Imported by:** `internal/bootstrap`, `internal/engine`, `internal/tools/codemode`, `internal/tui`
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->
