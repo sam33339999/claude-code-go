@@ -155,6 +155,52 @@ goja 单线程——v1 bridged 同步（顺序执行，组合收益已拿满）�
 Code Mode 需要的全部基础设施；goja 实测证明纯 Go 沙箱可行（async/await 直接跑）；
 BF-12 ToolSearch 可直接复用为 progressive discovery。建议立项 CM-01（v1 范围 P1+P2+P4）。
 
+---
+
+## 9. moejs 补充研究（2026-11-18，人类指示查看）
+
+**moejs（github.com/MoeForge/moejs v0.1.1，前 Calcium-Ion/moejs）——纯 Go JS 运行时，
+alpha，Go 1.25+（本仓刚升级 ✓），零 CGO，唯一依赖 moego（Base64 SIMD）。**
+
+### 实测证据（/tmp/opencode/goja-probe/moejs_probe.go，五项全过）
+
+```
+1. Promise.all parallel: map[a:map[slept:100] b:map[slept:100] elapsed:100]
+   ← 两个 100ms bridged 工具调用，总耗时 100ms＝真并行（跨 goroutine settle promise）
+2. MemoryLimit stopped: true     ← 1MiB 上限，无限分配被强制停止（不可被 JS catch）
+3. Interrupt infinite loop: true ← 任意 goroutine 可中断死循环
+4. CompileTS: 42                 ← TypeScript 类型剥离原生支援（Node 式）
+5. Unmarshal to struct: {[1 2 3] true}  ← JSON 结果直接进 Go struct（DecodeOptions 可限大小）
+```
+
+### moejs vs goja（CM-01 选型对比）
+
+| 维度 | goja | moejs |
+|------|------|-------|
+| 纯 Go/零 CGO | ✓ | ✓ |
+| async/await | ✓（实测） | ✓（实测） |
+| **内存上限** | ✗（CM-01 中风险） | **✓ MemoryLimit 原生**（风险消除） |
+| **真并行工具调用** | 需 v2 event loop | **✓ v1 即可**（loop.NewPromise＋跨 goroutine settle，实测） |
+| ES 完整度 | ES5.1+部分 ES6 | ES modules/Proxy/BigInt/optional chaining/async iteration；test262 80,971 过 0 败 |
+| TypeScript | 需转译 | **CompileTS 原生** |
+| 性能 | 基准 | 官方基准：2× Sobek（goja 系）、1/3 内存；新 runtime 1.4µs/81KiB |
+| 沙箱控制 | 基础 | eval/Function 可禁用/限长；import 经 host hook；builtins 冻结共享 |
+| 成熟度 | 多年成熟 | **alpha（v0.1.1，2026-11 发布），API 可能变** |
+| Go 版本 | 1.21+ | 1.25+（本仓已升 ✓） |
+
+### 修订建议
+
+**首选 moejs**：MemoryLimit＋真并行＋TS 支援直接消除 goja 方案的两个主要缺口
+（内存无上限风险、并行延后 v2），且性能/内存更优，与本仓 Go 1.25 刚好匹配。
+
+**风险控制**：alpha API 不稳定 → (1) go.mod 钉住版本；(2) internal/codemode 定义
+自有 `Runtime` 介面包装引擎（bridge/沙箱/结果提取），goja 作为可切换 fallback；
+(3) 引擎升级走独立 PR＋全量测试。
+
+**CM-01 设计修订**：§4.5 并行从 v2 提前到 v1（eventloop.NewPromise 模式）；
+§5 内存风险降为低（MemoryLimit）；新增 TS 支援（模型可写 TS，CompileTS 剥离类型）。
+工作量估计不变（1.5-2 会话），v1 能力更强。
+
 ## 8. 参考
 
 - Cloudflare Code Mode 博客（2025-09-26）＋Code Mode MCP（2026-02-20）＋Agents SDK docs
