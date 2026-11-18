@@ -90,7 +90,7 @@ make parity       # 先 build 再跑 test/parity；未設 CCG_PARITY_ORACLE 時�
 - 新工具：`internal/tools/<category>/` 嵌入 `tools.BaseTool`（internal/tools 框架），同包補測試。
   註冊位置分兩種：無運行時依賴→`internal/bootstrap/tools.go`（RegisterBuiltinTools）；
   需要 checker/engine/channel 等依賴→`internal/bootstrap/wire.go` 接線（CodeMode、AskUserQuestion 前例），
-  **兩條构建路徑（生產＋test）都要接**。
+  **兩條建構路徑（生產＋test）都要接**。
 - 介面變更按 `docs/project/doc-sync-policy.md` 同步 `docs/project/design/<layer>.md`（版本號 + 變更記錄）。
 
 ## 分支與 PR
