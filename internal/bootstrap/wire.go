@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -211,6 +212,14 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	mq := msgqueue.NewMessageQueue()
 	qg := msgqueue.NewQueryGuard()
 
+	// EV-01: MCP server notifications wake the agent via the message queue
+	// (event-driven, zero polling). The drain point displays the event and
+	// starts a query so the agent can act on it.
+	pool.SetNotificationHandler(func(server, method string, params json.RawMessage) {
+		event := fmt.Sprintf("[MCP event from %s] %s\n%s", server, method, string(params))
+		mq.Enqueue(msgqueue.NewCommand(event, msgqueue.ModeExternalPrompt, msgqueue.PriorityNext))
+	})
+
 	// Register memory stop hooks (extract + auto dream).
 	memoryStore := buildMemoryStore(settings, opts.WorkingDir)
 	registerMemoryStopHooks(stopHooks, settings, memoryStore)
@@ -351,6 +360,12 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	// ── Phase 7.6: Message queue + query guard (mid-session messaging) ───────
 	mqTest := msgqueue.NewMessageQueue()
 	qgTest := msgqueue.NewQueryGuard()
+
+	// EV-01: MCP notifications → queue (test path mirrors production wiring).
+	pool.SetNotificationHandler(func(server, method string, params json.RawMessage) {
+		event := fmt.Sprintf("[MCP event from %s] %s\n%s", server, method, string(params))
+		mqTest.Enqueue(msgqueue.NewCommand(event, msgqueue.ModeExternalPrompt, msgqueue.PriorityNext))
+	})
 
 	// ── Phase 8: Engine construction ─────────────────────────────────────────
 	eng := engine.New(engine.Config{

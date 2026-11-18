@@ -1039,4 +1039,24 @@ CannotRetryError（重试耗尽）/ FallbackTriggeredError（模型 fallback）
 
 ---
 
-*文档版本：v1.1 · 2026-11-18 · 主会话（BF-16 WS transport 实现注记）；v0.1 · 2026-04-02 · Agent-Services*
+### 2.3 服务端通知路由（EV-01，2026-11-18）
+
+MCP 服务端主动推送的 notification（JSON-RPC ID=nil＋method）此前被 reader 丢弃。
+EV-01 补齐事件驱动链路（零轮询、零空转 token）：
+
+```
+server push → jsonrpc reader（c.mu 保护 notify 读取，锁外调用）
+→ Pool.ServerNotificationHandler（含 server 名）
+→ wire：msgqueue.Enqueue(ModeExternalPrompt, PriorityNext)
+→ TUI drain：显示事件＋startQueryCmd → 代理被唤醒处理
+```
+
+- `Pool.SetNotificationHandler(fn)`：连接前/后设置皆可；既有连接＋未来连接
+  （含 Reconnect）全覆盖；nil 安全
+- `NotificationHandler` 必须非阻塞（运行于 reader goroutine）
+- msgqueue 新增 `ModeExternalPrompt`：与 ModePrompt 区别——display 訊息由
+  drain 点附加（外部注入时 handleSubmit 未跑过）
+- 竞态防护：notify 字段读写均 under c.mu（-race 测试钉住）
+- 测试：真实 WS server 推送×4 场景（connect 前/后设置、nil handler、reconnect 保持）
+
+*文档版本：v1.2 · 2026-11-18 · 主会话（EV-01 通知路由）；v1.1 · 2026-11-18（BF-16）；v0.1 · 2026-04-02 · Agent-Services*

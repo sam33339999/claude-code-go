@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 )
@@ -58,6 +59,37 @@ func (s *ServerConnection) IsConnected() bool {
 type Pool struct {
 	mu          sync.RWMutex
 	connections map[string]*ServerConnection
+	notify      ServerNotificationHandler
+}
+
+// ServerNotificationHandler receives MCP notifications with the server name
+// attached (EV-01). Must be non-blocking (runs on the client reader goroutine).
+type ServerNotificationHandler func(server, method string, params json.RawMessage)
+
+// SetNotificationHandler installs the pool-wide notification handler (EV-01).
+// It applies to existing connected clients and all future connections
+// (including reconnects). Safe to call before or after Connect.
+func (p *Pool) SetNotificationHandler(fn ServerNotificationHandler) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.notify = fn
+	for _, conn := range p.connections {
+		if c, ok := conn.Client.(*jsonRPCClient); ok {
+			c.mu.Lock()
+			c.notify = wrapServerNotify(conn.Name, fn)
+			c.mu.Unlock()
+		}
+	}
+}
+
+// wrapServerNotify binds the server name to a pool-level handler.
+func wrapServerNotify(server string, fn ServerNotificationHandler) NotificationHandler {
+	if fn == nil {
+		return nil
+	}
+	return func(method string, params json.RawMessage) {
+		fn(server, method, params)
+	}
 }
 
 // NewPool creates an empty connection pool.
@@ -82,9 +114,10 @@ func (p *Pool) Connect(ctx context.Context, name string, cfg ServerConfig) error
 		Config: cfg,
 	}
 	p.connections[name] = conn
+	notify := wrapServerNotify(name, p.notify)
 	p.mu.Unlock()
 
-	client, err := dialServer(ctx, cfg)
+	client, err := dialServer(ctx, cfg, notify)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if err != nil {
@@ -160,7 +193,7 @@ func (p *Pool) GetAll() []*ServerConnection {
 }
 
 // dialServer creates a Transport and performs the MCP handshake.
-func dialServer(ctx context.Context, cfg ServerConfig) (MCPClient, error) {
+func dialServer(ctx context.Context, cfg ServerConfig, notify NotificationHandler) (MCPClient, error) {
 	var transport Transport
 	var err error
 
@@ -193,6 +226,7 @@ func dialServer(ctx context.Context, cfg ServerConfig) (MCPClient, error) {
 	}
 
 	client := newJSONRPCClient(transport)
+	client.notify = notify // set before initialize starts the reader (EV-01)
 	if err := client.initialize(ctx); err != nil {
 		_ = transport.Close()
 		return nil, err

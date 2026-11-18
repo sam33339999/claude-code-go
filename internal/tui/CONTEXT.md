@@ -2,7 +2,7 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-18T07:14:42Z
+generated_at: 2026-11-18T07:56:44Z
 source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, spinner.go, statusbar.go, styles.go, theme.go, update.go, view.go, welcome.go]
 ---
 
@@ -101,3 +101,4 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **2026-11-18 BF-21 Shift+Tab 模式循环**：nextPermissionMode（default→acceptEdits→plan→bypassPermissions→default，空 Mode 视为 default；oracle 顺序，YOLO 纳入循环为人类明确要求之分歧）；cyclePermissionMode 更新 AppState＋系统訊息（YOLO 警告）；StatusBar.mode 指示器（⏵⏵ accept edits／⏸ plan／⚠ YOLO warning bold），View 每次读 live mode。
 - **2026-11-18 UPD-01 Bubble Tea v2 迁移**：charm.land/bubbletea/v2 v2.1.1＋bubbles/v2＋lipgloss/v2＋glamour v1.0.0（Go 1.25）。View()→tea.View（screenView 设 AltScreen/MouseModeCellMotion）；KeyPressMsg（Code/Text/Mod 匹配；ctrl=字母+ModCtrl、shift+tab=Tab+ModShift、printable=Text!=""）；MouseWheelMsg 独立类型；viewport New(WithWidth/WithHeight)/SetWidth/ScrollUp/ScrollDown/HalfPageUp/Down；Theme 欄位 image/color.Color（lipgloss.Color 为函数）；textarea New() 零参兼容。自研 spinner 零影响。v2 守护测试×3。
 - **2026-11-18 对话框可见性修复**：View 先渲染 renderActiveDialog＋todo/coordinator 面板并计行（renderedLines），viewport 以副本 SetHeight(原高−extras) 收缩，保证总渲染高度≤termHeight——修复批准对话框被挤出终端底部不可见的 bug。回归测试 dialog_visibility_test.go×4。
+- **2026-11-18 EV-01**：processQueueCmd ModeExternalPrompt 分支——附加 display 訊息＋pinnedToBottom＋startQueryCmd，MCP 通知唤醒代理处理。

@@ -44,6 +44,11 @@ const (
 	ModePrompt CommandMode = iota
 	// ModeSlashCommand is a slash command (e.g. "/compact", "/model").
 	ModeSlashCommand
+	// ModeExternalPrompt is an externally injected event (e.g. an MCP server
+	// notification, EV-01) that triggers an LLM query. Unlike ModePrompt, the
+	// display message was NOT appended by handleSubmit — the drain point
+	// appends it before starting the query.
+	ModeExternalPrompt
 )
 
 // String returns a human-readable label for the command mode.
@@ -53,6 +58,8 @@ func (m CommandMode) String() string {
 		return "prompt"
 	case ModeSlashCommand:
 		return "slash"
+	case ModeExternalPrompt:
+		return "external"
 	default:
 		return fmt.Sprintf("mode(%d)", int(m))
 	}

@@ -2,7 +2,7 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-18T06:40:49Z
+generated_at: 2026-11-18T07:56:44Z
 source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, update_cmd.go, wire.go]
 ---
 
@@ -101,3 +101,4 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 - **2026-11-18 BF-09/BF-21**：plan-mode 工具 store 后注册（RegisterBuiltinTools 余 30）；CheckerConfig.ModeFn 接 store.GetState().ToolPermissionContext.Mode（两条路径）。
 - **2026-11-18 BF-10**：worktree 工具 store 後註冊；RegisterBuiltinTools 餘 28（interact 全數移出至 wire.go）。
 - **2026-11-18 UPD-01**：tea.NewProgram 移除 WithAltScreen/WithMouseCellMotion（v2 改在 AppModel.View 的 tea.View 上设置）。
+- **2026-11-18 EV-01**：pool.SetNotificationHandler→mq.Enqueue(ModeExternalPrompt, PriorityNext)（两条路径），MCP 服务端推送事件驱动唤醒，零轮询。

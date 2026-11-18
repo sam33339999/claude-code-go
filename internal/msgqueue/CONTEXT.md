@@ -2,7 +2,7 @@
 package: msgqueue
 import_path: internal/msgqueue
 layer: services
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T07:56:44Z
 source_files: [command.go, guard.go, queue.go, signal.go]
 ---
 
@@ -29,6 +29,7 @@ source_files: [command.go, guard.go, queue.go, signal.go]
 
 - `Dispatching`
 - `Idle`
+- `ModeExternalPrompt`
 - `ModePrompt`
 - `ModeSlashCommand`
 - `PriorityLater`
@@ -55,3 +56,4 @@ source_files: [command.go, guard.go, queue.go, signal.go]
 ## Design Notes
 
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
+- **2026-11-18 EV-01**：ModeExternalPrompt——外部注入事件（MCP 通知）专用模式；与 ModePrompt 区别：display 訊息由 TUI drain 点附加（外部注入未经 handleSubmit）。

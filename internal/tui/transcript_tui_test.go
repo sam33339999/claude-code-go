@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/tunsuy/claude-code-go/internal/msgqueue"
 	"github.com/tunsuy/claude-code-go/internal/session"
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/transcript"
@@ -167,5 +168,40 @@ func TestView_RendersTodoPanel(t *testing.T) {
 	})
 	if strings.Contains(m.View().Content, "[x] finished task") {
 		t.Error("cleared todo list must not render")
+	}
+}
+
+// TestProcessQueue_ExternalPromptDrain covers EV-01: an MCP notification
+// enqueued as ModeExternalPrompt must be displayed AND start a query (the
+// event-driven wake path), unlike ModePrompt which assumes prior display.
+func TestProcessQueue_ExternalPromptDrain(t *testing.T) {
+	m := newTestModel()
+	m.msgQueue = msgqueue.NewMessageQueue()
+	event := "[MCP event from svc] notifications/message\n{\"data\":\"job available\"}"
+	m.msgQueue.Enqueue(msgqueue.NewCommand(event, msgqueue.ModeExternalPrompt, msgqueue.PriorityNext))
+
+	cmd := processQueueCmd(&m)
+	if cmd == nil {
+		t.Fatal("expected a query Cmd from the external event")
+	}
+	if !strings.Contains(lastMessageText(t, m), "job available") {
+		t.Error("external event must be displayed in the conversation")
+	}
+	if !m.isLoading {
+		t.Error("external event must start a query (wake the agent)")
+	}
+	// Execute the Cmd: the fake engine must receive the event as user input.
+	_ = cmd()
+	fe := m.queryEngine.(*fakeEngine)
+	found := false
+	for _, msg := range fe.messages {
+		for _, b := range msg.Content {
+			if b.Text != nil && strings.Contains(*b.Text, "job available") {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Error("engine must receive the event text as the query input")
 	}
 }
