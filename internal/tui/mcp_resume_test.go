@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -92,6 +93,10 @@ func TestSlashMCP_FetchesStatusViaCmd(t *testing.T) {
 	m.mcpPool = &fakeMCPPool{conns: []*mcp.ServerConnection{
 		{Name: "test-server", Status: mcp.StatusDisabled},
 	}}
+	// Cache-gate guard (CR-BF03-6): /mcp is display-only — the engine history
+	// must be byte-identical across the whole fetch/display flow.
+	m.queryEngine.SetMessages([]types.Message{newUserMessage("seed history")})
+	engineBefore := m.queryEngine.GetMessages()
 
 	updated, cmd := m.handleSlashCommand("/mcp")
 	if cmd == nil {
@@ -114,6 +119,10 @@ func TestSlashMCP_FetchesStatusViaCmd(t *testing.T) {
 	updated = applyMsg(updated, statusMsg)
 	if !strings.Contains(lastMessageText(t, updated), "test-server") {
 		t.Errorf("expected report displayed as system message, got %q", lastMessageText(t, updated))
+	}
+	if engineAfter := updated.queryEngine.GetMessages(); !reflect.DeepEqual(engineBefore, engineAfter) {
+		t.Errorf("/mcp must not modify engine history (cache gate display-only): before %v, after %v",
+			engineBefore, engineAfter)
 	}
 }
 

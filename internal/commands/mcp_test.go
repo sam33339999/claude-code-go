@@ -162,3 +162,47 @@ func TestMCPCommand_RequestsAsyncFetch(t *testing.T) {
 		t.Error("stub text must be gone")
 	}
 }
+
+// TestFormatMCPStatus_ConnectedNilClient covers mcpToolCountSuffix's
+// no-client branch (CR-BF03-6): a connected-status connection without an
+// attached client renders the status line with no tool suffix and no panic.
+func TestFormatMCPStatus_ConnectedNilClient(t *testing.T) {
+	pool := &fakePool{conns: []*mcp.ServerConnection{
+		{Name: "ghost", Status: mcp.StatusConnected, Client: nil},
+	}}
+	out := commands.FormatMCPStatus(context.Background(), pool)
+	if !strings.Contains(out, "ghost") || !strings.Contains(out, "✓ connected") {
+		t.Errorf("expected connected status line for ghost, got %q", out)
+	}
+	if strings.Contains(out, "tools") {
+		t.Errorf("nil client must not produce a tool suffix, got %q", out)
+	}
+}
+
+// blockingMCPClient blocks ListTools until the context is done, then returns
+// the context error — it drives the per-server timeout/degradation path
+// deterministically (CR-BF03-6) without waiting the production 2s.
+type blockingMCPClient struct{ fakeMCPClient }
+
+func (b *blockingMCPClient) ListTools(ctx context.Context) ([]mcp.MCPToolDef, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+// TestFormatMCPStatus_ListToolsTimeoutDegrades proves a hung tools/list is
+// bounded by the caller context and degrades to an honest "tools unavailable"
+// suffix instead of blocking the report or failing it.
+func TestFormatMCPStatus_ListToolsTimeoutDegrades(t *testing.T) {
+	pool := &fakePool{conns: []*mcp.ServerConnection{
+		{Name: "slow", Status: mcp.StatusConnected, Client: &blockingMCPClient{}},
+	}}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // already expired: ListTools must return promptly via ctx.Done
+	out := commands.FormatMCPStatus(ctx, pool)
+	if !strings.Contains(out, "slow") || !strings.Contains(out, "✓ connected") {
+		t.Errorf("expected connected status line for slow, got %q", out)
+	}
+	if !strings.Contains(out, "tools unavailable") {
+		t.Errorf("expected honest degradation suffix, got %q", out)
+	}
+}
