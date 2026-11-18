@@ -2,7 +2,7 @@
 
 > 负责 Agent：Agent-TUI
 > 状态：已实现（维护期回填中）
-> 版本：v1.3
+> 版本：v1.4
 > 日期：2026-11-18（初稿 2026-04-02）
 
 ---
@@ -723,8 +723,10 @@ Update() 中 case CommandResultMsg: → 更新 m.commandResult → View() 展示
   （返回 stop 标志：仅 isLoading 拒绝时为 true，调用方据此短路后续 Result 处理），
   Display 渲染提取为 `applyDisplayResult`，使 `applyCommandResult` ≤80 行（CR-BF03-1）；
   行为与提取前逐路径一致。
-- 已知局限：交互模式目前不落盘会话 JSONL（持久化接线属 bootstrap/engine 职责，见 BF-03 汇报），
-  故 /resume 列表内容取决于其他路径写入的会话文件。
+- 会话持久化（BF-18 已接线）：交互/headless 会话经 `internal/transcript.Recorder` 在 turn 边界
+  落盘 JSONL（entry 格式与既有读者完全相容）；启动时 bootstrap 建立 recorder（--resume/--continue
+  则 Resume 并以已加载历史为基线），/resume 中途切换目标文件。已知局限：/clear 重置写入基线但
+  transcript 追加-only（不新建会话文件）；持久化失败降级为系统警告，不阻断对话。
 
 **/config（只读设置面板，BF-05）**：
 
@@ -1056,6 +1058,7 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|---------|
+| v1.4 | 2026-11-18 | Agent-TUI（主会话代行） | BF-18 会话持久化接线：新增 internal/transcript Recorder（产品侧，agtkeel session 存储只读复用）；tui.New/newAppModel 末尾新增 rec *transcript.Recorder 参数（bootstrap 传入，可 nil）；StreamDone/StreamError 经 persistTranscriptCmd 在 turn 边界落盘（快照拷贝防竞态）；/resume 经 switchTranscriptCmd 切换目标会话文件；TranscriptErrMsg 系统警告。已知局限：/clear 重置基线但 transcript 追加-only（不新建文件）。 |
 | v1.3 | 2026-11-18 | Agent-TUI（主会话代行） | BF-05：/config 只读设置面板（OpenDialog 既有 wiring＋renderConfigDialog，Esc 关闭，交互编辑为后续项）；/terminal-setup 终端环境检测（DetectTerminal 纯函数＋非侵入指引，不写文件；键绑定自动安装为后续项）。两桩消除，debt 24→22。cache 闸门三问全否＋守护测试。无接口签名变更。 |
 | v1.2 | 2026-11-18 | Agent-TUI | BF-03-F1 评审修复（CR-BF03-1/2/3/4/5）：§4.1 钉住 `MCPServerLister`/`FormatMCPStatus` 的无并发池突变约束（活指针读取，快照根治待跨仓 BF-19；BF-01 并发写者落地前必须关闭）；补记 /mcp 活状态对 BF-01 启动接线的依赖（此前空池提示为预期行为）；`applyCommandResult` 提取 `applyResumeResult`/`applyDisplayResult` helper（≤80 行，行为不变）；/resume 错误经 %w 保留底层原因、Close 失败显式处理。无接口签名变更。 |
 | v1.1 | 2026-11-18 | Agent-TUI | BF-03：/mcp、/resume 真实实现（§4.1）。新增 `commands.MCPServerLister`、`commands.FormatMCPStatus`、`Result.FetchMCPStatus`/`Result.NewSessionID`、`tui.MCPStatusMsg`；`tui.New`/`newAppModel` 新增 `mcpPool` 注入参数（bootstrap 传入 `container.MCPPool`）；`applyCommandResult` 开始消费 `Result.NewMessages`（含 isLoading 保护）。commands 层新增 agtkeel mcp/session/types/utils/fs 向下依赖。 |

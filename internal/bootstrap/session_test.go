@@ -93,7 +93,7 @@ func TestLoadSessionMessages_NeitherFlag(t *testing.T) {
 	cwd := t.TempDir()
 	f := &rootFlags{}
 
-	msgs, err := loadSessionMessages(cwd, f)
+	_, msgs, err := loadSessionMessages(cwd, f)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -108,7 +108,7 @@ func TestLoadSessionMessages_Resume_NotFound(t *testing.T) {
 	cwd := t.TempDir()
 	f := &rootFlags{resume: "nonexistent-session-id"}
 
-	_, err := loadSessionMessages(cwd, f)
+	_, _, err := loadSessionMessages(cwd, f)
 	if err == nil {
 		t.Fatal("expected error for unknown session, got nil")
 	}
@@ -123,7 +123,7 @@ func TestLoadSessionMessages_Resume_Happy(t *testing.T) {
 	writeSessionJSONL(t, cwd, sessionID, want)
 
 	f := &rootFlags{resume: sessionID}
-	got, err := loadSessionMessages(cwd, f)
+	_, got, err := loadSessionMessages(cwd, f)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestLoadSessionMessages_Continue_NoSessions(t *testing.T) {
 	cwd := t.TempDir()
 	f := &rootFlags{continueSession: true}
 
-	_, err := loadSessionMessages(cwd, f)
+	_, _, err := loadSessionMessages(cwd, f)
 	if err == nil {
 		t.Fatal("expected error when no sessions exist, got nil")
 	}
@@ -181,7 +181,7 @@ func TestLoadSessionMessages_Continue_Happy(t *testing.T) {
 	os.Chtimes(newerPath, now, now)                                           //nolint:errcheck
 
 	f := &rootFlags{continueSession: true}
-	got, err := loadSessionMessages(cwd, f)
+	_, got, err := loadSessionMessages(cwd, f)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestLoadSessionMessages_Continue_EmptyDir(t *testing.T) {
 	os.MkdirAll(sessDir, 0o755) //nolint:errcheck
 
 	f := &rootFlags{continueSession: true}
-	_, err := loadSessionMessages(cwd, f)
+	_, _, err := loadSessionMessages(cwd, f)
 	if err == nil {
 		t.Fatal("expected error for empty session directory, got nil")
 	}

@@ -146,11 +146,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			_ = m.queryGuard.End(m.queryGen)
 		}
 
+		// BF-18: persist the completed turn off the Update loop.
+		cmds := []tea.Cmd{persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages())}
+
 		// P1: Between-turn drain — process queued commands now that the query finished.
 		if m.msgQueue != nil && m.msgQueue.Len() > 0 {
-			return m, processQueueCmd(&m)
+			cmds = append(cmds, processQueueCmd(&m))
 		}
-		return m, nil
+		return m, tea.Batch(cmds...)
 
 	case StreamErrorMsg:
 		m.isLoading = false
@@ -162,6 +165,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streamingHasMsg = false
 		errText := "Error: " + msg.Err.Error()
 		m.messages = append(m.messages, newSystemMessage(errText))
+		m.syncViewportContent()
+		// BF-18: persist the partial turn (user input + any streamed output).
+		return m, persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages())
+
+	// --- Session persistence failure (BF-18) ---
+	case TranscriptErrMsg:
+		m.messages = append(m.messages, newSystemMessage("Session persistence failed: "+msg.Err.Error()))
 		m.syncViewportContent()
 		return m, nil
 
@@ -418,15 +428,28 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 		return m, nil
 	}
 
+	var cmds []tea.Cmd
+	// BF-18: adopt the resumed session file so later turns append there.
+	if result.NewSessionID != "" && m.transcript != nil {
+		cmds = append(cmds, switchTranscriptCmd(m.transcript, result.NewSessionID, len(m.messages)))
+	}
+
 	if result.TriggerDream {
-		return m, triggerDreamCmd(&m)
+		return m, tea.Batch(append(cmds, triggerDreamCmd(&m))...)
 	}
 
 	if result.FetchMCPStatus {
-		return m, fetchMCPStatusCmd(m.mcpPool)
+		return m, tea.Batch(append(cmds, fetchMCPStatusCmd(m.mcpPool))...)
 	}
 
-	return m.applyDisplayResult(result)
+	m, displayCmd := m.applyDisplayResult(result)
+	if displayCmd != nil {
+		cmds = append(cmds, displayCmd)
+	}
+	if len(cmds) == 0 {
+		return m, nil
+	}
+	return m, tea.Batch(cmds...)
 }
 
 // applyResumeResult consumes Result.NewMessages for /resume: it replaces the

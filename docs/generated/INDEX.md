@@ -1,7 +1,7 @@
 ---
 type: auto-generated-index
-generated_at: 2026-11-18T01:17:44Z
-package_count: 25
+generated_at: 2026-11-18T03:26:51Z
+package_count: 26
 ---
 
 # Package Index
@@ -37,4 +37,4 @@ package_count: 25
 | `internal/commands` | CLI | MCPServerLister(1m), Command, CommandContext, Registry, Result | [CONTEXT](../../internal/commands/CONTEXT.md) |
 
 ---
-*25 packages across 8 layers.*
+*26 packages across 8 layers.*

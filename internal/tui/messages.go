@@ -117,6 +117,10 @@ type DreamDoneMsg struct {
 // asynchronously by fetchMCPStatusCmd.
 type MCPStatusMsg struct{ Text string }
 
+// TranscriptErrMsg reports a session-persistence failure (BF-18). The TUI
+// surfaces it as a system warning; the conversation itself is unaffected.
+type TranscriptErrMsg struct{ Err error }
+
 // AgentStatusMsg is pushed from Agent-Core to update a sub-agent's status.
 type AgentStatusMsg struct {
 	TaskID      string

@@ -17,6 +17,7 @@ import (
 	"github.com/tunsuy/claude-code-go/internal/coordinator"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/claude-code-go/internal/state"
+	"github.com/tunsuy/claude-code-go/internal/transcript"
 )
 
 // dialogKind enumerates active modal dialogs.
@@ -101,6 +102,8 @@ type AppModel struct {
 	appState    *state.AppStateStore
 	// mcpPool exposes MCP server connection state for /mcp (may be nil).
 	mcpPool commands.MCPServerLister
+	// transcript persists conversation turns to the session JSONL (may be nil).
+	transcript *transcript.Recorder
 
 	// --- Multi-agent coordinator (injected via New()) ---
 	// agentCoordinator is the tools-facing adapter for the coordinator.
@@ -165,6 +168,7 @@ func newAppModel(
 	qg *msgqueue.QueryGuard,
 	memoryStore *memdir.MemoryStore,
 	mcpPool commands.MCPServerLister,
+	rec *transcript.Recorder,
 ) AppModel {
 	st := appStore.GetState()
 	cwd := st.WorkingDir
@@ -182,6 +186,8 @@ func newAppModel(
 		queryEngine:         qe,
 		appState:            appStore,
 		mcpPool:             mcpPool,
+		transcript:          rec,
+		sessionID:           rec.SessionID(),
 		agentCoordinator:    agentCoord,
 		coordinatorMode:     agentCoord != nil,
 		commandRegistry:     reg,

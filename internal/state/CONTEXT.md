@@ -2,7 +2,7 @@
 package: state
 import_path: internal/state
 layer: infra
-generated_at: 2026-11-18T01:17:44Z
+generated_at: 2026-11-18T03:26:51Z
 source_files: [store.go]
 ---
 
@@ -34,7 +34,7 @@ source_files: [store.go]
 ## Change Impact
 
 **Exported type references (files that use types from this package):**
-- `AppState` → `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/model.go`, `internal/tui/tui_test.go` (test) + 1 more
+- `AppState` → `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/model.go`, `internal/tui/transcript_tui_test.go` (test) + 2 more
 - `ModelSetting` → `internal/bootstrap/wire.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/tui_test.go` (test)
 
 ## Dependencies

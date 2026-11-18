@@ -10,55 +10,76 @@ import (
 	"github.com/tunsuy/agtkeel/session"
 	"github.com/tunsuy/agtkeel/types"
 	utilfs "github.com/tunsuy/agtkeel/utils/fs"
+	"github.com/tunsuy/claude-code-go/internal/transcript"
 )
+
+// openTranscript initialises session persistence (BF-18). A non-empty sid
+// resumes that session with existing loaded messages as the write baseline;
+// otherwise a fresh session is created. Failure is non-fatal: persistence is
+// disabled with a stderr warning so the conversation itself still works.
+func openTranscript(cwd, sid string, existing int) *transcript.Recorder {
+	var rec *transcript.Recorder
+	var err error
+	if sid != "" {
+		rec, err = transcript.Resume(cwd, sid, appVersion, existing)
+	} else {
+		rec, err = transcript.New(cwd, appVersion)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: session persistence disabled: %v\n", err)
+		return nil
+	}
+	return rec
+}
 
 // loadSessionMessages loads conversation history from a previous session
 // according to the --resume / --continue flags.
-// Returns (nil, nil) when neither flag is active (no-op).
-// Returns a friendly error when the requested session cannot be found.
-func loadSessionMessages(cwd string, f *rootFlags) ([]types.Message, error) {
+// Returns ("", nil, nil) when neither flag is active (no-op); otherwise the
+// session id plus its messages. Returns a friendly error when the requested
+// session cannot be found.
+func loadSessionMessages(cwd string, f *rootFlags) (string, []types.Message, error) {
 	switch {
 	case f.resume != "":
 		return resumeSessionByID(f.resume, cwd)
 	case f.continueSession:
 		return continueMostRecentSession(cwd)
 	}
-	return nil, nil
+	return "", nil, nil
 }
 
 // resumeSessionByID opens the session identified by sessionID inside cwd
-// and returns its ordered conversation messages.
-func resumeSessionByID(sessionID, cwd string) ([]types.Message, error) {
+// and returns its id plus ordered conversation messages.
+func resumeSessionByID(sessionID, cwd string) (string, []types.Message, error) {
 	_, mgr, err := session.Resume(sessionID, cwd)
 	if err != nil {
-		return nil, fmt.Errorf("session %q not found (cwd: %s).\n"+
+		return "", nil, fmt.Errorf("session %q not found (cwd: %s).\n"+
 			"Tip: use --continue to resume the most recent session", sessionID, cwd)
 	}
 	defer mgr.Close() //nolint:errcheck
 
 	msgs, err := extractMessages(mgr)
 	if err != nil {
-		return nil, fmt.Errorf("resume session %q: %w", sessionID, err)
+		return "", nil, fmt.Errorf("resume session %q: %w", sessionID, err)
 	}
-	return msgs, nil
+	return sessionID, msgs, nil
 }
 
 // continueMostRecentSession discovers the most-recently-modified JSONL session
-// file for the current project directory and loads its messages.
-func continueMostRecentSession(cwd string) ([]types.Message, error) {
+// file for the current project directory and returns its id plus messages.
+func continueMostRecentSession(cwd string) (string, []types.Message, error) {
 	hash, err := utilfs.ProjectHash(cwd)
 	if err != nil {
-		return nil, fmt.Errorf("compute project hash: %w", err)
+		return "", nil, fmt.Errorf("compute project hash: %w", err)
 	}
 
 	sessDir := filepath.Join(cwd, ".claude", "projects", hash)
 	dirEntries, err := os.ReadDir(sessDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no previous sessions found in %s.\n"+
+			return "", nil, fmt.Errorf("no previous sessions found in %s.\n"+
 				"Start a new session to create one", cwd)
 		}
-		return nil, fmt.Errorf("read session directory: %w", err)
+		return "", nil, fmt.Errorf("read session directory: %w", err)
 	}
 
 	type candidate struct {
@@ -80,7 +101,7 @@ func continueMostRecentSession(cwd string) ([]types.Message, error) {
 	}
 
 	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no previous sessions found in %s.\n"+
+		return "", nil, fmt.Errorf("no previous sessions found in %s.\n"+
 			"Start a new session to create one", cwd)
 	}
 
