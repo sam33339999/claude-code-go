@@ -99,6 +99,12 @@
 | BF-08 | completed（已合并） | bf-askuser | 提交 8e52822；HIL channel 对＋TUI 问答对话框（权限管线同构）；headless nil channel 诚实报错；ctx/abort 取消路径；debt 12→11、TODO(dep) 41→38；全仓 -race 绿 |
 | BF-09 | completed（已合并） | bf-planmode-yolo | 提交 f06444c；NewEnter/ExitPlanModeTool(store)＋CheckerConfig.ModeFn live mode；debt 11→9、TODO(dep) 38→32；全仓 -race 绿 |
 | BF-21 | completed（已合并） | bf-planmode-yolo | 人类新增需求：Shift+Tab 模式循环 default→acceptEdits→plan→YOLO→default；状态列可见指示器（⚠ YOLO warning）＋切换系统訊息；oracle 顺序，YOLO 纳入循环为明确要求之分歧（文档化） |
-| BF-10..BF-16 | pending | — | Batch 3（BF-16 已改同仓） |
+| BF-10 | completed（已合并） | bf-batch3-a | a3da6e1；git worktree session 切换（os/exec 自包含）＋变更守卫 |
+| BF-11 | completed（已合并） | bf-batch3-a | 2968b03；.ipynb loose-JSON round trip，replace/insert/delete |
+| BF-12 | completed（已合并） | bf-batch3-a | 2968b03；ToolSearch 关键词评分（name/hint/desc），top-10 JSON |
+| BF-13 | completed（已合并） | bf-batch3-a | 799bba2；Skill markdown 载入器（live dirs，frontmatter 剥离）；oracle 子代理执行分歧文档化 |
+| BF-14 | completed（已合并） | bf-batch3-a | 286499b；Brief 抽取式摘要（零 LLM 调用）；oracle SendUserMessage 分歧文档化 |
+| BF-15 | completed（已合并） | bf-batch3-a | e5bdd9b；SyntheticOutput echo 语义（oracle validate-and-return 对齐） |
+| BF-16 | completed（已合并） | bf-batch3-a | c111afe；WS transport（gorilla/websocket）＋Pool 全链路握手；debt-check 零匹配 bug 修复；**NOT_IMPLEMENTED_BASELINE=0** 🎯 |
 
 > 状态变更由 PM 独家更新本表；Agent 汇报按 agent-output.md JSON 格式。
