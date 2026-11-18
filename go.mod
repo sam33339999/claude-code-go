@@ -15,7 +15,6 @@ require (
 	github.com/charmbracelet/glamour v0.8.0
 	github.com/charmbracelet/lipgloss v0.13.0
 	github.com/spf13/cobra v1.8.1
-	github.com/tunsuy/agtkeel v0.0.0-20260923105334-3a770859d2cf
 )
 
 require (

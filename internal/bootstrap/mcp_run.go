@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tunsuy/agtkeel/config"
+	"github.com/tunsuy/claude-code-go/internal/config"
 )
 
 // RunE bodies for the `claude mcp` subcommands.  Each takes an mcpDeps bundle

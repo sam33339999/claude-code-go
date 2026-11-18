@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-
 // versionRe matches "claude 1.2.3" style version output so two builds with
 // different version numbers can still be compared.
 var versionRe = regexp.MustCompile(`(?m)^(\s*claude\s+)\d+\.\d+\.\d+`)

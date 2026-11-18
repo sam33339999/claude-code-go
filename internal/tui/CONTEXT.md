@@ -2,7 +2,7 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-18T03:26:51Z
+generated_at: 2026-11-18T03:53:13Z
 source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, spinner.go, statusbar.go, styles.go, theme.go, update.go, view.go, welcome.go]
 ---
 
@@ -81,7 +81,7 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 
 ## Dependencies
 
-**Imports:** `internal/commands`, `internal/coordinator`, `internal/memdir`, `internal/state`, `internal/transcript`
+**Imports:** `internal/commands`, `internal/coordinator`, `internal/engine`, `internal/memdir`, `internal/msgqueue`, `internal/permissions`, `internal/state`, `internal/tools`, `internal/transcript`, `pkg/types`
 
 **Imported by:** `internal/bootstrap`
 

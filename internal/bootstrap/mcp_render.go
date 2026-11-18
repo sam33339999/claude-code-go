@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/tunsuy/agtkeel/config"
+	"github.com/tunsuy/claude-code-go/internal/config"
 )
 
 // Renderers for `claude mcp` output.  Every string here is byte-exact against

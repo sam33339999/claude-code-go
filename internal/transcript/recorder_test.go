@@ -5,9 +5,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tunsuy/agtkeel/session"
-	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/session"
 	"github.com/tunsuy/claude-code-go/internal/transcript"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 func textMsg(role types.Role, text string) types.Message {

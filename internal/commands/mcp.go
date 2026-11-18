@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tunsuy/agtkeel/mcp"
+	"github.com/tunsuy/claude-code-go/internal/mcp"
 )
 
 // MCPServerLister is the read-only view of the MCP connection pool required

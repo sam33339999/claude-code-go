@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tunsuy/agtkeel/utils/ids"
+	"github.com/tunsuy/claude-code-go/pkg/utils/ids"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,7 +173,7 @@ const inboxBufferSize = 16
 // agentEntry holds the mutable runtime state of a single sub-agent.
 type agentEntry struct {
 	id          AgentID
-	name        string                 // human-readable name (may be empty)
+	name        string // human-readable name (may be empty)
 	req         SpawnRequest
 	status      AgentStatus
 	startedAt   time.Time
@@ -181,9 +181,9 @@ type agentEntry struct {
 	result      string
 	err         error
 	inboxCh     chan string             // buffered message queue from coordinator
-	cancelFn    context.CancelFunc     // stops the agent's goroutine
+	cancelFn    context.CancelFunc      // stops the agent's goroutine
 	subscribers []chan TaskNotification // notification fan-out
-	mu          sync.Mutex             // protects status, finishedAt, result, err, subscribers
+	mu          sync.Mutex              // protects status, finishedAt, result, err, subscribers
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

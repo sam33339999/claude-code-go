@@ -13,16 +13,16 @@ import (
 // OAuthConfig aggregates OAuth endpoint configuration.
 // Corresponds to TS getOauthConfig().
 type OAuthConfig struct {
-	ClientID               string
-	AuthorizeURL           string // console.anthropic.com/oauth/authorize
-	ClaudeAIAuthorizeURL   string // claude.ai/oauth/authorize
-	TokenURL               string
-	ManualRedirectURL      string
-	BaseAPIURL             string
-	ConsoleSuccessURL      string
-	ClaudeAISuccessURL     string
-	RolesURL               string
-	APIKeyURL              string
+	ClientID             string
+	AuthorizeURL         string // console.anthropic.com/oauth/authorize
+	ClaudeAIAuthorizeURL string // claude.ai/oauth/authorize
+	TokenURL             string
+	ManualRedirectURL    string
+	BaseAPIURL           string
+	ConsoleSuccessURL    string
+	ClaudeAISuccessURL   string
+	RolesURL             string
+	APIKeyURL            string
 }
 
 // DefaultOAuthConfig returns the standard Anthropic OAuth configuration.
@@ -62,8 +62,8 @@ type AuthURLParams struct {
 	State           string
 	Port            int
 	IsManual        bool
-	LoginWithClaude bool   // true → use claude.ai OAuth endpoint
-	InferenceOnly   bool   // true → request org:inference scope only (long-lived token)
+	LoginWithClaude bool // true → use claude.ai OAuth endpoint
+	InferenceOnly   bool // true → request org:inference scope only (long-lived token)
 	OrgUUID         string
 	LoginHint       string
 	LoginMethod     string // "sso" | "magic_link" | "google"

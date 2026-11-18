@@ -3,8 +3,8 @@ package tui
 import (
 	"time"
 
-	"github.com/tunsuy/agtkeel/types"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // --- User input ---

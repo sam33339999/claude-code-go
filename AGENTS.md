@@ -17,23 +17,25 @@
 - 進行中的工作：stub 全量回填，任務台賬見 `docs/project/discussions/2026-11-18-stub-backfill-plan.md`，
   進度見 `docs/project/logs/` 最新巡檢日誌。
 
-## 架構：agtkeel 內核 × 產品倉（2026-09-23 換庫後）
+## 架構：内核已搬回本倉（2026-11-18 反轉 PR #31 提取）
 
-可復用的 agent 內核已提取到外部模組 `github.com/tunsuy/agtkeel`（零第三方依賴）：
-`types / api / engine / permissions / mcp / session / config / hooks / compact / msgqueue / tools（框架：Tool 介面 + Registry + BaseTool）/ utils`。
+agtkeel 外部倉停止維護，人類決策將内核**整併回本倉**（含其 OpenAI 相容增強：
+normalizeBaseURL、ReasoningContent）。原 agtkeel 包恢復原始路徑：
+- `internal/{api,compact,config,engine,hooks,mcp,msgqueue,permissions,session}`
+- `internal/tools`（框架：Tool 介面 + Registry + BaseTool，與各 category 子包同目錄）
+- `pkg/types`（零第三方依賴）、`pkg/utils/{fs,ids}`
 
-本倉保留產品側：
+本倉產品側不變：
 - `cmd/claude`（Cobra 入口）、`internal/bootstrap`（DI 連線點 `AppContainer`、啟動接線）
 - `internal/tui` + `internal/commands`（Bubble Tea MVU、slash 命令）
-- `internal/tools/<category>`（**具體工具實現留在本倉**；介面契約在 agtkeel/tools）
-- `internal/coordinator、oauth、plugin、state、memdir、agentctx、agenttype`；`pkg/utils、pkg/testutil`
+- `internal/tools/<category>`（具體工具實現）
+- `internal/coordinator、oauth、plugin、state、memdir、agentctx、agenttype、transcript`；`pkg/utils、pkg/testutil`
 
 依賴鐵律（CI 評審會查）：
 - 下層禁止 import 上層；**TUI/commands 禁止 import bootstrap**（接線是 bootstrap 的職責，依賴用建構子注入）。
-- `internal/tools/` 各子包**禁止互相 import**。
-- `agtkeel/types` 零依賴，所有層可依賴。
-- **agtkeel 對本倉是唯讀依賴**：內核改動要去 agtkeel 倉做（跨倉 PR + 本倉 go.mod 升版聯動），不要在本倉 hack 規避。
-- 若 `go.mod` 出現指向本地 agtkeel 的 `replace`（內核開發 WIP）：**不要隨手提交或移除**，先問使用者。
+- `internal/tools/` 各子包**禁止互相 import**（框架根包除外，子包依賴根包契約合法）。
+- `pkg/types` 零依賴，所有層可依賴。
+- **不再有外部内核依賴**：go.mod 無 agtkeel；内核改動直接在本倉做（同倉 PR）。
 
 ## 命令
 
@@ -80,7 +82,7 @@ make parity       # 先 build 再跑 test/parity；未設 CCG_PARITY_ORACLE 時�
 - 導出符號必有 GoDoc；包註解每包一份；送審前刪註解掉的程式碼。
 - 共享狀態用 mutex 保護並註明 guarded 欄位；I/O 函式首參 `context.Context`。
 - TUI 嚴守 MVU：狀態在 `AppModel`（值類型），變更走 `Update() → tea.Cmd → tea.Msg`，副作用用 `tea.Cmd`。
-- 新工具：`internal/tools/<category>/` 嵌入 `tools.BaseTool`（agtkeel），在 `internal/bootstrap/tools.go` 註冊，同包補測試。
+- 新工具：`internal/tools/<category>/` 嵌入 `tools.BaseTool`（internal/tools 框架），在 `internal/bootstrap/tools.go` 註冊，同包補測試。
 - 介面變更按 `docs/project/doc-sync-policy.md` 同步 `docs/project/design/<layer>.md`（版本號 + 變更記錄）。
 
 ## 分支與 PR
@@ -93,7 +95,7 @@ make parity       # 先 build 再跑 test/parity；未設 CCG_PARITY_ORACLE 時�
 
 | 問題 | 來源 |
 |------|------|
-| 慣例細節、設計模式、bootstrap 階段 | `CLAUDE.md`（注意其 Project Layout 段仍列已遷往 agtkeel 的舊路徑，以本文架構段為準） |
+| 慣例細節、設計模式、bootstrap 階段 | `CLAUDE.md`（Project Layout 已隨内核搬回更新；本文架構段為準） |
 | 貢獻流程、PR 模板 | `CONTRIBUTING.md`（架構表為換庫前舊版，僅流程部分有效） |
 | 某包導出與影響鏈 | 該包 `CONTEXT.md`（生成） |
 | 功能真實狀態 / 與原版差距 | `test/parity/cases.md` + 程式碼 |

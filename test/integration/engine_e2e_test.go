@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tunsuy/agtkeel/api"
-	"github.com/tunsuy/agtkeel/engine"
-	"github.com/tunsuy/agtkeel/session"
-	"github.com/tunsuy/agtkeel/tools"
-	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/api"
+	"github.com/tunsuy/claude-code-go/internal/engine"
+	"github.com/tunsuy/claude-code-go/internal/session"
+	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -240,20 +240,20 @@ type stubTool struct {
 	callFn   func(input tools.Input) (*tools.Result, error)
 }
 
-func (s *stubTool) Name() string                                              { return s.name }
-func (s *stubTool) Aliases() []string                                         { return nil }
+func (s *stubTool) Name() string                                                { return s.name }
+func (s *stubTool) Aliases() []string                                           { return nil }
 func (s *stubTool) Description(_ tools.Input, _ tools.PermissionContext) string { return "" }
-func (s *stubTool) InputSchema() tools.InputSchema                            { return tools.InputSchema{Type: "object"} }
+func (s *stubTool) InputSchema() tools.InputSchema                              { return tools.InputSchema{Type: "object"} }
 func (s *stubTool) Prompt(_ context.Context, _ tools.PermissionContext) (string, error) {
 	return "", nil
 }
-func (s *stubTool) MaxResultSizeChars() int                           { return -1 }
-func (s *stubTool) SearchHint() string                                { return "" }
-func (s *stubTool) IsConcurrencySafe(_ tools.Input) bool              { return s.safe }
-func (s *stubTool) IsReadOnly(_ tools.Input) bool                     { return s.readOnly }
-func (s *stubTool) IsDestructive(_ tools.Input) bool                  { return false }
-func (s *stubTool) IsEnabled() bool                                   { return true }
-func (s *stubTool) InterruptBehavior() tools.InterruptBehavior        { return tools.InterruptBehaviorCancel }
+func (s *stubTool) MaxResultSizeChars() int                    { return -1 }
+func (s *stubTool) SearchHint() string                         { return "" }
+func (s *stubTool) IsConcurrencySafe(_ tools.Input) bool       { return s.safe }
+func (s *stubTool) IsReadOnly(_ tools.Input) bool              { return s.readOnly }
+func (s *stubTool) IsDestructive(_ tools.Input) bool           { return false }
+func (s *stubTool) IsEnabled() bool                            { return true }
+func (s *stubTool) InterruptBehavior() tools.InterruptBehavior { return tools.InterruptBehaviorCancel }
 func (s *stubTool) ValidateInput(_ tools.Input, _ *tools.UseContext) (tools.ValidationResult, error) {
 	return tools.ValidationResult{OK: true}, nil
 }

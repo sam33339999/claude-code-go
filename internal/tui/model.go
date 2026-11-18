@@ -8,16 +8,16 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
-	"github.com/tunsuy/agtkeel/engine"
-	"github.com/tunsuy/agtkeel/msgqueue"
-	"github.com/tunsuy/agtkeel/permissions"
-	"github.com/tunsuy/agtkeel/tools"
-	"github.com/tunsuy/agtkeel/types"
 	"github.com/tunsuy/claude-code-go/internal/commands"
 	"github.com/tunsuy/claude-code-go/internal/coordinator"
+	"github.com/tunsuy/claude-code-go/internal/engine"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/claude-code-go/internal/msgqueue"
+	"github.com/tunsuy/claude-code-go/internal/permissions"
 	"github.com/tunsuy/claude-code-go/internal/state"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/transcript"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // dialogKind enumerates active modal dialogs.

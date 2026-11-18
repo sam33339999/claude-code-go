@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/tools/fileops"
 )
 
@@ -191,9 +191,9 @@ func TestGrepTool_ContentMode_LineNumbers(t *testing.T) {
 
 func TestGrepTool_FilesWithMatchesMode(t *testing.T) {
 	root := makeTextTree(t, map[string]string{
-		"a.go":    "func Hello() {}",
-		"b.go":    "func World() {}",
-		"c.go":    "const X = 1",
+		"a.go":     "func Hello() {}",
+		"b.go":     "func World() {}",
+		"c.go":     "const X = 1",
 		"sub/d.go": "func Sub() {}",
 	})
 

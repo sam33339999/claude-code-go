@@ -2,7 +2,7 @@
 package: state
 import_path: internal/state
 layer: infra
-generated_at: 2026-11-18T03:26:51Z
+generated_at: 2026-11-18T03:53:13Z
 source_files: [store.go]
 ---
 
@@ -39,7 +39,7 @@ source_files: [store.go]
 
 ## Dependencies
 
-**Imports:** *(none — zero-dependency)*
+**Imports:** `internal/config`, `pkg/types`
 
 **Imported by:** `internal/bootstrap`, `internal/tui`
 

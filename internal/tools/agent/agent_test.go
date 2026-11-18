@@ -7,19 +7,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/tools/agent"
 )
 
 // mockCoordinator is a test double for tools.AgentCoordinator.
 type mockCoordinator struct {
-	spawnFn     func(ctx context.Context, req tools.AgentSpawnRequest) (string, error)
-	sendMsgFn   func(ctx context.Context, agentID string, message string) error
-	stopFn      func(ctx context.Context, agentID string) error
-	statusFn    func(ctx context.Context, agentID string) (string, error)
-	resultFn    func(ctx context.Context, agentID string) (string, string, error)
-	listFn      func() map[string]string
-	waitFn      func(ctx context.Context, agentID string) (string, error)
+	spawnFn   func(ctx context.Context, req tools.AgentSpawnRequest) (string, error)
+	sendMsgFn func(ctx context.Context, agentID string, message string) error
+	stopFn    func(ctx context.Context, agentID string) error
+	statusFn  func(ctx context.Context, agentID string) (string, error)
+	resultFn  func(ctx context.Context, agentID string) (string, string, error)
+	listFn    func() map[string]string
+	waitFn    func(ctx context.Context, agentID string) (string, error)
 }
 
 func (m *mockCoordinator) SpawnAgent(ctx context.Context, req tools.AgentSpawnRequest) (string, error) {

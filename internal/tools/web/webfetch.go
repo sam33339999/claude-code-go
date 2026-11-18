@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 )
 
 // ── Input / Output types ──────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ func (t *webFetchTool) InputSchema() tools.InputSchema {
 }
 
 func (t *webFetchTool) IsConcurrencySafe(_ tools.Input) bool { return true }
-func (t *webFetchTool) IsReadOnly(_ tools.Input) bool         { return true }
+func (t *webFetchTool) IsReadOnly(_ tools.Input) bool        { return true }
 func (t *webFetchTool) SearchHint() string                   { return "web fetch url http download browse" }
 
 func (t *webFetchTool) UserFacingName(input tools.Input) string {

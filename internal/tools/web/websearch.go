@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 )
 
 // ── Input / Output types ──────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ func (t *webSearchTool) InputSchema() tools.InputSchema {
 }
 
 func (t *webSearchTool) IsConcurrencySafe(_ tools.Input) bool { return true }
-func (t *webSearchTool) IsReadOnly(_ tools.Input) bool         { return true }
+func (t *webSearchTool) IsReadOnly(_ tools.Input) bool        { return true }
 func (t *webSearchTool) SearchHint() string {
 	return "web search internet query find browse"
 }

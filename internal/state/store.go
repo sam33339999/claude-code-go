@@ -8,8 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/tunsuy/agtkeel/config"
-	"github.com/tunsuy/agtkeel/types"
+	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // Listener is a callback invoked when the store state changes.
@@ -39,9 +39,9 @@ type Store[T any] struct {
 // onChange is called after every SetState (outside the lock); it may be nil.
 func NewStore[T any](initialState T, onChange func(newState, oldState T)) *Store[T] {
 	return &Store[T]{
-		state:    initialState,
+		state:     initialState,
 		listeners: make(map[uint64]Listener[T]),
-		onChange: onChange,
+		onChange:  onChange,
 	}
 }
 

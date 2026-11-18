@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 )
 
 // PreparePermissionMatcher returns a matcher that tests whether a permission

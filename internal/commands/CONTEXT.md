@@ -2,7 +2,7 @@
 package: commands
 import_path: internal/commands
 layer: cli
-generated_at: 2026-11-18T03:14:37Z
+generated_at: 2026-11-18T03:53:13Z
 source_files: [builtins.go, mcp.go, registry.go, resume.go, terminal_setup.go]
 ---
 
@@ -46,6 +46,9 @@ type MCPServerLister interface {
 
 ## Change Impact
 
+**Test Mocks (must add new methods when interfaces change):**
+- `stubRegistry` in `internal/permissions/checker_test.go`
+
 **Exported type references (files that use types from this package):**
 - `Command` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
 - `CommandContext` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
@@ -55,7 +58,7 @@ type MCPServerLister interface {
 
 ## Dependencies
 
-**Imports:** `internal/memdir`
+**Imports:** `internal/mcp`, `internal/memdir`, `internal/session`, `pkg/types`, `pkg/utils/fs`
 
 **Imported by:** `internal/tui`
 

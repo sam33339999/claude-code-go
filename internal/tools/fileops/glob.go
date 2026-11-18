@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tunsuy/agtkeel/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools"
 )
 
 // ── Input / Output types ──────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ func (t *globTool) InputSchema() tools.InputSchema {
 }
 
 func (t *globTool) IsConcurrencySafe(_ tools.Input) bool { return true }
-func (t *globTool) IsReadOnly(_ tools.Input) bool         { return true }
+func (t *globTool) IsReadOnly(_ tools.Input) bool        { return true }
 func (t *globTool) SearchHint() string                   { return "glob pattern file search find" }
 
 func (t *globTool) UserFacingName(input tools.Input) string {
