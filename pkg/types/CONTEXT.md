@@ -2,13 +2,13 @@
 package: types
 import_path: pkg/types
 layer: types
-generated_at: 2026-11-18T03:53:13Z
-source_files: [command.go, hooks.go, ids.go, logs.go, message.go, permissions.go, plugin.go, types.go]
+generated_at: 2026-11-18T04:38:36Z
+source_files: [command.go, hooks.go, ids.go, logs.go, message.go, permissions.go, plugin.go, todo.go, types.go]
 ---
 
 # pkg/types
 
-> Layer: **Types (zero-dep)** · Files: 8 · Interfaces: 2 · Structs: 27 · Functions: 2
+> Layer: **Types (zero-dep)** · Files: 9 · Interfaces: 2 · Structs: 28 · Functions: 2
 
 ## Interfaces
 
@@ -58,6 +58,7 @@ type MCPConnection interface {
 - **PromptCommand** — 8 fields: ContentLength, ArgNames, AllowedTools, Model, Context, Agent, GetPrompt (embeds CommandBase)
 - **SerializedMessage** — 8 fields: Message, CWD, UserType, SessionId, Timestamp, Version, GitBranch, Slug
 - **SummaryEntry** — 3 fields: Type, Summary, LeafId
+- **TodoItem** — 4 fields: ID, Content, Status, Priority
 - **ToolCall** — 3 fields: ID, Name, Input
 - **ToolPermissionContext** — 6 fields: Mode, AdditionalWorkingDirectories, AlwaysAllowRules, AlwaysDenyRules, AlwaysAskRules, IsBypassPermissionsModeAvailable
 - **ToolResult** — 3 fields: ToolUseId, Content, IsError
@@ -148,6 +149,9 @@ type MCPConnection interface {
 - `RuleSourceProject`
 - `RuleSourceSession`
 - `RuleSourceUser`
+- `TodoCompleted`
+- `TodoInProgress`
+- `TodoPending`
 
 ## Change Impact
 
@@ -165,13 +169,14 @@ type MCPConnection interface {
 - `PluginConfig` → `internal/plugin/plugin.go`
 - `PluginError` → `internal/plugin/plugin.go`
 - `SerializedMessage` → `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/commands/resume.go`, `internal/commands/resume_test.go` (test), `internal/transcript/recorder.go` + 2 more
+- `TodoItem` → `internal/state/store.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/transcript_tui_test.go` (test), `internal/tui/view.go`
 - `ToolPermissionContext` → `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test), `internal/permissions/denial_test.go` (test), `internal/permissions/persist_test.go` (test), `internal/state/store.go`
 
 ## Dependencies
 
 **Imports:** *(none — zero-dependency)*
 
-**Imported by:** `internal/bootstrap`, `internal/commands`, `internal/compact`, `internal/config`, `internal/engine`, `internal/hooks`, `internal/memdir`, `internal/permissions`, `internal/plugin`, `internal/session`, `internal/state`, `internal/transcript`, `internal/tui`, `pkg/utils/ids`
+**Imported by:** `internal/bootstrap`, `internal/commands`, `internal/compact`, `internal/config`, `internal/engine`, `internal/hooks`, `internal/memdir`, `internal/permissions`, `internal/plugin`, `internal/session`, `internal/state`, `internal/tools/interact`, `internal/transcript`, `internal/tui`, `pkg/utils/ids`
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->

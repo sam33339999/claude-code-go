@@ -2,34 +2,47 @@ package interact_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
+	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/tools"
 	"github.com/tunsuy/claude-code-go/internal/tools/interact"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // ── TodoWriteTool ─────────────────────────────────────────────────────────────
 
-func TestTodoWriteTool_Name(t *testing.T) {
-	if interact.TodoWriteTool.Name() != "TodoWrite" {
-		t.Errorf("expected TodoWrite, got %q", interact.TodoWriteTool.Name())
-	}
+func newTodoTool() (tools.Tool, *state.AppStateStore) {
+	store := state.NewAppStateStore(state.AppState{})
+	return interact.NewTodoWriteTool(store), store
 }
 
-func TestTodoWriteTool_IsConcurrencySafe_False(t *testing.T) {
-	if interact.TodoWriteTool.IsConcurrencySafe(nil) {
-		t.Error("TodoWriteTool must not be concurrency-safe")
+func callTodo(t *testing.T, tool tools.Tool, items []types.TodoItem) *tools.Result {
+	t.Helper()
+	in, err := json.Marshal(interact.TodoWriteInput{Todos: items})
+	if err != nil {
+		t.Fatal(err)
 	}
+	result, err := tool.Call(in, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	return result
 }
 
-func TestTodoWriteTool_IsReadOnly_False(t *testing.T) {
-	if interact.TodoWriteTool.IsReadOnly(nil) {
-		t.Error("TodoWriteTool must not be read-only")
+func TestTodoWriteTool_Metadata(t *testing.T) {
+	tool, _ := newTodoTool()
+	if tool.Name() != "TodoWrite" {
+		t.Errorf("expected TodoWrite, got %q", tool.Name())
 	}
-}
-
-func TestTodoWriteTool_InputSchema(t *testing.T) {
-	schema := interact.TodoWriteTool.InputSchema()
+	if tool.IsConcurrencySafe(nil) {
+		t.Error("TodoWrite must not be concurrency-safe")
+	}
+	if tool.IsReadOnly(nil) {
+		t.Error("TodoWrite must not be read-only")
+	}
+	schema := tool.InputSchema()
 	if _, ok := schema.Properties["todos"]; !ok {
 		t.Error("schema missing 'todos'")
 	}
@@ -38,14 +51,70 @@ func TestTodoWriteTool_InputSchema(t *testing.T) {
 	}
 }
 
-func TestTodoWriteTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(interact.TodoWriteInput{Todos: []interact.TodoItem{}})
-	result, err := interact.TodoWriteTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
+func TestTodoWriteTool_WritesAndReplacesList(t *testing.T) {
+	tool, store := newTodoTool()
+	first := []types.TodoItem{
+		{ID: "1", Content: "task one", Status: types.TodoInProgress},
+		{ID: "2", Content: "task two", Status: types.TodoPending},
 	}
+	result := callTodo(t, tool, first)
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result.Content)
+	}
+	if !strings.Contains(result.Content.(string), "Todos have been modified successfully") {
+		t.Errorf("expected oracle confirmation text, got %v", result.Content)
+	}
+	got := store.GetState().Todos
+	if len(got) != 2 || got[0].Content != "task one" {
+		t.Fatalf("expected 2 todos stored, got %+v", got)
+	}
+	// Replacement semantics: a second call replaces, not appends.
+	callTodo(t, tool, []types.TodoItem{{ID: "3", Content: "only task", Status: types.TodoPending}})
+	got = store.GetState().Todos
+	if len(got) != 1 || got[0].ID != "3" {
+		t.Errorf("expected wholesale replacement, got %+v", got)
+	}
+}
+
+func TestTodoWriteTool_AllCompletedClearsList(t *testing.T) {
+	tool, store := newTodoTool()
+	callTodo(t, tool, []types.TodoItem{
+		{ID: "1", Content: "a", Status: types.TodoCompleted},
+		{ID: "2", Content: "b", Status: types.TodoCompleted},
+	})
+	if got := store.GetState().Todos; len(got) != 0 {
+		t.Errorf("oracle semantics: all-completed list must clear, got %+v", got)
+	}
+}
+
+func TestTodoWriteTool_Validation(t *testing.T) {
+	tool, store := newTodoTool()
+	cases := []struct {
+		name  string
+		items []types.TodoItem
+	}{
+		{"missing id", []types.TodoItem{{Content: "x", Status: types.TodoPending}}},
+		{"missing content", []types.TodoItem{{ID: "1", Status: types.TodoPending}}},
+		{"bad status", []types.TodoItem{{ID: "1", Content: "x", Status: "done"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := callTodo(t, tool, tc.items)
+			if !result.IsError {
+				t.Errorf("expected IsError for %s", tc.name)
+			}
+			if len(store.GetState().Todos) != 0 {
+				t.Error("invalid input must not modify state")
+			}
+		})
+	}
+}
+
+func TestTodoWriteTool_NilStore(t *testing.T) {
+	tool := interact.NewTodoWriteTool(nil)
+	result := callTodo(t, tool, []types.TodoItem{{ID: "1", Content: "x", Status: types.TodoPending}})
 	if !result.IsError {
-		t.Error("expected IsError=true for stub tool")
+		t.Error("nil store must report an honest error")
 	}
 }
 
@@ -247,7 +316,7 @@ func TestExitWorktreeTool_Call_ReturnsError(t *testing.T) {
 // ── Interface compliance ──────────────────────────────────────────────────────
 
 func TestAllInteractTools_ImplementToolInterface(t *testing.T) {
-	var _ tools.Tool = interact.TodoWriteTool
+	var _ tools.Tool = interact.NewTodoWriteTool(nil)
 	var _ tools.Tool = interact.AskUserQuestionTool
 	var _ tools.Tool = interact.EnterPlanModeTool
 	var _ tools.Tool = interact.ExitPlanModeTool

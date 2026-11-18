@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -139,5 +140,32 @@ func TestResume_SwitchesTranscript(t *testing.T) {
 	runCmdFully(cmd)
 	if n := countEntries(t, cwd, targetSid); n != 2 {
 		t.Errorf("expected history+follow-up=2 entries in target session, got %d", n)
+	}
+}
+
+// TestView_RendersTodoPanel proves the BF-07 panel reflects AppState.Todos
+// with status markers, and disappears when the list is empty/cleared.
+func TestView_RendersTodoPanel(t *testing.T) {
+	m := newTestModel()
+	m.appState.SetState(func(prev state.AppState) state.AppState {
+		prev.Todos = []types.TodoItem{
+			{ID: "1", Content: "finished task", Status: types.TodoCompleted},
+			{ID: "2", Content: "active task", Status: types.TodoInProgress},
+			{ID: "3", Content: "later task", Status: types.TodoPending},
+		}
+		return prev
+	})
+	view := m.View()
+	for _, want := range []string{"Todos", "[x] finished task", "[>] active task", "[ ] later task"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("expected %q in view with todos", want)
+		}
+	}
+	m.appState.SetState(func(prev state.AppState) state.AppState {
+		prev.Todos = nil
+		return prev
+	})
+	if strings.Contains(m.View(), "[x] finished task") {
+		t.Error("cleared todo list must not render")
 	}
 }

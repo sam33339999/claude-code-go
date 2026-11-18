@@ -2,32 +2,39 @@ package interact
 
 import (
 	"encoding/json"
+	"fmt"
 
+	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // ── TodoWrite ─────────────────────────────────────────────────────────────────
 
-// TodoItem represents a single TODO list entry.
-type TodoItem struct {
-	ID      string `json:"id"`
-	Content string `json:"content"`
-	Status  string `json:"status"` // "pending" | "in_progress" | "completed"
-	// Priority is optional; higher number = higher priority.
-	Priority int `json:"priority,omitempty"`
-}
-
 // TodoWriteInput is the input schema for TodoWrite.
 type TodoWriteInput struct {
 	// Todos is the complete list of TODO items to write (replaces existing list).
-	Todos []TodoItem `json:"todos"`
+	Todos []types.TodoItem `json:"todos"`
 }
 
-// TodoWriteTool is the exported singleton instance.
-// TODO(dep): Requires Agent-Core session state / UI layer.
-var TodoWriteTool tools.Tool = &todoWriteTool{}
+// NewTodoWriteTool constructs the TodoWrite tool backed by the shared app
+// state store (BF-07). The list lives in AppState.Todos, rendered by the TUI
+// panel; bootstrap registers this after the store is built. A nil store
+// makes every call report an honest error.
+//
+// Oracle parity (TodoWriteTool.ts): no permission checks beyond the standard
+// pipeline; when every item is completed the list is cleared; the result is
+// the fixed confirmation text. Divergences (documented in tools.md): single
+// main-session list (no per-agent keying), no disk persistence, no
+// feature-flagged verification nudge.
+func NewTodoWriteTool(store *state.AppStateStore) tools.Tool {
+	return &todoWriteTool{store: store}
+}
 
-type todoWriteTool struct{ tools.BaseTool }
+type todoWriteTool struct {
+	tools.BaseTool
+	store *state.AppStateStore
+}
 
 func (t *todoWriteTool) Name() string { return "TodoWrite" }
 
@@ -65,9 +72,45 @@ func (t *todoWriteTool) IsConcurrencySafe(_ tools.Input) bool { return false }
 func (t *todoWriteTool) IsReadOnly(_ tools.Input) bool        { return false }
 func (t *todoWriteTool) UserFacingName(_ tools.Input) string  { return "TodoWrite" }
 
-func (t *todoWriteTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement via Agent-Core session state / UI layer.
-	return &tools.Result{IsError: true, Content: "TodoWrite not yet implemented (TODO(dep))"}, nil
+// todoWriteResultText is the oracle's fixed confirmation (TodoWriteTool.ts).
+const todoWriteResultText = "Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable"
+
+func (t *todoWriteTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	if t.store == nil {
+		return &tools.Result{IsError: true, Content: "TodoWrite: no app state store configured"}, nil
+	}
+	var in TodoWriteInput
+	if err := json.Unmarshal(input, &in); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("TodoWrite: invalid input: %v", err)}, nil
+	}
+	allDone := len(in.Todos) > 0
+	for i, item := range in.Todos {
+		if item.ID == "" {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("TodoWrite: todos[%d].id is required", i)}, nil
+		}
+		if item.Content == "" {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("TodoWrite: todos[%d].content is required", i)}, nil
+		}
+		switch item.Status {
+		case types.TodoPending, types.TodoInProgress, types.TodoCompleted:
+		default:
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("TodoWrite: todos[%d].status must be pending, in_progress or completed, got %q", i, item.Status)}, nil
+		}
+		if item.Status != types.TodoCompleted {
+			allDone = false
+		}
+	}
+
+	// Oracle semantics: an all-completed list clears the panel.
+	newTodos := in.Todos
+	if allDone {
+		newTodos = nil
+	}
+	t.store.SetState(func(prev state.AppState) state.AppState {
+		prev.Todos = newTodos
+		return prev
+	})
+	return &tools.Result{Content: todoWriteResultText}, nil
 }
 
 // ── AskUserQuestion ───────────────────────────────────────────────────────────
