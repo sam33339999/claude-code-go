@@ -2,13 +2,13 @@
 package: types
 import_path: pkg/types
 layer: types
-generated_at: 2026-11-18T08:28:02Z
+generated_at: 2026-11-18T15:25:59Z
 source_files: [command.go, hooks.go, ids.go, logs.go, message.go, permissions.go, plugin.go, question.go, todo.go, types.go]
 ---
 
 # pkg/types
 
-> Layer: **Types (zero-dep)** · Files: 10 · Interfaces: 2 · Structs: 30 · Functions: 2
+> Layer: **Types (zero-dep)** · Files: 10 · Interfaces: 2 · Structs: 31 · Functions: 2
 
 ## Interfaces
 
@@ -37,8 +37,9 @@ type MCPConnection interface {
 
 - **AdditionalWorkingDirectory** — 2 fields: Path, Source
 - **AggregatedHookResult** — 3 fields: Blocked, BlockReasons, ModifiedContent
+- **CacheControl** — 1 fields: Type
 - **CommandBase** — 12 fields: Name, Description, Type, Source, Aliases, IsHidden, IsMCP, ArgumentHint, ...
-- **ContentBlock** — 11 fields: Type, Text, ID, Name, Input, ToolUseID, Content, IsError, ...
+- **ContentBlock** — 12 fields: Type, CacheControl, Text, ID, Name, Input, ToolUseID, Content, ...
 - **EntryEnvelope** — 2 fields: Type, Raw
 - **HookDefinition** — 3 fields: Command, Matcher, TimeoutMs
 - **HookResult** — 3 fields: Decision, Reason, ModifiedContent
@@ -161,13 +162,14 @@ type MCPConnection interface {
 - `AdditionalWorkingDirectory` → `internal/bootstrap/wire.go`, `internal/state/store.go`
 - `AggregatedHookResult` → `internal/hooks/hooks.go`
 - `AppStateReader` → `internal/state/store.go`
-- `ContentBlock` → `internal/bootstrap/run.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/commands/resume_test.go` (test), `internal/compact/auto.go` + 20 more
+- `CacheControl` → `internal/engine/query.go`
+- `ContentBlock` → `internal/bootstrap/run.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/commands/resume_test.go` (test) + 22 more
 - `EntryEnvelope` → `internal/commands/resume.go`, `internal/session/store.go`, `internal/session/store_test.go` (test)
 - `HookDefinition` → `internal/config/loader.go`, `internal/config/loader_test.go` (test), `internal/hooks/hooks.go`
 - `HookResult` → `internal/hooks/hooks.go`
 - `LoadedPlugin` → `internal/plugin/plugin.go`, `internal/state/store.go`
 - `MCPConnection` → `internal/state/store.go`
-- `Message` → `internal/bootstrap/run.go`, `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/commands/registry.go` + 33 more
+- `Message` → `internal/bootstrap/run.go`, `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 35 more
 - `PluginConfig` → `internal/plugin/plugin.go`
 - `PluginError` → `internal/plugin/plugin.go`
 - `QuestionRequest` → `internal/bootstrap/wire.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/init.go`, `internal/tui/model.go` + 1 more
@@ -188,3 +190,4 @@ type MCPConnection interface {
 ## Design Notes
 
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
+- **2026-11-18 CacheControl（feat/coordinator-fork-cache）**：ContentBlock +CacheControl *CacheControl（json:"cache_control,omitempty"）——Anthropic prompt-cache 斷點標記，**request-side only**：engine 在序列化前 clone 最後 user message 的 content 再掛標記，歷史快照（GetMessages、CacheSafeParams.ContextMessages）绝不帶標記，避免滾動斷點污染前綴 bytes。零第三方依賴維持。

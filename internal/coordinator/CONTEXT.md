@@ -2,7 +2,7 @@
 package: coordinator
 import_path: internal/coordinator
 layer: core
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T15:25:59Z
 source_files: [adapter.go, coordinator.go, prompt.go]
 ---
 
@@ -81,7 +81,7 @@ type Coordinator interface {
 - `OnStatusChangeFn` → `internal/bootstrap/wire.go`
 - `ProgressEvent` → `internal/bootstrap/wire.go`
 - `RunAgentFn` → `internal/bootstrap/wire.go`
-- `SpawnRequest` → `internal/bootstrap/wire.go`
+- `SpawnRequest` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test)
 
 ## Dependencies
 
@@ -97,3 +97,4 @@ type Coordinator interface {
 - Coordinator vs AgentCoordinator: 两个接口是为了打破 tools→coordinator 的循环依赖。tools 包定义 AgentCoordinator（string-based），coordinator 包实现 Coordinator（typed AgentID），adapter.go 做桥接。改任一个接口都要同步改另一个。(2026-04-28)
 - UseContext.Coordinator 在子 agent 里故意设为 nil，防止无限递归 spawn。见 bootstrap/wire.go buildRunAgentFn()。(2026-04-28)
 - nameIndex 用于 SendMessage 名称路由，SpawnAgent 时注册，ResolveAgent 时查找。(2026-04-28)
+- **2026-11-18 thread resume＋訊息不擱淺（feat/coordinator-fork-cache）**：SendMessage 對已結束 agent（completed/failed/stopped）重開續話——resumeAgent 等舊 loopDone 關閉後重啟 loop（RunAgentFn 以 AgentID 保留歷史，見 bootstrap runStates）。防擱淺協議：SendMessage 的 enqueue＋status 檢查與 runAgentLoop 的 exit-check 同在 entry.mu 下原子化；exit 時 inbox 仍有訊息→有界 continuation re-run（maxAgentContinuations=100，防忽略 inbox 的 RunAgentFn 空轉；契約：RunAgentFn 必須 drain inbox，engine 經 QueryParams.InboxCh 為之）。inboxPending 用 len() 非消費快照（<-inbox 會吃掉訊息）。StopAgent 的 killed 狀態於 loop exit 保留（修 TestAdapterStopAgent flake 根因）。系統提示重寫自 claude-projects-coordinator.md＋opus-5.5 Agent 段：常駐 coordinator、不先問就開 thread、instructions 只給 context 不加戲、對 thread 的話永遠不是使用者批准、成本感知委派。

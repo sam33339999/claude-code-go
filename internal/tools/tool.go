@@ -60,7 +60,9 @@ type AgentCoordinator interface {
 	// SpawnAgent launches a new sub-agent and returns its ID (string).
 	SpawnAgent(ctx context.Context, req AgentSpawnRequest) (string, error)
 
-	// SendMessage delivers a follow-up message to a running sub-agent.
+	// SendMessage delivers a follow-up message to a sub-agent. A running
+	// agent receives it at the next turn boundary; a finished agent is
+	// reopened and continues with its retained context.
 	SendMessage(ctx context.Context, agentID string, message string) error
 
 	// StopAgent stops a running sub-agent.
@@ -126,6 +128,11 @@ type UseContext struct {
 	// MemoryStore is the project memory store injected by bootstrap/TUI.
 	// Concrete type: *memdir.MemoryStore (set in internal/tools/memory).
 	MemoryStore any
+	// CacheParams holds the parent query's cache-safe prefix snapshot
+	// (concrete type: *engine.CacheSafeParams), refreshed by the engine at
+	// each turn boundary. The Agent tool passes it to spawned forks so they
+	// reuse the parent's prompt cache. Nil outside an engine query loop.
+	CacheParams any
 }
 
 // ValidationResult is the output of ValidateInput.

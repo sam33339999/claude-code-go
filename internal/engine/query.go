@@ -130,12 +130,26 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 		}
 		// ────────────────────────────────────────────────────────────────────
 
+		// Drain coordinator inbox messages (sub-agent follow-ups) at the turn
+		// boundary so they append to the tail without disturbing the prefix.
+		drainInbox(ctx, params.InboxCh, &messages, msgCh)
+
 		// Build the API request using the primary model.
 		// params.Model overrides the engine default for per-agent model selection.
 		activeModel := e.model
 		if params.Model != "" {
 			activeModel = params.Model
 		}
+
+		// Snapshot the cache-safe prefix for forked agents (Agent tool).
+		// Taken after compaction and inbox drain so it matches the request
+		// prefix; refreshed every turn so forks inherit the latest history.
+		if params.ToolUseContext != nil {
+			snap := CreateCacheSafeParams(params, messages)
+			snap.Model = activeModel
+			params.ToolUseContext.CacheParams = snap
+		}
+
 		req, err := e.buildRequestWithModel(params, messages, activeModel)
 		if err != nil {
 			sendError(ctx, msgCh, fmt.Errorf("engine: build request: %w", err))
@@ -411,16 +425,43 @@ func (e *engineImpl) streamResponse(
 }
 
 // buildRequestWithModel constructs an api.MessageRequest using the given model.
+//
+// Prompt-cache breakpoints are placed deterministically (cache-first policy):
+//   - system: explicit part markers are honoured; otherwise the last non-empty
+//     part carries one breakpoint, caching the whole stable system section.
+//   - tools: the last tool schema carries one breakpoint (the tool set and
+//     schema bytes are pinned for the session).
+//   - messages: a rolling breakpoint on the final block of the last user
+//     message, so each turn reads the previous turn's cached prefix and writes
+//     a new one covering the grown history.
+//
+// SkipCacheWrite suppresses all markers. Forked agents reuse the parent's
+// prefix via CacheSafeParams and therefore hit these breakpoints byte-for-byte.
 func (e *engineImpl) buildRequestWithModel(params QueryParams, messages []types.Message, model string) (*api.MessageRequest, error) {
 	maxTokens := e.maxTokens
 	if params.MaxOutputTokensOverride > 0 {
 		maxTokens = params.MaxOutputTokensOverride
 	}
 
-	// Convert types.Message to api.MessageParam.
+	// Find the last user message for the rolling cache breakpoint.
+	lastUserIdx := -1
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == types.RoleUser {
+			lastUserIdx = i
+			break
+		}
+	}
+
+	// Convert types.Message to api.MessageParam. The breakpoint clone keeps
+	// shared history free of stale markers (they move every turn).
 	apiMessages := make([]api.MessageParam, 0, len(messages))
-	for _, m := range messages {
-		raw, err := json.Marshal(m.Content)
+	for i, m := range messages {
+		content := m.Content
+		if i == lastUserIdx && !params.SkipCacheWrite && len(content) > 0 {
+			content = append([]types.ContentBlock(nil), content...)
+			content[len(content)-1].CacheControl = &types.CacheControl{Type: "ephemeral"}
+		}
+		raw, err := json.Marshal(content)
 		if err != nil {
 			return nil, fmt.Errorf("marshal message content: %w", err)
 		}
@@ -430,14 +471,26 @@ func (e *engineImpl) buildRequestWithModel(params QueryParams, messages []types.
 		})
 	}
 
-	// Build system prompt string.
+	// Build system prompt blocks, honouring explicit cache markers.
 	var systemParts []string
+	var systemBlocks []api.SystemBlock
+	hasMarker := false
 	for _, p := range params.SystemPrompt.Parts {
-		if p.Text != "" {
-			systemParts = append(systemParts, p.Text)
+		if p.Text == "" {
+			continue
 		}
+		systemParts = append(systemParts, p.Text)
+		blk := api.SystemBlock{Type: "text", Text: p.Text}
+		if p.CacheControl == "ephemeral" && !params.SkipCacheWrite {
+			blk.CacheControl = api.EphemeralCache
+			hasMarker = true
+		}
+		systemBlocks = append(systemBlocks, blk)
 	}
 	systemStr := joinStrings(systemParts, "\n\n")
+	if !params.SkipCacheWrite && !hasMarker && len(systemBlocks) > 0 {
+		systemBlocks[len(systemBlocks)-1].CacheControl = api.EphemeralCache
+	}
 
 	// Build tool schemas, excluding any tools listed in ExcludeTools.
 	allTools := e.registry.All()
@@ -461,15 +514,19 @@ func (e *engineImpl) buildRequestWithModel(params QueryParams, messages []types.
 			InputSchema: schemaRaw,
 		})
 	}
+	if !params.SkipCacheWrite && len(toolSchemas) > 0 {
+		toolSchemas[len(toolSchemas)-1].CacheControl = api.EphemeralCache
+	}
 
 	return &api.MessageRequest{
-		Model:       model,
-		MaxTokens:   maxTokens,
-		Messages:    apiMessages,
-		System:      systemStr,
-		Tools:       toolSchemas,
-		Stream:      true,
-		QuerySource: params.QuerySource,
+		Model:        model,
+		MaxTokens:    maxTokens,
+		Messages:     apiMessages,
+		System:       systemStr,
+		SystemBlocks: systemBlocks,
+		Tools:        toolSchemas,
+		Stream:       true,
+		QuerySource:  params.QuerySource,
 	}, nil
 }
 
@@ -603,5 +660,38 @@ func (e *engineImpl) drainMidTurn(
 	select {
 	case msgCh <- Msg{Type: MsgTypeUserMessage, UserMsg: &userMsg}:
 	case <-ctx.Done():
+	}
+}
+
+// drainInbox appends pending coordinator messages (sub-agent follow-ups) as
+// user messages at the turn boundary. Non-blocking: an empty inbox is the
+// common case. Each message is wrapped in <coordinator-message> tags so the
+// agent can distinguish coordinator instructions from user turns.
+func drainInbox(ctx context.Context, inbox <-chan string, messages *[]types.Message, msgCh chan<- Msg) {
+	if inbox == nil {
+		return
+	}
+	for {
+		select {
+		case text, ok := <-inbox:
+			if !ok {
+				return
+			}
+			wrapped := "<coordinator-message>\n" + text + "\n</coordinator-message>"
+			userMsg := types.Message{
+				Role: types.RoleUser,
+				Content: []types.ContentBlock{
+					{Type: types.ContentTypeText, Text: strPtr(wrapped)},
+				},
+			}
+			*messages = append(*messages, userMsg)
+			select {
+			case msgCh <- Msg{Type: MsgTypeUserMessage, UserMsg: &userMsg}:
+			case <-ctx.Done():
+				return
+			}
+		default:
+			return
+		}
 	}
 }

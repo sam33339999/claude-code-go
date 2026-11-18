@@ -663,3 +663,56 @@ func TestSendMessageTool_Call_SendError(t *testing.T) {
 		t.Errorf("unexpected error message: %v", result.Content)
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fork semantics
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestAgentTool_ForkForcesBackgroundAndInheritsModel(t *testing.T) {
+	var captured tools.AgentSpawnRequest
+	mc := &mockCoordinator{spawnFn: func(_ context.Context, req tools.AgentSpawnRequest) (string, error) {
+		captured = req
+		return "a-fork1", nil
+	}}
+	uctx := &tools.UseContext{Ctx: context.Background(), Coordinator: mc}
+
+	input := `{"prompt":"side directive","agent_type":"fork","model":"haiku","background":false}`
+	result, err := agent.AgentTool.Call(tools.Input(input), uctx, nil)
+	if err != nil {
+		t.Fatalf("Call: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result.Content)
+	}
+	if captured.AgentType != "fork" {
+		t.Errorf("AgentType = %q, want fork", captured.AgentType)
+	}
+	if !captured.Background {
+		t.Error("fork must always run in the background")
+	}
+	if captured.Model != "" {
+		t.Errorf("fork model override must be ignored, got %q", captured.Model)
+	}
+	// Background path returns the agent ID for notification-based follow-up.
+	if !strings.Contains(result.Content.(string), "a-fork1") {
+		t.Errorf("background result must name the agent ID: %v", result.Content)
+	}
+}
+
+func TestAgentTool_PassesCacheParams(t *testing.T) {
+	var captured tools.AgentSpawnRequest
+	mc := &mockCoordinator{spawnFn: func(_ context.Context, req tools.AgentSpawnRequest) (string, error) {
+		captured = req
+		return "a-worker1", nil
+	}}
+	sentinel := &struct{ Marker string }{Marker: "cache-safe-params"}
+	uctx := &tools.UseContext{Ctx: context.Background(), Coordinator: mc, CacheParams: sentinel}
+
+	input := `{"prompt":"task","background":true}`
+	if _, err := agent.AgentTool.Call(tools.Input(input), uctx, nil); err != nil {
+		t.Fatalf("Call: %v", err)
+	}
+	if captured.CacheParams != sentinel {
+		t.Error("Agent tool must forward ctx.CacheParams to the spawn request")
+	}
+}

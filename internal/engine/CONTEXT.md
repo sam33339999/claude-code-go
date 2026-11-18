@@ -2,7 +2,7 @@
 package: engine
 import_path: internal/engine
 layer: core
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T15:25:59Z
 source_files: [budget.go, cache_params.go, engine.go, forked_agent.go, msg.go, orchestration.go, query.go, stop_hooks.go]
 ---
 
@@ -28,12 +28,12 @@ type QueryEngine interface {
 ## Structs
 
 - **BudgetTracker** — 4 fields: ContinuationCount, LastDeltaTokens, LastGlobalTurnTokens, StartedAt
-- **CacheSafeParams** — 3 fields: SystemPrompt, ContextMessages, ToolUseContext
+- **CacheSafeParams** — 4 fields: SystemPrompt, ContextMessages, ToolUseContext, Model
 - **Config** — 7 fields: Client, Registry, Model, MaxTokens, PermissionChecker, StopHooks, MsgQueue
 - **ForkedAgentConfig** — 6 fields: PromptMessages, CacheSafeParams, QuerySource, MaxTurns, AllowedTools, OnMessage
 - **Msg** — 21 fields: Type, TextDelta, ToolUseID, ToolName, InputDelta, ToolInput, ToolResult, AssistantMsg, ...
 - **PermissionRequestMsg** — 6 fields: RequestID, ToolUseID, ToolName, Message, Input, RespFn
-- **QueryParams** — 14 fields: Messages, SystemPrompt, UserContext, SystemContext, ToolUseContext, QuerySource, MaxOutputTokensOverride, MaxTurns, ...
+- **QueryParams** — 15 fields: Messages, SystemPrompt, UserContext, SystemContext, ToolUseContext, QuerySource, MaxOutputTokensOverride, MaxTurns, ...
 - **StopHookContext** — 6 fields: Messages, ToolUseContext, QuerySource, IsBareMode, Engine, CacheParams
 - **StopHookRegistry** — 2 fields
 - **SystemPrompt** — 1 fields: Parts
@@ -86,17 +86,20 @@ type QueryEngine interface {
 
 ## Change Impact
 
+**Test Mocks (must add new methods when interfaces change):**
+- `stubQueryEngine` in `internal/bootstrap/wire_fork_test.go`
+
 **Exported type references (files that use types from this package):**
-- `CacheSafeParams` → `internal/memdir/dream.go`, `internal/tui/cmds.go`
+- `CacheSafeParams` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/memdir/dream.go`, `internal/tui/cmds.go`
 - `Config` → `internal/bootstrap/wire.go`
 - `ForkedAgentConfig` → `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/session_memory.go`
-- `Msg` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/tui/cmds.go`, `internal/tui/model.go`, `internal/tui/tui_test.go` (test)
+- `Msg` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/cmds.go`, `internal/tui/model.go` + 1 more
 - `QueryEngine` → `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/tui/cmds.go`, `internal/tui/init.go`, `internal/tui/model.go`
-- `QueryParams` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/tui/cmds.go`, `internal/tui/tui_test.go` (test)
+- `QueryParams` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/cmds.go`, `internal/tui/tui_test.go` (test)
 - `StopHookContext` → `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/extract_test.go` (test), `internal/memdir/session_memory.go`
 - `StopHookRegistry` → `internal/bootstrap/wire.go`
-- `SystemPrompt` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/tui/cmds.go`
-- `SystemPromptPart` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/tui/cmds.go`
+- `SystemPrompt` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/cmds.go`
+- `SystemPromptPart` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/cmds.go`
 - `ToolResultMsg` → `internal/tui/tui_test.go` (test)
 
 ## Dependencies
@@ -111,3 +114,4 @@ type QueryEngine interface {
 ## Design Notes
 
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
+- **2026-11-18 cache 斷點佈局＋fork 快照＋inbox（feat/coordinator-fork-cache）**：buildRequestWithModel 確定性三處斷點——system（顯式 part 標記優先；無標記則掛末段，一個斷點快取整個穩定段）、tools 末位（會話內釘住）、messages 滾動斷點（最後 user message 末 block，clone 後標記不污染歷史）。SkipCacheWrite 抑制全部。runQueryLoop 於 turn 邊界（壓縮後、inbox drain 後）快照 CacheSafeParams（+Model）至 UseContext.CacheParams，供 Agent tool spawn fork 時繼承——快照與請求前綴一致，fork 前綴 byte-identical（守護測試 TestForkPrefix_ByteIdentity；訊息比對需排除 cache_control 標記，標記是 write-position metadata、provider 前綴匹配忽略其位置）。QueryParams.InboxCh 於每個 turn 邊界 non-blocking drain，以 <coordinator-message> 包裝追加尾部（前綴不動）。

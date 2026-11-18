@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 // Client is the unified Anthropic API entry point.
@@ -48,6 +49,27 @@ type ContentBlock struct {
 	// thinking
 	Thinking  string `json:"thinking,omitempty"`
 	Signature string `json:"signature,omitempty"`
+	// CacheControl optionally marks this block as a prompt-cache breakpoint
+	// (request-side only; response blocks never carry it).
+	CacheControl *CacheControl `json:"cache_control,omitempty"`
+}
+
+// CacheControl marks a prompt-cache breakpoint ("ephemeral") on a system
+// block, tool schema, or content block per the Anthropic Messages API.
+type CacheControl struct {
+	Type string `json:"type"`
+}
+
+// EphemeralCache is the shared breakpoint marker value.
+var EphemeralCache = &CacheControl{Type: "ephemeral"}
+
+// SystemBlock is one text segment of the system prompt. The Messages API
+// accepts system either as a plain string or as an array of these blocks;
+// blocks allow cache_control breakpoints on the stable prefix.
+type SystemBlock struct {
+	Type         string        `json:"type"` // always "text"
+	Text         string        `json:"text"`
+	CacheControl *CacheControl `json:"cache_control,omitempty"`
 }
 
 // ToolSchema describes a tool for the API request.
@@ -55,6 +77,10 @@ type ToolSchema struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
 	InputSchema json.RawMessage `json:"input_schema"`
+	// CacheControl optionally marks this tool as a prompt-cache breakpoint.
+	// Convention: the last tool in the list carries the marker so the whole
+	// tool section is cached as one stable prefix.
+	CacheControl *CacheControl `json:"cache_control,omitempty"`
 }
 
 // MessageRequest corresponds to the Anthropic Messages API request body.
@@ -66,9 +92,46 @@ type MessageRequest struct {
 	Tools          []ToolSchema   `json:"tools,omitempty"`
 	Stream         bool           `json:"stream"`
 	ThinkingBudget int            `json:"thinking_budget_tokens,omitempty"`
+	// SystemBlocks, when non-empty, replaces System on the wire with a block
+	// array carrying cache_control breakpoints. System must still hold the
+	// joined text for providers that consume it directly (OpenAI-compatible).
+	SystemBlocks []SystemBlock `json:"-"`
 	// QuerySource marks the request source for retry policy (foreground/background).
 	// Excluded from JSON serialisation.
 	QuerySource string `json:"-"`
+}
+
+// SystemText returns the system prompt as plain text, whether it was set via
+// System or SystemBlocks. OpenAI-compatible providers use this form because
+// they perform implicit prefix caching without explicit breakpoints.
+func (r *MessageRequest) SystemText() string {
+	if len(r.SystemBlocks) == 0 {
+		return r.System
+	}
+	parts := make([]string, 0, len(r.SystemBlocks))
+	for _, b := range r.SystemBlocks {
+		if b.Text != "" {
+			parts = append(parts, b.Text)
+		}
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// MarshalJSON serialises the request, emitting system as a block array when
+// SystemBlocks is set (Anthropic prompt-cache form) and as a string otherwise.
+func (r MessageRequest) MarshalJSON() ([]byte, error) {
+	type alias MessageRequest // avoid recursion into MarshalJSON
+	if len(r.SystemBlocks) == 0 {
+		return json.Marshal(alias(r))
+	}
+	// Shadow System with the block array; the string field is suppressed.
+	return json.Marshal(struct {
+		alias
+		System []SystemBlock `json:"system,omitempty"`
+	}{
+		alias:  alias(r),
+		System: r.SystemBlocks,
+	})
 }
 
 // MessageResponse corresponds to the non-streaming response body.

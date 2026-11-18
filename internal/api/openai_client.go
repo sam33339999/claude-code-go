@@ -149,9 +149,9 @@ func (c *openaiClient) convertToOpenAIRequest(req *MessageRequest) *openaiChatCo
 		Stream:    req.Stream,
 	}
 
-	// Convert system message
-	if req.System != "" {
-		sysContent := req.System
+	// Convert system message (plain text; OpenAI-compatible providers do
+	// implicit prefix caching, so cache_control breakpoints are not carried).
+	if sysContent := req.SystemText(); sysContent != "" {
 		openaiReq.Messages = append(openaiReq.Messages, openaiMessage{
 			Role:    "system",
 			Content: &sysContent,

@@ -2,7 +2,7 @@
 package: tools
 import_path: internal/tools
 layer: tools
-generated_at: 2026-11-18T08:28:02Z
+generated_at: 2026-11-18T15:25:59Z
 source_files: [base.go, registry.go, tool.go]
 ---
 
@@ -102,7 +102,7 @@ type Tool interface {
 - **Registry** — 4 fields
 - **Result** — 3 fields: Content, IsError, ContextModifier
 - **SearchOrReadResult** — 3 fields: IsSearch, IsRead, Path
-- **UseContext** — 6 fields: Ctx, AbortCh, PermCtx, Coordinator, AgentID, MemoryStore
+- **UseContext** — 7 fields: Ctx, AbortCh, PermCtx, Coordinator, AgentID, MemoryStore, CacheParams
 - **ValidationResult** — 2 fields: OK, Reason
 
 ## Function Types
@@ -136,18 +136,18 @@ type Tool interface {
 **Exported type references (files that use types from this package):**
 - `AgentCoordinator` → `internal/bootstrap/wire.go`, `internal/coordinator/adapter.go`, `internal/tools/agent/agent_test.go` (test), `internal/tools/tasks/tasks_test.go` (test), `internal/tui/init.go` + 1 more
 - `AgentSpawnRequest` → `internal/coordinator/adapter.go`, `internal/coordinator/adapter_test.go` (test), `internal/tools/agent/agent.go`, `internal/tools/agent/agent_test.go` (test), `internal/tools/tasks/tasks.go` + 1 more
-- `BaseTool` → `internal/codemode/catalog_test.go` (test), `internal/engine/engine_test.go` (test), `internal/mcp/adapter.go`, `internal/tools/agent/agent.go`, `internal/tools/agent/getagentstatus.go` + 19 more
-- `InputSchema` → `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/agent/agent.go` + 20 more
+- `BaseTool` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/engine_test.go` (test), `internal/mcp/adapter.go`, `internal/tools/agent/agent.go` + 20 more
+- `InputSchema` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test) + 21 more
 - `MCPInfo` → `internal/mcp/adapter.go`
 - `MCPToolInfo` → `internal/mcp/adapter.go`, `internal/tools/mcp/mcp_test.go` (test)
-- `OnProgressFn` → `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/agent/agent.go` + 20 more
+- `OnProgressFn` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test) + 21 more
 - `PathTool` → `internal/permissions/persist.go`, `internal/tools/fileops/fileedit.go`, `internal/tools/fileops/fileread.go`, `internal/tools/fileops/filewrite.go`, `internal/tools/fileops/notebookedit.go`
-- `PermissionContext` → `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/engine/query.go`, `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test) + 21 more
+- `PermissionContext` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/engine/query.go`, `internal/mcp/adapter.go` + 22 more
 - `PermissionResult` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/ask.go`, `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test) + 11 more
 - `Registry` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/tools.go`, `internal/bootstrap/wire.go`, `internal/codemode/catalog.go` + 7 more
-- `Result` → `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/agent/agent.go` + 22 more
-- `Tool` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test), `internal/permissions/persist.go` + 36 more
-- `UseContext` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/codemode/catalog_test.go` (test) + 44 more
+- `Result` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test) + 23 more
+- `Tool` → `internal/bootstrap/wire_fork_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test) + 37 more
+- `UseContext` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 46 more
 - `ValidationResult` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/fileops/fileread.go`, `internal/tools/fileops/glob.go` + 5 more
 
 ## Dependencies
@@ -163,3 +163,4 @@ type Tool interface {
 
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
 - **2026-11-18 CM-03**：PermissionResult +AlwaysInCodeMode bool（CodeMode-scoped 持久批准标记；非项目规则）。 additive 字段，既有构造点零影响。
+- **2026-11-18 UseContext.CacheParams（feat/coordinator-fork-cache）**：+CacheParams any（具體型別 *engine.CacheSafeParams；tools 層零依賴故用 any，wire 層 cast）。engine 於 turn 邊界寫入、工具 call 期間讀取（寫入先於 runTools 的 goroutine 啟動，happens-before 成立）。Agent tool 轉發至 AgentSpawnRequest.CacheParams，fork 據此繼承父前綴。

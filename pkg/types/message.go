@@ -24,10 +24,20 @@ const (
 	ContentTypeThinking   ContentBlockType = "thinking"
 )
 
+// CacheControl marks a prompt-cache breakpoint on a content block, tool
+// schema, or system block. Type is "ephemeral" per the Anthropic Messages API.
+// A nil pointer means no breakpoint (the field is omitted on the wire).
+type CacheControl struct {
+	Type string `json:"type"`
+}
+
 // ContentBlock is a generalised message content block.
 // Concrete fields are set according to Type; pointer fields avoid zero-value ambiguity.
 type ContentBlock struct {
 	Type ContentBlockType `json:"type"`
+	// CacheControl optionally marks this block as a prompt-cache breakpoint.
+	// It is request-side only; history snapshots must not carry stale markers.
+	CacheControl *CacheControl `json:"cache_control,omitempty"`
 	// text
 	Text *string `json:"text,omitempty"`
 	// tool_use

@@ -9,9 +9,9 @@ func TestRegisterBuiltins(t *testing.T) {
 	r := NewRegistry()
 	RegisterBuiltins(r)
 
-	// Should have exactly 5 built-in types.
-	if r.Len() != 5 {
-		t.Errorf("Len() = %d, want 5", r.Len())
+	// Should have exactly 6 built-in types.
+	if r.Len() != 6 {
+		t.Errorf("Len() = %d, want 6", r.Len())
 	}
 
 	expectedTypes := []AgentType{
@@ -20,6 +20,7 @@ func TestRegisterBuiltins(t *testing.T) {
 		AgentTypePlan,
 		AgentTypeVerify,
 		AgentTypeGuide,
+		AgentTypeFork,
 	}
 
 	for _, at := range expectedTypes {
@@ -34,16 +35,46 @@ func TestRegisterBuiltins(t *testing.T) {
 			if p.Description == "" {
 				t.Error("Description is empty")
 			}
-			if p.SystemPrompt == "" {
-				t.Error("SystemPrompt is empty")
-			}
 			if p.ToolFilter.Mode == "" {
 				t.Error("ToolFilter.Mode is empty")
 			}
-			if len(p.ToolFilter.Tools) == 0 {
-				t.Error("ToolFilter.Tools is empty")
+			// Fork intentionally inherits the parent's system prompt and
+			// full tool list (prompt-cache byte identity); see
+			// TestBuiltin_ForkProfile.
+			if at != AgentTypeFork {
+				if p.SystemPrompt == "" {
+					t.Error("SystemPrompt is empty")
+				}
+				if len(p.ToolFilter.Tools) == 0 {
+					t.Error("ToolFilter.Tools is empty")
+				}
 			}
 		})
+	}
+}
+
+func TestBuiltin_ForkProfile(t *testing.T) {
+	t.Parallel()
+	r := NewRegistry()
+	RegisterBuiltins(r)
+	p := r.MustGet(AgentTypeFork)
+
+	// Cache identity: a fork inherits the parent's system prompt and full
+	// tool list, so both must be empty in the profile.
+	if p.SystemPrompt != "" {
+		t.Error("Fork SystemPrompt must be empty (inherits parent's byte-for-byte)")
+	}
+	if len(p.ToolFilter.Tools) != 0 {
+		t.Error("Fork ToolFilter.Tools must be empty (inherits parent's full tool list)")
+	}
+	if p.EffectiveModel() != "" {
+		t.Errorf("Fork must inherit parent model, got %q", p.EffectiveModel())
+	}
+	if p.CanSpawnSubAgents {
+		t.Error("Fork must not spawn sub-agents")
+	}
+	if p.MaxTurns != 200 {
+		t.Errorf("Fork MaxTurns = %d, want 200", p.MaxTurns)
 	}
 }
 

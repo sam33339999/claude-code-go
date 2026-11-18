@@ -20,7 +20,8 @@ type AgentInput struct {
 	// MaxTurns limits the number of turns the sub-agent may take (optional).
 	MaxTurns *int `json:"max_turns,omitempty"`
 	// AgentType selects a built-in agent type (optional).
-	// Supported: "worker" (default), "explore", "plan", "verify", "guide", or custom.
+	// Supported: "worker" (default), "explore", "plan", "verify", "guide",
+	// "fork" (inherits parent context), or custom.
 	AgentType string `json:"agent_type,omitempty"`
 	// Background when true spawns the agent without blocking (fire-and-forget).
 	Background bool `json:"background,omitempty"`
@@ -48,20 +49,29 @@ type agentTool struct{ tools.BaseTool }
 func (t *agentTool) Name() string { return "Agent" }
 
 func (t *agentTool) Description(_ tools.Input, _ tools.PermissionContext) string {
-	return `Launches a sub-agent to handle a complex sub-task autonomously.
+	return `Launch a new agent to handle complex, multi-step tasks. Each agent type has specific capabilities and tools available to it.
 
-Available agent types (set via agent_type parameter):
+Specify agent_type to select an agent: "fork" forks yourself (the fork inherits your full conversation context and always runs on your model — a model override is ignored); any other type — or omitting it — starts a fresh agent (worker by default).
+
+When to use:
+- A fresh agent costs more than it looks. It knows only what you put in the prompt, and you see only the summary it sends back — both handoffs drop detail. Reach for this when you have independent work to run in parallel, when the user asks for a side quest that shouldn't block your main thread, or when answering would mean reading across several files.
+- Do the work yourself when it is a handful of tool calls or a lookup whose target you already know. Once you've delegated something, don't also run it yourself; wait for the result. When in doubt, don't spawn.
+- When you do spawn one, brief it like the peer it is: state the goal and what you have already ruled out, point it at the files and docs worth reading instead of retyping them, and keep the scope explicit and narrow.
+
+Available agent types:
 - "worker" (default) — general-purpose, has all tools except coordinator tools
 - "explore" — read-only codebase exploration (Read, Glob, Grep, Bash, WebSearch)
 - "plan" — produces a structured implementation plan without making changes
 - "verify" — runs tests and linting to validate changes
 - "guide" — helps with Claude Code usage and documentation
+- "fork" — inherits your full context, system prompt, tool list, and model (prompt-cache reuse); runs in the background, executes one directive, reports once
 
 Usage notes:
-- Use this tool for tasks that require multiple steps or tool calls
-- Set background: true to spawn without waiting for completion
-- Set agent_name for human-readable routing with SendMessage
-- Returns the sub-agent's final response (or agent_id in background mode)`
+- Agents run in the background; you'll be notified when one completes. Never fabricate or predict a pending agent's results — if the user asks before the notification arrives, say it's still running.
+- The agent's final report is not shown to the user — relay what matters.
+- Set background: true to spawn without waiting for completion (forks always run in the background).
+- Use SendMessage with the agent's ID or name to continue a previously spawned agent with its context intact; a new Agent call starts fresh (except "fork", which inherits your context).
+- Set agent_name for human-readable routing with SendMessage.`
 }
 
 func (t *agentTool) InputSchema() tools.InputSchema {
@@ -86,11 +96,11 @@ func (t *agentTool) InputSchema() tools.InputSchema {
 			}),
 			"agent_type": tools.PropSchema(map[string]any{
 				"type":        "string",
-				"description": "Agent type: worker (default), explore, plan, verify, guide, or custom name",
+				"description": "Agent type: worker (default), explore, plan, verify, guide, fork, or custom name. \"fork\" inherits your full conversation context and model, and always runs in the background.",
 			}),
 			"background": tools.PropSchema(map[string]any{
 				"type":        "boolean",
-				"description": "If true, spawn without blocking. Use SendMessage or GetAgentStatus to check progress.",
+				"description": "If true, spawn without blocking. Use SendMessage or GetAgentStatus to check progress. Forks always run in the background.",
 			}),
 			"agent_name": tools.PropSchema(map[string]any{
 				"type":        "string",
@@ -98,7 +108,7 @@ func (t *agentTool) InputSchema() tools.InputSchema {
 			}),
 			"model": tools.PropSchema(map[string]any{
 				"type":        "string",
-				"description": "Optional model override (e.g. 'haiku', 'sonnet', 'opus')",
+				"description": "Optional model override (e.g. 'haiku', 'sonnet', 'opus'). Ignored for agent_type \"fork\" — forks always inherit the parent model.",
 			}),
 		},
 		[]string{"prompt"},
@@ -167,7 +177,18 @@ func (t *agentTool) Call(input tools.Input, ctx *tools.UseContext, onProgress to
 		agentType = "worker"
 	}
 
-	// Spawn the sub-agent via the coordinator.
+	// Fork semantics: a fork inherits the parent's context and model, and
+	// always runs in the background (one-shot directive, notification on done).
+	model := in.Model
+	background := in.Background
+	if agentType == "fork" {
+		model = ""
+		background = true
+	}
+
+	// Spawn the sub-agent via the coordinator. CacheParams carries the
+	// parent's cache-safe prefix snapshot so forks hit the parent's prompt
+	// cache; the wire layer consumes it for agent_type "fork".
 	agentID, err := ctx.Coordinator.SpawnAgent(ctx.Ctx, tools.AgentSpawnRequest{
 		Description:  truncateStr(in.Prompt, 100),
 		Prompt:       in.Prompt,
@@ -175,9 +196,10 @@ func (t *agentTool) Call(input tools.Input, ctx *tools.UseContext, onProgress to
 		AllowedTools: in.AllowedTools,
 		MaxTurns:     maxTurns,
 		AgentType:    agentType,
-		Model:        in.Model,
+		Model:        model,
 		AgentName:    in.AgentName,
-		Background:   in.Background,
+		Background:   background,
+		CacheParams:  ctx.CacheParams,
 	})
 	if err != nil {
 		return &tools.Result{
@@ -187,7 +209,7 @@ func (t *agentTool) Call(input tools.Input, ctx *tools.UseContext, onProgress to
 	}
 
 	// Background mode: return immediately with agent ID.
-	if in.Background {
+	if background {
 		if onProgress != nil {
 			onProgress(map[string]string{
 				"agent_id": agentID,

@@ -352,17 +352,46 @@ func TestSendMessage_UnknownIDReturnsError(t *testing.T) {
 	}
 }
 
-func TestSendMessage_FinishedAgentReturnsError(t *testing.T) {
-	c := newCoordinator(immediateAgent("done"))
-	id, _ := c.SpawnAgent(context.Background(), coordinator.SpawnRequest{Prompt: "work"})
+func TestSendMessage_FinishedAgentResumes(t *testing.T) {
+	// Run 1 completes immediately; run 2 (resume) drains the inbox message.
+	var mu sync.Mutex
+	runs := 0
+	fn := func(_ context.Context, _ coordinator.AgentID, _ coordinator.SpawnRequest, inbox <-chan string) (string, error) {
+		mu.Lock()
+		runs++
+		n := runs
+		mu.Unlock()
+		if n == 1 {
+			return "first", nil
+		}
+		select {
+		case m := <-inbox:
+			return "resumed:" + m, nil
+		case <-time.After(2 * time.Second):
+			return "resumed:no-message", nil
+		}
+	}
+	c := newCoordinator(fn)
+	id, _ := c.SpawnAgent(context.Background(), coordinator.SpawnRequest{Prompt: "work", Description: "resume-test"})
 
-	// Wait for completion.
 	ch, _ := c.Subscribe(id)
-	<-ch
+	notif := <-ch
+	if notif.Result != "first" {
+		t.Fatalf("first run result = %q, want first", notif.Result)
+	}
 
-	err := c.SendMessage(context.Background(), id, "too late")
-	if err == nil {
-		t.Fatal("expected error when messaging a finished agent")
+	// Messaging a finished agent reopens it and delivers the message.
+	if err := c.SendMessage(context.Background(), id, "follow-up"); err != nil {
+		t.Fatalf("SendMessage to finished agent: %v", err)
+	}
+	ch2, _ := c.Subscribe(id)
+	select {
+	case notif2 := <-ch2:
+		if notif2.Result != "resumed:follow-up" {
+			t.Fatalf("resumed result = %q, want resumed:follow-up", notif2.Result)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for resumed agent")
 	}
 }
 
@@ -567,8 +596,11 @@ func TestGetCoordinatorSystemPrompt_Full(t *testing.T) {
 	if !strings.Contains(p, "coordinator") {
 		t.Error("full prompt should mention coordinator")
 	}
-	if !strings.Contains(p, "AgentTool") {
-		t.Error("full prompt should mention AgentTool")
+	if !strings.Contains(p, "Agent") {
+		t.Error("full prompt should mention the Agent tool")
+	}
+	if !strings.Contains(p, "fork") {
+		t.Error("full prompt should describe fork semantics")
 	}
 	if !strings.Contains(p, "task-notification") {
 		t.Error("full prompt should describe task-notification protocol")

@@ -24,6 +24,10 @@ const (
 	AgentTypeVerify AgentType = "verify"
 	// AgentTypeGuide helps with Claude Code usage and documentation.
 	AgentTypeGuide AgentType = "guide"
+	// AgentTypeFork forks the parent agent: it inherits the parent's full
+	// conversation context, system prompt, tool list, and model so the request
+	// prefix hits the parent's prompt cache. One-shot background execution.
+	AgentTypeFork AgentType = "fork"
 	// AgentTypeCustom is for user-defined agent types loaded from .claude/agents/.
 	AgentTypeCustom AgentType = "custom"
 )
@@ -34,7 +38,7 @@ func (t AgentType) String() string { return string(t) }
 // IsBuiltin returns true if the agent type is a built-in type.
 func (t AgentType) IsBuiltin() bool {
 	switch t {
-	case AgentTypeWorker, AgentTypeExplore, AgentTypePlan, AgentTypeVerify, AgentTypeGuide:
+	case AgentTypeWorker, AgentTypeExplore, AgentTypePlan, AgentTypeVerify, AgentTypeGuide, AgentTypeFork:
 		return true
 	default:
 		return false

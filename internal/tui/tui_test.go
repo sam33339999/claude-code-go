@@ -25,6 +25,7 @@ type fakeEngine struct {
 	interrupted bool
 	queryCh     chan engine.Msg
 	queryErr    error
+	lastParams  engine.QueryParams
 }
 
 func newFakeEngine() *fakeEngine {
@@ -38,6 +39,7 @@ func (f *fakeEngine) Query(_ context.Context, params engine.QueryParams) (<-chan
 		return nil, f.queryErr
 	}
 	f.messages = params.Messages
+	f.lastParams = params
 	ch := make(chan engine.Msg, 10)
 	// Copy queued messages into the returned channel and close.
 	go func() {

@@ -1,6 +1,6 @@
 ---
 type: auto-generated-index
-generated_at: 2026-11-18T06:40:49Z
+generated_at: 2026-11-18T15:25:59Z
 package_count: 41
 ---
 
@@ -12,7 +12,7 @@ package_count: 41
 | Package | Layer | Key Exports | Context |
 |---------|-------|-------------|----------|
 | `pkg/testutil` | Types (zero-dep) | - | [CONTEXT](../../pkg/testutil/CONTEXT.md) |
-| `pkg/types` | Types (zero-dep) | AppStateReader(3m), MCPConnection(2m), AdditionalWorkingDirectory, AggregatedHookResult, CommandBase | [CONTEXT](../../pkg/types/CONTEXT.md) |
+| `pkg/types` | Types (zero-dep) | AppStateReader(3m), MCPConnection(2m), AdditionalWorkingDirectory, AggregatedHookResult, CacheControl | [CONTEXT](../../pkg/types/CONTEXT.md) |
 | `pkg/utils/env` | Types (zero-dep) | - | [CONTEXT](../../pkg/utils/env/CONTEXT.md) |
 | `pkg/utils/fs` | Types (zero-dep) | - | [CONTEXT](../../pkg/utils/fs/CONTEXT.md) |
 | `pkg/utils/ids` | Types (zero-dep) | - | [CONTEXT](../../pkg/utils/ids/CONTEXT.md) |
