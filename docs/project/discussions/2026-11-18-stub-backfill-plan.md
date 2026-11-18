@@ -87,13 +87,12 @@
 | BF-01 | completed（评审通过） | bf-tools-b1 | 实现 1732d65＋修复 50b2427＋复核 f7a9eb1；P0 关闭，pass-ready；待 QA／人类 PR 确认 |
 | BF-02 | completed（评审通过） | bf-tools-b1 | 同上；Sleep overflow 上限已补 |
 | BF-01-F1/F2 | completed | bf-tools-b1 | 主会话接手（子 Agent 四度配额失败）；F1=50b2427、F2=de4ab23；复核记录 f7a9eb1；全仓 -race 绿、docs-check/debt-check 通过（22/44） |
-| BF-03-F1/F2 | blocked（配额）→ 排队 | bf-tui-b1 | 修复 Agent 撞配额中断；待评审 Agent 完成后重派 |
-| BF-20 | pending（P2） | 待建 | 全仓 gofmt 清理（HEAD 既有 23 个未格式化文件，跨层，独立 chore 任务避免噪声） |
-| BF-03 | completed（评审通过） | bf-tui-b1 | 实现 286e0c7＋修复 1637769/10df48b＋复核 4b38842；P1 全关闭，pass-ready；CR-BF03-2 升级条件已解除（BF-01-F1 消除会话期 pool 写入）；待 QA／人类 PR 确认 |
 | BF-03-F1/F2 | completed | bf-tui-b1 | 主会话接手（配额）；F1=1637769（CR-BF03-1/2/3/4/5）、F2=10df48b（CR-BF03-6 守护测试）；全仓 -race 绿、docs-check/debt-check 通过（24） |
-| BF-19 | pending（跨仓） | 待建 | CR-BF03-2 根因修复：agtkeel Pool 快照式 GetAll API（现返回共享可变指针）。**BF-01 合并前置依赖**——评审已裁决 CR-BF03-2 经 CR-BF01-1 升级 P0（看門狗遲到落地路径），BF-01-F1 修复后回落为 BF-03 侧潜在 P1。范围补充：CR-BF01-7 内核 inherited 限制（jsonRPC reader 绑定 initialize ctx、httptest/HTTP Close 语义）併案处理。API 形态由 Tech Lead 裁决 |
-| BF-18 | completed（待评审） | bf-tui-b1 | 提交 a75c1c7（stacked on BF-05）；internal/transcript Recorder＋TUI turn 边界落盘＋headless 收尾＋/resume 换文件；全仓 -race 绿、docs-check 通过；/clear 追加-only 局限文档化 |
-| BF-05 | completed（待评审） | bf-tui-b1 | 提交 e7411d4（stacked on BF-03）；/config 只读面板＋/terminal-setup 检测；debt 24→22；全仓 -race/docs-check 绿 |
+| BF-03 | completed（评审通过，已合并） | bf-tui-b1 | 实现 286e0c7＋修复＋复核 4b38842；P1 全关闭；CR-BF03-2 升级条件已解除；已合并 feat/impl |
+| BF-20 | pending（P2） | 待建 | 全仓 gofmt 清理（HEAD 既有约 20 个未格式化文件，跨层，独立 chore 任务避免噪声） |
+| BF-19 | pending（跨仓技术债） | 待建 | CR-BF03-2 根因修复：agtkeel Pool 快照式 GetAll API（现返回共享可变指针）。**已非合并阻塞**——BF-01-F1 消除会话期 pool 写入后回落为潜在隐患＋约束文档化，已随 feat/impl 合并；根治仍待跨仓。併案 CR-BF01-7（jsonRPC reader 绑定 initialize ctx、HTTP Close 语义）。API 形态由 Tech Lead 裁决 |
+| BF-18 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 a75c1c7；internal/transcript Recorder＋TUI turn 边界落盘＋headless 收尾＋/resume 换文件；已合并 feat/impl，合并后全仓 -race 复验绿；正式评审留待人类 PR |
+| BF-05 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 e7411d4；/config 只读面板＋/terminal-setup 检测；已合并 feat/impl；正式评审留待人类 PR |
 | BF-06..BF-16 | pending | — | 按批次派发 |
 
 > 状态变更由 PM 独家更新本表；Agent 汇报按 agent-output.md JSON 格式。
