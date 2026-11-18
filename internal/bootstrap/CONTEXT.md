@@ -2,7 +2,7 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-18T07:56:44Z
+generated_at: 2026-11-18T15:25:59Z
 source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, update_cmd.go, wire.go]
 ---
 
@@ -102,3 +102,4 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 - **2026-11-18 BF-10**：worktree 工具 store 後註冊；RegisterBuiltinTools 餘 28（interact 全數移出至 wire.go）。
 - **2026-11-18 UPD-01**：tea.NewProgram 移除 WithAltScreen/WithMouseCellMotion（v2 改在 AppModel.View 的 tea.View 上设置）。
 - **2026-11-18 EV-01**：pool.SetNotificationHandler→mq.Enqueue(ModeExternalPrompt, PriorityNext)（两条路径），MCP 服务端推送事件驱动唤醒，零轮询。
+- **2026-11-18 sub-agent cache 路徑（feat/coordinator-fork-cache）**：buildRunAgentFn 全 sub-agent NoWriteBack=true（修此前 sub-agent 結束覆蓋主對話 e.messages 的污染 bug）；fork 經 buildForkQuery 繼承父 CacheSafeParams 前綴＋尾部 FormatForkDirective，ExcludeTools=nil（完整工具列表＝cache bytes 一致），QuerySource=background（529 即放棄，避免容量級聯）。runStates sync.Map 以 AgentID 保留最終 QueryParams（Messages=收集歷史），SendMessage resume 時原樣重用（system/tools/model 不變＝cache 連續性）；collectSubAgentRun 收集 assistant/user 訊息。無快照時 fork 退化為 boilerplate-as-system-prompt 的 one-shot agent。

@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/internal/commands"
+	"github.com/tunsuy/claude-code-go/internal/coordinator"
 	"github.com/tunsuy/claude-code-go/internal/engine"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/claude-code-go/internal/tools"
@@ -53,14 +54,23 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 	messages = append(messages, userMsg)
 
 	// F-1 fix: build a complete QueryParams, not just Messages.
-	// Inject the CLAUDE.md system prompt when available.
+	// Stable system prefix: CLAUDE.md content, then the resident-coordinator
+	// role prompt when coordinator mode is active. One cache breakpoint at
+	// the end of the stable section; dynamic memory reminders are appended
+	// after it (turn-tail state, never cached into the prefix).
 	var sysPrompt engine.SystemPrompt
 	if m.memdirPrompt != "" {
-		sysPrompt = engine.SystemPrompt{
-			Parts: []engine.SystemPromptPart{
-				{Text: m.memdirPrompt, CacheControl: "ephemeral"},
-			},
-		}
+		sysPrompt.Parts = append(sysPrompt.Parts, engine.SystemPromptPart{
+			Text: m.memdirPrompt,
+		})
+	}
+	if m.coordinatorMode {
+		sysPrompt.Parts = append(sysPrompt.Parts, engine.SystemPromptPart{
+			Text: coordinator.GetCoordinatorSystemPrompt(false),
+		})
+	}
+	if len(sysPrompt.Parts) > 0 {
+		sysPrompt.Parts[len(sysPrompt.Parts)-1].CacheControl = "ephemeral"
 	}
 
 	// Surface relevant memories (if memory store is available).

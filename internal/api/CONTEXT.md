@@ -2,13 +2,13 @@
 package: api
 import_path: internal/api
 layer: services
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T15:25:59Z
 source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, openai_client.go, openai_stream.go, openai_types.go, retry.go, stream.go, usage.go]
 ---
 
 # internal/api
 
-> Layer: **Services** · Files: 12 · Interfaces: 2 · Structs: 25 · Functions: 7
+> Layer: **Services** · Files: 12 · Interfaces: 2 · Structs: 27 · Functions: 7
 
 ## Interfaces
 
@@ -36,10 +36,11 @@ type StreamReader interface {
 - **APIError** — 4 fields: StatusCode, Message, Headers, Kind
 - **APIErrorData** — 2 fields: Type, Message
 - **Accumulator** — 3 fields
+- **CacheControl** — 1 fields: Type
 - **CacheCreationUsage** — 2 fields: Ephemeral1hInputTokens, Ephemeral5mInputTokens
 - **CannotRetryError** — 2 fields: Cause, RetryContext
 - **ClientConfig** — 13 fields: Provider, APIKey, BaseURL, MaxRetries, TimeoutSeconds, CustomHeaders, AWSRegion, GCPProject, ...
-- **ContentBlock** — 10 fields: Type, Text, ID, Name, Input, ToolUseID, Content, IsError, ...
+- **ContentBlock** — 11 fields: Type, Text, ID, Name, Input, ToolUseID, Content, IsError, ...
 - **ContentBlockDeltaData** — 2 fields: Index, Delta
 - **DebugLogger** — 4 fields
 - **Delta** — 4 fields: Type, Text, PartialJSON, Thinking
@@ -47,7 +48,7 @@ type StreamReader interface {
 - **FallbackTriggeredError** — 2 fields: OriginalModel, FallbackModel
 - **MessageDeltaData** — 2 fields: Delta, Usage
 - **MessageParam** — 2 fields: Role, Content
-- **MessageRequest** — 8 fields: Model, MaxTokens, Messages, System, Tools, Stream, ThinkingBudget, QuerySource
+- **MessageRequest** — 9 fields: Model, MaxTokens, Messages, System, Tools, Stream, ThinkingBudget, SystemBlocks, ...
 - **MessageResponse** — 7 fields: ID, Type, Role, Content, Model, StopReason, Usage
 - **MessageStartData** — 1 fields: Message
 - **RateLimit** — 2 fields: Utilization, ResetsAt
@@ -55,7 +56,8 @@ type StreamReader interface {
 - **RetryOptions** — 6 fields: MaxRetries, Model, FallbackModel, QuerySource, InitialConsecutive529, Signal
 - **ServerToolUse** — 2 fields: WebSearchRequests, WebFetchRequests
 - **StreamEvent** — 6 fields: Type, Data, MessageStart, ContentBlockDelta, MessageDelta, Error
-- **ToolSchema** — 3 fields: Name, Description, InputSchema
+- **SystemBlock** — 3 fields: Type, Text, CacheControl
+- **ToolSchema** — 4 fields: Name, Description, InputSchema, CacheControl
 - **Usage** — 9 fields: InputTokens, CacheCreationInputTokens, CacheReadInputTokens, OutputTokens, ServerToolUse, ServiceTier, CacheCreation, InferenceGeo, ...
 - **Utilization** — 6 fields: FiveHour, SevenDay, SevenDayOAuthApps, SevenDayOpus, SevenDaySonnet, ExtraUsage
 
@@ -122,11 +124,12 @@ type StreamReader interface {
 - `Delta` → `internal/engine/engine_test.go` (test)
 - `MessageDeltaData` → `internal/engine/engine_test.go` (test)
 - `MessageParam` → `internal/compact/auto.go`, `internal/engine/query.go`
-- `MessageRequest` → `internal/compact/auto.go`, `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/query.go`, `internal/engine/stop_hooks_test.go` (test)
+- `MessageRequest` → `internal/compact/auto.go`, `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/query.go` + 1 more
 - `MessageResponse` → `internal/compact/auto.go`, `internal/engine/engine_test.go` (test), `internal/engine/query.go`
 - `MessageStartData` → `internal/engine/engine_test.go` (test)
 - `StreamEvent` → `internal/engine/engine_test.go` (test)
-- `StreamReader` → `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/stop_hooks_test.go` (test)
+- `StreamReader` → `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/stop_hooks_test.go` (test)
+- `SystemBlock` → `internal/engine/query.go`
 - `ToolSchema` → `internal/engine/query.go`
 - `Usage` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`
 
@@ -143,3 +146,4 @@ type StreamReader interface {
 
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
 - **OpenAI 兼容增强（随搬回正式入库）**：normalizeBaseURL 去除 baseURL 尾部 /v1 避免重复版本路径（原 agtkeel 提交 9262ebf）；openai_types.go 新增 ReasoningContent 字段支持 DeepSeek-R1/QwQ 类推理模型（原 .agtkeel-uncommitted.diff WIP，现已落定）。
+- **2026-11-18 prompt-cache wire 支援（feat/coordinator-fork-cache）**：此前 Anthropic 路徑**完全未送 cache_control**（TUI 設的 SystemPromptPart.CacheControl 被 engine 壓成純字串忽略）——prompt cache 從未寫入。現 MessageRequest.SystemBlocks 非空時 MarshalJSON 以 block 陣列序列化 system（帶斷點）；ToolSchema/ContentBlock +CacheControl；EphemeralCache 共享標記值。System 仍為 canonical 純文字（既有測試與 compact 路徑不受影響）；OpenAI 相容路徑經 SystemText() 讀純文字（provider 隱式前綴快取，不帶標記）。滾動斷點由 engine 佈局，api 層只負責序列化。

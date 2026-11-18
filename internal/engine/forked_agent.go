@@ -18,6 +18,10 @@ type CacheSafeParams struct {
 	ContextMessages []types.Message
 	// ToolUseContext is the per-call tool execution context.
 	ToolUseContext *tools.UseContext
+	// Model is the parent's active model ID. Forks inherit it so the request
+	// prefix (which is model-scoped server-side) stays cache-compatible.
+	// Empty means the engine default.
+	Model string
 }
 
 // ForkedAgentConfig configures a background forked agent.
@@ -74,6 +78,7 @@ func RunForkedAgent(ctx context.Context, eng QueryEngine, cfg ForkedAgentConfig)
 		MaxTurns:       cfg.MaxTurns,
 		NoWriteBack:    true,
 		ExcludeTools:   excludeTools,
+		Model:          cfg.CacheSafeParams.Model,
 	}
 
 	// Start the query.

@@ -79,4 +79,23 @@ var builtinProfiles = []*AgentProfile{
 		},
 		CanSpawnSubAgents: false,
 	},
+	{
+		Type:        AgentTypeFork,
+		DisplayName: "Fork",
+		Description: "Fork of the parent agent — inherits full conversation context for prompt-cache reuse.",
+		WhenToUse: "Use for a side directive that needs the parent's conversation context. " +
+			"The fork inherits the parent's history, system prompt, tool list, and model, " +
+			"runs in the background, and reports once. Never the default for fresh tasks.",
+		// SystemPrompt is intentionally empty: a fork reuses the parent's
+		// system prompt byte-for-byte so the cached prefix stays identical.
+		SystemPrompt: "",
+		// ToolFilter is intentionally empty: a fork inherits the parent's FULL
+		// tool list so schema bytes match the parent's request (cache identity).
+		// Re-delegation is forbidden by ForkBoilerplate at the prompt level,
+		// not by removing tools from the schema.
+		ToolFilter:        ToolFilter{Mode: ToolFilterDenylist},
+		Model:             "inherit",
+		MaxTurns:          200,
+		CanSpawnSubAgents: false,
+	},
 }

@@ -34,6 +34,7 @@ func CreateCacheSafeParams(params QueryParams, messages []types.Message) *CacheS
 type cacheParamsJSON struct {
 	SystemPrompt    SystemPrompt    `json:"system_prompt"`
 	ContextMessages []types.Message `json:"context_messages"`
+	Model           string          `json:"model,omitempty"`
 }
 
 // SaveCacheSafeParams persists cache parameters to ~/.claude/cache-params.json.
@@ -57,6 +58,7 @@ func SaveCacheSafeParams(params *CacheSafeParams) error {
 	data := cacheParamsJSON{
 		SystemPrompt:    params.SystemPrompt,
 		ContextMessages: params.ContextMessages,
+		Model:           params.Model,
 	}
 
 	raw, err := json.MarshalIndent(data, "", "  ")
@@ -95,6 +97,7 @@ func LoadCacheSafeParams() (*CacheSafeParams, error) {
 	return &CacheSafeParams{
 		SystemPrompt:    data.SystemPrompt,
 		ContextMessages: data.ContextMessages,
+		Model:           data.Model,
 		ToolUseContext:  nil, // Must be populated by caller.
 	}, nil
 }
@@ -123,6 +126,7 @@ func SaveCacheSafeParamsTo(params *CacheSafeParams, filePath string) error {
 	data := cacheParamsJSON{
 		SystemPrompt:    params.SystemPrompt,
 		ContextMessages: params.ContextMessages,
+		Model:           params.Model,
 	}
 
 	raw, err := json.MarshalIndent(data, "", "  ")
@@ -155,6 +159,7 @@ func LoadCacheSafeParamsFrom(filePath string) (*CacheSafeParams, error) {
 	return &CacheSafeParams{
 		SystemPrompt:    data.SystemPrompt,
 		ContextMessages: data.ContextMessages,
+		Model:           data.Model,
 		ToolUseContext:  nil, // Must be populated by caller.
 	}, nil
 }
@@ -166,5 +171,6 @@ func (p *CacheSafeParams) WithToolUseContext(ctx *tools.UseContext) *CacheSafePa
 		SystemPrompt:    p.SystemPrompt,
 		ContextMessages: p.ContextMessages,
 		ToolUseContext:  ctx,
+		Model:           p.Model,
 	}
 }

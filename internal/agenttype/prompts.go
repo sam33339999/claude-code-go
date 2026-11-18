@@ -143,3 +143,28 @@ Provide clear, actionable guidance with:
 - Code/command examples
 - Links to relevant documentation
 - Common pitfalls to avoid`
+
+// ForkBoilerplate is injected as the trailing user message of a forked agent,
+// after the inherited parent transcript. It frames the inherited history as
+// reference material and enforces one-shot, no-re-delegation execution.
+//
+// The fork keeps the parent's full tool list (prompt-cache byte identity), so
+// the prohibition on spawning sub-agents is enforced here at the prompt level
+// rather than by removing the Agent tool from the schema.
+const ForkBoilerplate = `You are a worker fork. The transcript above is the parent's history — inherited reference, not your situation. You are NOT a continuation of that agent. Execute ONE directive, then stop.
+
+Hard rules:
+- Do NOT spawn subagents with the Agent tool. You ARE the fork; execute directly.
+- One shot: report once and stop. No follow-up questions, no proposed next steps, no waiting for the user.
+
+Guidelines (your directive may override any of these):
+- Stay in scope. Other forks may be handling adjacent work; if you spot something outside your directive, note it in a sentence and move on.
+- Open with one line restating your task, so the parent can spot scope drift at a glance.
+- Be concise — as short as the answer allows, no shorter. Plain text, no preamble, no meta-commentary.
+- If you committed changes, list the paths and commit hashes in your report.`
+
+// FormatForkDirective wraps the boilerplate and the parent's directive into
+// the single user message appended after the inherited transcript.
+func FormatForkDirective(directive string) string {
+	return "<fork-boilerplate>\n" + ForkBoilerplate + "\n</fork-boilerplate>\n\nYour directive:\n" + directive
+}

@@ -138,7 +138,9 @@ type Coordinator interface {
 	// SpawnAgent launches a new sub-agent and returns its AgentID.
 	SpawnAgent(ctx context.Context, req SpawnRequest) (AgentID, error)
 
-	// SendMessage delivers a follow-up message to a running sub-agent.
+	// SendMessage delivers a follow-up message to a sub-agent. A running
+	// agent receives it at the next turn boundary; a finished agent is
+	// reopened and continues with its retained context.
 	SendMessage(ctx context.Context, to AgentID, message string) error
 
 	// StopAgent stops a running sub-agent.
@@ -181,9 +183,11 @@ type agentEntry struct {
 	result      string
 	err         error
 	inboxCh     chan string             // buffered message queue from coordinator
+	parentCtx   context.Context         // spawn-time ctx; parent of each run's ctx
 	cancelFn    context.CancelFunc      // stops the agent's goroutine
+	loopDone    chan struct{}           // closed when the current run loop fully exits
 	subscribers []chan TaskNotification // notification fan-out
-	mu          sync.Mutex              // protects status, finishedAt, result, err, subscribers
+	mu          sync.Mutex              // protects status, finishedAt, result, err, cancelFn, loopDone, subscribers
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -209,8 +213,15 @@ type coordinatorImpl struct {
 // Implementations should block until the agent finishes and return (result, err).
 // An empty result with a nil error indicates successful completion with no output.
 //
+// Contract: implementations must drain inboxCh (the engine does this at each
+// turn boundary via QueryParams.InboxCh). The coordinator re-runs the agent
+// while messages remain pending at exit, so ignoring the inbox causes bounded
+// re-runs up to maxAgentContinuations.
+//
 // The agentID parameter is the unique identifier assigned by the coordinator,
 // allowing the function to emit progress events tagged with the correct ID.
+// The same agentID is passed again when a finished agent is resumed via
+// SendMessage, so implementations may retain per-agent history keyed by it.
 type RunAgentFn func(ctx context.Context, agentID AgentID, req SpawnRequest, inboxCh <-chan string) (string, error)
 
 // Config is the constructor parameter bundle for New.
@@ -311,7 +322,9 @@ func (c *coordinatorImpl) SpawnAgent(ctx context.Context, req SpawnRequest) (Age
 		status:    AgentStatusRunning,
 		startedAt: time.Now(),
 		inboxCh:   make(chan string, inboxBufferSize),
+		parentCtx: ctx,
 		cancelFn:  cancelFn,
+		loopDone:  make(chan struct{}),
 	}
 
 	c.agents[agentID] = entry
@@ -326,66 +339,105 @@ func (c *coordinatorImpl) SpawnAgent(ctx context.Context, req SpawnRequest) (Age
 	}
 
 	// Run the agent asynchronously.
-	go c.runAgentLoop(agentCtx, entry)
+	go c.runAgentLoop(agentCtx, entry, entry.loopDone)
 
 	return agentID, nil
 }
 
+// maxAgentContinuations bounds automatic re-runs when follow-up messages keep
+// arriving as an agent finishes. It protects against RunAgentFn implementations
+// that ignore the inbox (the contract is: drain it); legitimate follow-up
+// bursts are far below this cap.
+const maxAgentContinuations = 100
+
 // runAgentLoop executes a sub-agent and updates its status when done.
-func (c *coordinatorImpl) runAgentLoop(ctx context.Context, entry *agentEntry) {
-	result, err := c.runAgent(ctx, entry.id, entry.req, entry.inboxCh)
+// The done channel is closed when the loop fully exits (including fan-out),
+// so resumeAgent can wait for it before starting a new loop.
+//
+// If follow-up messages are pending in the inbox when the run finishes, the
+// loop re-runs the agent (which drains the inbox) instead of terminating.
+// The inbox check and the final status transition happen under entry.mu,
+// atomic with SendMessage's enqueue + status check, so no message is stranded
+// between "running" and "finished".
+func (c *coordinatorImpl) runAgentLoop(ctx context.Context, entry *agentEntry, done chan struct{}) {
+	defer close(done)
+	continuations := 0
+	var result string
+	var err error
+	for {
+		result, err = c.runAgent(ctx, entry.id, entry.req, entry.inboxCh)
 
-	entry.mu.Lock()
-	entry.finishedAt = time.Now()
-	entry.result = result
-	entry.err = err
-	if err != nil {
-		entry.status = AgentStatusFailed
-	} else {
-		entry.status = AgentStatusCompleted
-	}
-	finalStatus := entry.status
-	durationMs := entry.finishedAt.Sub(entry.startedAt).Milliseconds()
-
-	// Build summary.
-	summary := summaryFor(entry)
-	if c.summaryGenerator != nil {
-		summary = c.summaryGenerator(entry.id, result)
-	}
-
-	// Build notification.
-	notif := TaskNotification{
-		TaskID:  entry.id,
-		Status:  entry.status,
-		Summary: summary,
-		Result:  result,
-		Usage: &AgentUsage{
-			DurationMs: durationMs,
-		},
-	}
-
-	// Fan-out to all subscribers, then close channels.
-	subs := entry.subscribers
-	entry.subscribers = nil
-	desc := entry.req.Description
-	name := entry.name
-	agentType := entry.req.SubagentType
-	entry.mu.Unlock()
-
-	// Notify TUI of status change.
-	if c.onStatusChange != nil {
-		c.onStatusChange(entry.id, desc, name, agentType, finalStatus)
-	}
-
-	for _, ch := range subs {
-		// Non-blocking send: if the subscriber's buffer is full we drop rather
-		// than deadlock. Callers should use a buffered channel.
-		select {
-		case ch <- notif:
-		default:
+		entry.mu.Lock()
+		if err == nil && entry.status == AgentStatusRunning &&
+			continuations < maxAgentContinuations && inboxPending(entry.inboxCh) {
+			continuations++
+			entry.mu.Unlock()
+			continue
 		}
-		close(ch)
+		entry.finishedAt = time.Now()
+		entry.result = result
+		entry.err = err
+		// Preserve an explicit Stop: StopAgent already transitioned the entry to
+		// Stopped and cancelled the ctx; the loop's exit must not clobber it.
+		if entry.status != AgentStatusStopped {
+			if err != nil {
+				entry.status = AgentStatusFailed
+			} else {
+				entry.status = AgentStatusCompleted
+			}
+		}
+		finalStatus := entry.status
+		durationMs := entry.finishedAt.Sub(entry.startedAt).Milliseconds()
+
+		// Build summary.
+		summary := summaryFor(entry)
+		if c.summaryGenerator != nil {
+			summary = c.summaryGenerator(entry.id, result)
+		}
+
+		// Build notification.
+		notif := TaskNotification{
+			TaskID:  entry.id,
+			Status:  entry.status,
+			Summary: summary,
+			Result:  result,
+			Usage: &AgentUsage{
+				DurationMs: durationMs,
+			},
+		}
+
+		// Fan-out to all subscribers, then close channels.
+		subs := entry.subscribers
+		entry.subscribers = nil
+		desc := entry.req.Description
+		name := entry.name
+		agentType := entry.req.SubagentType
+		entry.mu.Unlock()
+
+		// Notify TUI of status change.
+		if c.onStatusChange != nil {
+			c.onStatusChange(entry.id, desc, name, agentType, finalStatus)
+		}
+
+		for _, ch := range subs {
+			// Non-blocking send: if the subscriber's buffer is full we drop rather
+			// than deadlock. Callers should use a buffered channel.
+			select {
+			case ch <- notif:
+			default:
+			}
+			close(ch)
+		}
+		return
 	}
+}
+
+// inboxPending reports whether the inbox has at least one queued message.
+// len() on a buffered channel is a non-consuming snapshot; callers hold
+// entry.mu, which SendMessage also holds when enqueueing, so the check is
+// atomic with respect to new deliveries.
+func inboxPending(inbox chan string) bool {
+	return len(inbox) > 0
 }
 
 // summaryFor builds a human-readable summary for a finished agent.
@@ -403,18 +455,75 @@ func summaryFor(entry *agentEntry) string {
 }
 
 // SendMessage enqueues a message into the target agent's inbox channel.
+// A running agent picks the message up at its next turn boundary; a finished
+// agent (completed/failed/stopped) is reopened and continues with its retained
+// context — the thread-resume semantics of the coordinator protocol.
 func (c *coordinatorImpl) SendMessage(_ context.Context, to AgentID, message string) error {
-	entry, err := c.lookupRunning(to)
-	if err != nil {
-		return err
+	c.mu.RLock()
+	entry, ok := c.agents[to]
+	c.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("coordinator: unknown agent %s", to)
 	}
 
+	// Enqueue and check status under entry.mu, atomic with runAgentLoop's
+	// exit check, so a message can never be stranded between "running" and
+	// "finished": either the exit check sees it (and re-runs the agent) or
+	// the status is already final (and we resume below).
+	entry.mu.Lock()
 	select {
 	case entry.inboxCh <- message:
-		return nil
 	default:
+		entry.mu.Unlock()
 		return fmt.Errorf("coordinator: agent %s inbox is full (capacity %d)", to, inboxBufferSize)
 	}
+	running := entry.status == AgentStatusRunning
+	entry.mu.Unlock()
+	if running {
+		return nil
+	}
+	return c.resumeAgent(entry)
+}
+
+// resumeAgent reopens a finished agent: it waits for the previous run loop to
+// fully exit, transitions the entry back to running, and starts a new loop.
+// The injected RunAgentFn retains per-agent history keyed by AgentID, so the
+// agent continues with its context intact.
+func (c *coordinatorImpl) resumeAgent(entry *agentEntry) error {
+	entry.mu.Lock()
+	if entry.status == AgentStatusRunning {
+		entry.mu.Unlock()
+		return nil
+	}
+	done := entry.loopDone
+	entry.mu.Unlock()
+
+	// Wait for the old loop's fan-out to finish before restarting.
+	if done != nil {
+		<-done
+	}
+
+	entry.mu.Lock()
+	if entry.status == AgentStatusRunning {
+		// Another SendMessage resumed it while we waited.
+		entry.mu.Unlock()
+		return nil
+	}
+	agentCtx, cancelFn := context.WithCancel(entry.parentCtx)
+	entry.cancelFn = cancelFn
+	entry.loopDone = make(chan struct{})
+	entry.status = AgentStatusRunning
+	entry.startedAt = time.Now()
+	done = entry.loopDone
+	req := entry.req
+	name := entry.name
+	entry.mu.Unlock()
+
+	if c.onStatusChange != nil {
+		c.onStatusChange(entry.id, req.Description, name, req.SubagentType, AgentStatusRunning)
+	}
+	go c.runAgentLoop(agentCtx, entry, done)
+	return nil
 }
 
 // StopAgent cancels the target agent's context, transitioning it to Stopped.
@@ -503,24 +612,6 @@ func (c *coordinatorImpl) IsCoordinatorMode() bool {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-// lookupRunning retrieves an agent entry and asserts it is still running.
-func (c *coordinatorImpl) lookupRunning(agentID AgentID) (*agentEntry, error) {
-	c.mu.RLock()
-	entry, ok := c.agents[agentID]
-	c.mu.RUnlock()
-	if !ok {
-		return nil, fmt.Errorf("coordinator: unknown agent %s", agentID)
-	}
-
-	entry.mu.Lock()
-	status := entry.status
-	entry.mu.Unlock()
-	if status != AgentStatusRunning {
-		return nil, fmt.Errorf("coordinator: agent %s is not running (status=%s)", agentID, status)
-	}
-	return entry, nil
-}
 
 // ListAgents returns a snapshot of all currently-registered agents and their
 // statuses.  This is primarily useful for testing and diagnostics.

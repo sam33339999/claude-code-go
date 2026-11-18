@@ -68,6 +68,11 @@ type QueryParams struct {
 	// Model overrides the engine's default model for this query.
 	// If empty, the engine's configured model is used.
 	Model string
+	// InboxCh delivers follow-up messages from the coordinator while the loop
+	// runs (sub-agent "thread" messaging). Messages are drained at each turn
+	// boundary and appended as user messages, preserving the cached prefix.
+	// Nil disables inbox draining.
+	InboxCh <-chan string
 }
 
 // TaskBudget defines an optional task-level output token budget.

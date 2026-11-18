@@ -31,9 +31,9 @@ func TestFormatAgentsList_ShadowingAndGroups(t *testing.T) {
 	if err != nil {
 		t.Fatalf("format: %v", err)
 	}
-	// active = beta(1) + alpha,gamma(2) + 5 builtins = 8
-	if !strings.Contains(out, "8 active agents") {
-		t.Errorf("expected 8 active agents, got:\n%s", out)
+	// active = beta(1) + alpha,gamma(2) + 6 builtins = 9
+	if !strings.Contains(out, "9 active agents") {
+		t.Errorf("expected 9 active agents, got:\n%s", out)
 	}
 	if !strings.Contains(out, "(shadowed by project) alpha · sonnet") {
 		t.Errorf("expected user alpha shadowed by project, got:\n%s", out)
@@ -99,8 +99,8 @@ func TestFormatAgentsList_BuiltinsOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "5 active agents") || !strings.Contains(out, "Built-in agents:") {
-		t.Errorf("expected 5 builtin agents, got:\n%s", out)
+	if !strings.Contains(out, "6 active agents") || !strings.Contains(out, "Built-in agents:") {
+		t.Errorf("expected 6 builtin agents, got:\n%s", out)
 	}
 	if strings.Contains(out, "User agents:") || strings.Contains(out, "Project agents:") {
 		t.Errorf("empty dirs must not render custom groups, got:\n%s", out)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/tunsuy/claude-code-go/internal/agentctx"
 	"github.com/tunsuy/claude-code-go/internal/agenttype"
@@ -485,7 +486,13 @@ var coordinatorToolNames = map[string]bool{
 //   - Model selection (from profile or request override)
 //
 // Sub-agents do NOT have access to coordinator tools (TaskCreate, Agent, etc.)
-// to prevent infinite recursion.
+// to prevent infinite recursion — except forks, which inherit the parent's
+// full tool list for prompt-cache byte identity and are forbidden from
+// re-delegating by the fork boilerplate at the prompt level instead.
+//
+// All sub-agents run with NoWriteBack so they never overwrite the parent
+// conversation. Each agent's final query state is retained so SendMessage can
+// continue a finished agent with its context intact (thread reopen).
 func buildRunAgentFn(
 	eng engine.QueryEngine,
 	reg *tools.Registry,
@@ -494,7 +501,11 @@ func buildRunAgentFn(
 	agentProfiles *agenttype.Registry,
 ) coordinator.RunAgentFn {
 	parentModel := appState.MainLoopModel.ModelID
-	return func(ctx context.Context, agentID coordinator.AgentID, req coordinator.SpawnRequest, _ <-chan string) (string, error) {
+	// runStates retains per-agent query state (params + latest history) for
+	// resume-on-message. sync.Map is safe for concurrent access; values are
+	// engine.QueryParams with Messages holding the collected conversation.
+	var runStates sync.Map
+	return func(ctx context.Context, agentID coordinator.AgentID, req coordinator.SpawnRequest, inboxCh <-chan string) (string, error) {
 		desc := req.Description
 		agentName := req.Name
 		agentTypeName := req.SubagentType
@@ -513,72 +524,19 @@ func buildRunAgentFn(
 			}
 		}
 
-		// Look up the agent profile by type key or display name.
-		profile, ok := agentProfiles.Resolve(agentTypeName)
-		if !ok {
-			// Fallback to worker profile.
-			profile, _ = agentProfiles.Get(agenttype.AgentTypeWorker)
-		}
-
-		// Build system prompt: request override > profile > default.
-		promptText := ""
-		if req.SystemPromptOverride != "" {
-			promptText = req.SystemPromptOverride
-		} else if profile != nil && profile.SystemPrompt != "" {
-			promptText = profile.SystemPrompt
-		} else {
-			promptText = "You are a worker agent. Complete the task described below. Be concise and thorough."
-		}
-
-		systemPrompt := engine.SystemPrompt{
-			Parts: []engine.SystemPromptPart{
-				{Text: promptText},
-			},
-		}
-
-		// Build ExcludeTools from profile.
-		excludeTools := buildExcludeToolsFromProfile(profile, reg, req.AllowedTools, req.DenyTools)
-
-		// Resolve model: env > request > profile > inherit.
-		profileModel := ""
-		if profile != nil {
-			profileModel = profile.Model
-		}
-		queryModel := agenttype.ResolveModel(parentModel, req.Model, profileModel)
-
-		// Build the initial user message.
-		userMsg := types.Message{
-			Role: "user",
-			Content: []types.ContentBlock{
-				{Type: types.ContentTypeText, Text: strPtr(req.Prompt)},
-			},
-		}
+		params, seed := buildSubAgentQuery(req, reg, agentProfiles, parentModel, inboxCh, &runStates, agentID)
 
 		// Inject AgentID into context for downstream use.
 		agentCtx := agentctx.WithAgentID(ctx, string(agentID))
 
-		// Create a UseContext for the sub-agent.
+		// Create a fresh UseContext for the sub-agent.
 		// NOTE: Coordinator is intentionally nil — sub-agents must NOT spawn
-		// further sub-agents.
-		uctx := &tools.UseContext{
+		// further sub-agents. For forks the Agent tool stays in the schema
+		// (cache identity) but fails closed here if called anyway.
+		params.ToolUseContext = &tools.UseContext{
 			Ctx:     agentCtx,
 			AbortCh: make(chan struct{}),
 			AgentID: string(agentID),
-		}
-
-		maxTurns := req.MaxTurns
-		if profile != nil && profile.MaxTurns > 0 && maxTurns == coordinator.DefaultMaxTurns {
-			maxTurns = profile.MaxTurns
-		}
-
-		params := engine.QueryParams{
-			Messages:       []types.Message{userMsg},
-			SystemPrompt:   systemPrompt,
-			ToolUseContext: uctx,
-			QuerySource:    "sub-agent",
-			MaxTurns:       maxTurns,
-			ExcludeTools:   excludeTools,
-			Model:          queryModel,
 		}
 
 		// Run the query loop.
@@ -589,48 +547,213 @@ func buildRunAgentFn(
 
 		emitProgress("Starting", desc)
 
-		// Collect the final assistant text while forwarding progress events.
-		var lastText string
-		for msg := range msgCh {
-			switch msg.Type {
-			case engine.MsgTypeStreamText:
-				lastText += msg.TextDelta
-				// Throttle: only report the tail of streamed text.
-				tail := lastText
-				if len(tail) > 80 {
-					tail = "…" + tail[len(tail)-77:]
-				}
-				emitProgress("Streaming", tail)
+		lastText, collected, runErr := collectSubAgentRun(msgCh, seed, emitProgress)
 
-			case engine.MsgTypeToolUseStart:
-				emitProgress("Running "+msg.ToolName, "")
+		// Retain the final state for resume-on-message (even on error, so a
+		// follow-up can pick up where the agent left off).
+		params.Messages = collected
+		params.ToolUseContext = nil
+		params.InboxCh = nil
+		runStates.Store(agentID, params)
 
-			case engine.MsgTypeToolUseInputDelta:
-				emitProgress("Running "+msg.ToolName, truncateDetail(msg.InputDelta))
-
-			case engine.MsgTypeToolResult:
-				if msg.ToolResult != nil {
-					status := "✓"
-					if msg.ToolResult.IsError {
-						status = "✗"
-					}
-					emitProgress("Tool result "+status, truncateDetail(msg.ToolResult.Content))
-				}
-
-			case engine.MsgTypeError:
-				if msg.Err != nil {
-					return "", msg.Err
-				}
-
-			default:
-				// Consume other events (thinking, assistant/user turn, etc.).
-			}
+		if runErr != nil {
+			return "", runErr
 		}
-
 		emitProgress("Completed", "")
-
 		return lastText, nil
 	}
+}
+
+// buildSubAgentQuery assembles QueryParams and the seed message history for a
+// sub-agent run. A retained run state (resume) takes precedence over the
+// initial prompt; forks inherit the parent's cache-safe prefix when available.
+func buildSubAgentQuery(
+	req coordinator.SpawnRequest,
+	reg *tools.Registry,
+	agentProfiles *agenttype.Registry,
+	parentModel string,
+	inboxCh <-chan string,
+	runStates *sync.Map,
+	agentID coordinator.AgentID,
+) (engine.QueryParams, []types.Message) {
+	// Resume: continue the retained conversation with identical prompt/tools/
+	// model (cache continuity). The new trigger message arrives via the inbox
+	// and is drained at the first turn boundary.
+	if prev, ok := runStates.Load(agentID); ok {
+		if params, ok := prev.(engine.QueryParams); ok && len(params.Messages) > 0 {
+			params.InboxCh = inboxCh
+			params.ToolUseContext = nil // rebuilt by the caller
+			return params, params.Messages
+		}
+	}
+
+	// Look up the agent profile by type key or display name.
+	profile, ok := agentProfiles.Resolve(req.SubagentType)
+	if !ok {
+		// Fallback to worker profile.
+		profile, _ = agentProfiles.Get(agenttype.AgentTypeWorker)
+	}
+
+	maxTurns := req.MaxTurns
+	if profile != nil && profile.MaxTurns > 0 && maxTurns == coordinator.DefaultMaxTurns {
+		maxTurns = profile.MaxTurns
+	}
+
+	if req.SubagentType == string(agenttype.AgentTypeFork) {
+		return buildForkQuery(req, parentModel, inboxCh, maxTurns)
+	}
+
+	// Build system prompt: request override > profile > default.
+	promptText := ""
+	if req.SystemPromptOverride != "" {
+		promptText = req.SystemPromptOverride
+	} else if profile != nil && profile.SystemPrompt != "" {
+		promptText = profile.SystemPrompt
+	} else {
+		promptText = "You are a worker agent. Complete the task described below. Be concise and thorough."
+	}
+
+	systemPrompt := engine.SystemPrompt{
+		Parts: []engine.SystemPromptPart{
+			{Text: promptText},
+		},
+	}
+
+	// Build ExcludeTools from profile.
+	excludeTools := buildExcludeToolsFromProfile(profile, reg, req.AllowedTools, req.DenyTools)
+
+	// Resolve model: env > request > profile > inherit.
+	profileModel := ""
+	if profile != nil {
+		profileModel = profile.Model
+	}
+	queryModel := agenttype.ResolveModel(parentModel, req.Model, profileModel)
+
+	// Build the initial user message.
+	userMsg := types.Message{
+		Role: "user",
+		Content: []types.ContentBlock{
+			{Type: types.ContentTypeText, Text: strPtr(req.Prompt)},
+		},
+	}
+	messages := []types.Message{userMsg}
+
+	return engine.QueryParams{
+		Messages:     messages,
+		SystemPrompt: systemPrompt,
+		QuerySource:  "sub-agent",
+		MaxTurns:     maxTurns,
+		ExcludeTools: excludeTools,
+		Model:        queryModel,
+		NoWriteBack:  true,
+		InboxCh:      inboxCh,
+	}, messages
+}
+
+// buildForkQuery builds the query for a forked agent: the parent's cache-safe
+// prefix (system prompt + history snapshot) followed by the fork boilerplate
+// and directive as a trailing user message. The tool list is NOT filtered so
+// schema bytes match the parent's request and the prompt cache hits. The fork
+// always inherits the parent's model. Without a parent snapshot (e.g. tests)
+// it degrades to a fresh one-shot agent with the boilerplate as system prompt.
+func buildForkQuery(
+	req coordinator.SpawnRequest,
+	parentModel string,
+	inboxCh <-chan string,
+	maxTurns int,
+) (engine.QueryParams, []types.Message) {
+	systemPrompt := engine.SystemPrompt{
+		Parts: []engine.SystemPromptPart{{Text: agenttype.ForkBoilerplate}},
+	}
+	model := parentModel
+	var prefix []types.Message
+	if cache, ok := req.CacheParams.(*engine.CacheSafeParams); ok && cache != nil {
+		systemPrompt = cache.SystemPrompt
+		prefix = cache.ContextMessages
+		if cache.Model != "" {
+			model = cache.Model
+		}
+	}
+
+	directive := types.Message{
+		Role: "user",
+		Content: []types.ContentBlock{
+			{Type: types.ContentTypeText, Text: strPtr(agenttype.FormatForkDirective(req.Prompt))},
+		},
+	}
+	messages := make([]types.Message, 0, len(prefix)+1)
+	messages = append(messages, prefix...)
+	messages = append(messages, directive)
+
+	return engine.QueryParams{
+		Messages:     messages,
+		SystemPrompt: systemPrompt,
+		QuerySource:  "background",
+		MaxTurns:     maxTurns,
+		Model:        model,
+		NoWriteBack:  true,
+		InboxCh:      inboxCh,
+		// ExcludeTools intentionally nil: full parent tool list (cache identity).
+	}, messages
+}
+
+// collectSubAgentRun drains the engine event channel, forwarding progress
+// events and collecting the conversation history (assistant + user messages)
+// for retention. It returns the final streamed text, the collected history
+// seeded with the initial messages, and any engine error.
+func collectSubAgentRun(
+	msgCh <-chan engine.Msg,
+	seed []types.Message,
+	emitProgress func(activity, detail string),
+) (string, []types.Message, error) {
+	collected := append([]types.Message(nil), seed...)
+	var lastText string
+	for msg := range msgCh {
+		switch msg.Type {
+		case engine.MsgTypeAssistantMessage:
+			if msg.AssistantMsg != nil {
+				collected = append(collected, *msg.AssistantMsg)
+			}
+
+		case engine.MsgTypeUserMessage:
+			if msg.UserMsg != nil {
+				collected = append(collected, *msg.UserMsg)
+			}
+
+		case engine.MsgTypeStreamText:
+			lastText += msg.TextDelta
+			// Throttle: only report the tail of streamed text.
+			tail := lastText
+			if len(tail) > 80 {
+				tail = "…" + tail[len(tail)-77:]
+			}
+			emitProgress("Streaming", tail)
+
+		case engine.MsgTypeToolUseStart:
+			emitProgress("Running "+msg.ToolName, "")
+
+		case engine.MsgTypeToolUseInputDelta:
+			emitProgress("Running "+msg.ToolName, truncateDetail(msg.InputDelta))
+
+		case engine.MsgTypeToolResult:
+			if msg.ToolResult != nil {
+				status := "✓"
+				if msg.ToolResult.IsError {
+					status = "✗"
+				}
+				emitProgress("Tool result "+status, truncateDetail(msg.ToolResult.Content))
+			}
+
+		case engine.MsgTypeError:
+			if msg.Err != nil {
+				return lastText, collected, msg.Err
+			}
+
+		default:
+			// Consume other events (thinking, turn complete, etc.).
+		}
+	}
+	return lastText, collected, nil
 }
 
 // buildExcludeToolsFromProfile computes the ExcludeTools map from an agent profile,

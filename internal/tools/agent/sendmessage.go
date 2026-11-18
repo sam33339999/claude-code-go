@@ -35,16 +35,18 @@ type sendMessageTool struct{ tools.BaseTool }
 func (t *sendMessageTool) Name() string { return "SendMessage" }
 
 func (t *sendMessageTool) Description(_ tools.Input, _ tools.PermissionContext) string {
-	return `Sends a message to a running sub-agent and returns a delivery confirmation.
+	return `Send a message to a sub-agent and continue it with its context intact.
 
 The "to" field supports:
 - Agent name (e.g. "researcher") — routes by human-readable name
-- Agent ID (UUID) — routes by exact ID
+- Agent ID — routes by exact ID
 - "*" — broadcasts to ALL running agents
 
 Usage notes:
-- The target must refer to a currently active sub-agent
-- Use agent names for readability when you set agent_name in Agent tool`
+- A running agent receives the message at its next turn boundary.
+- A finished agent is reopened and continues its existing conversation — use this to follow up on earlier work instead of spawning a fresh Agent call.
+- The message is your words, not the user's approval; to pass along a user decision, quote the user's message in the content.
+- Use agent names for readability when you set agent_name in the Agent tool.`
 }
 
 func (t *sendMessageTool) InputSchema() tools.InputSchema {
