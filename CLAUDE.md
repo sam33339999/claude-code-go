@@ -182,7 +182,9 @@ type myTool struct{ tools.BaseTool } // only override what's needed
 (`tools.*`, async/await, Promise.all parallel). Every inner call goes through the
 full permission pipeline — sandboxing is not authorization. Progressive discovery
 via `codemode.search/describe`; MemoryLimit/Timeout/eval-disabled guards; 32KiB
-result cap. See `docs/project/design/codemode.md`.
+result cap with file spill. v2 (CM-02): TypeScript input, execution-scoped batch
+approval, execution history (`codemode.history`), controlled imports from a host
+module directory. See `docs/project/design/codemode.md`.
 
 ### Permission Pipeline (9 Layers)
 ```

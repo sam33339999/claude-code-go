@@ -2,7 +2,7 @@
 package: codemode
 import_path: internal/codemode
 layer: unknown
-generated_at: 2026-11-18T06:40:49Z
+generated_at: 2026-11-18T07:01:17Z
 source_files: [catalog.go, moejs.go, runtime.go]
 ---
 
@@ -25,7 +25,7 @@ type Runtime interface {
 
 - **CatalogEntry** — 3 fields: Name, Description, InputSchema
 - **MoejsRuntime**
-- **Options** — 4 fields: Timeout, MemoryLimit, Search, Describe
+- **Options** — 7 fields: Timeout, MemoryLimit, Search, Describe, Typescript, ImportModule, History
 - **Result** — 2 fields: Value, Logs
 
 ## Function Types
@@ -66,3 +66,4 @@ type Runtime interface {
 ## Design Notes
 
 - **2026-11-18 CM-01 Code Mode 引擎**：moejs v0.1.1（纯 Go、alpha 钉版）；Runtime 介面隔离引擎（goja fallback 预留）。沙箱：DisableDynamicCode、MemoryLimit 64MiB、Timeout 120s、ctx/AbortCh→Interrupt；唯一对外通道 CallFunc bridge（权限管线在 tools/codemode 侧）。代码契约＝async 函数 body，.then 捕获 return/rejection（Error.message 字串化）。tools.* 经 Proxy 动态分发；__call 回传 promise＋跨 goroutine settle＝真并行（实测 3×60ms≈60ms）。catalog/search/describe 为 progressive discovery（构造期快照，会话钉住）。
+- **2026-11-18 CM-02 v2**：Options.Typescript（CompileTS＋rt.Load 路径）；Options.ImportModule（moejs.Importer.Resolve→host resolver→Compile，沙箱 import 受控）；Options.History（__history native＋codemode.history）。引擎仍无状态，每次 Execute 新建隔离 runtime。

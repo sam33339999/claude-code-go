@@ -201,7 +201,8 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 		},
 	})
 	// CM-01: CodeMode sandbox tool — every inner call goes through permChecker.
-	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime()))
+	// CM-02: dataDir roots history/spill/controlled-import modules.
+	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime(), filepath.Join(opts.HomeDir, ".claude", "codemode")))
 
 	// ── Phase 7.5: StopHook registry (memory extraction) ────────────────────
 	stopHooks := engine.NewStopHookRegistry()
@@ -339,7 +340,8 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 		},
 	})
 	// CM-01: CodeMode sandbox tool — every inner call goes through permChecker.
-	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime()))
+	// CM-02: dataDir roots history/spill/controlled-import modules.
+	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime(), filepath.Join(opts.HomeDir, ".claude", "codemode")))
 
 	// ── Phase 7.5: StopHook registry ─────────────────────────────────────────
 	stopHooksTest := engine.NewStopHookRegistry()
