@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version"></a>
+  <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version"></a>
   <a href="https://goreportcard.com/report/github.com/tunsuy/claude-code-go"><img src="https://goreportcard.com/badge/github.com/tunsuy/claude-code-go?style=flat-square" alt="Go Report Card"></a>
   <a href="https://codecov.io/gh/tunsuy/claude-code-go"><img src="https://codecov.io/gh/tunsuy/claude-code-go/branch/main/graph/badge.svg?style=flat-square" alt="カバレッジ"></a>
   <a href="https://pkg.go.dev/github.com/tunsuy/claude-code-go"><img src="https://pkg.go.dev/badge/github.com/tunsuy/claude-code-go.svg" alt="Go Reference"></a>
@@ -22,6 +22,7 @@
 <p align="center">
   <a href="README.md">English</a> •
   <a href="README.zh-CN.md">简体中文</a> •
+  <a href="README.zh-TW.md">繁體中文</a> •
   <a href="README.ja.md">日本語</a> •
   <a href="README.ko.md">한국어</a> •
   <a href="README.es.md">Español</a> •
@@ -66,11 +67,12 @@
 ## 機能
 
 - **インタラクティブ TUI** — [Bubble Tea](https://github.com/charmbracelet/bubbletea) で構築されたフル機能のターミナル UI、ダーク/ライトテーマ対応
-- **エージェントツール使用** — 34 の組み込みツール（ファイル、シェル、検索、Web、タスク、サブエージェントなど）、すべて 9 層の権限パイプラインを通じて制御
+- **エージェントツール使用** — 35 の組み込みツール（ファイル、シェル、検索、Web、タスク、サブエージェントなど）、すべて 9 層の権限パイプラインを通じて制御
+- **Code Mode** — モデルが JavaScript/TypeScript を書き、1 回のサンドボックス実行で複数のツール呼び出しを合成（pure Go [moejs](https://github.com/MoeForge/moejs) エンジン）：replay、再利用スニペット、書き込み監査、バッチ承認——[Code Mode](#code-mode) 参照
 - **CLI サブコマンド** — `claude mcp …`、`claude plugin …`、`claude auth …`、`claude doctor`、`claude update`。`mcp` と `plugin` グループは TypeScript CLI とバイト単位で同一の出力を生成
 - **プラグイン管理** — ローカルマーケットプレイスからプラグインをインストール/有効化/無効化、マニフェストの完全検証付き（`claude plugin validate`）
 - **マルチエージェント連携** — 並列タスク用のバックグラウンドサブエージェントを起動
-- **MCP サポート** — [Model Context Protocol](https://modelcontextprotocol.io) 経由で外部ツールを接続（stdio + HTTP トランスポート）、Claude Desktop からインポート可能
+- **MCP サポート** — [Model Context Protocol](https://modelcontextprotocol.io) 経由で外部ツールを接続（stdio + HTTP + WebSocket トランスポート）、Claude Desktop からインポート可能；サーバープッシュ通知がイベント駆動でエージェントを起動（ゼロポーリング）
 - **CLAUDE.md メモリ** — ディレクトリツリー上の `CLAUDE.md` ファイルからプロジェクトコンテキストを自動読み込み
 - **セッション管理** — 以前の会話を再開；長い履歴は自動圧縮
 - **Vim モード** — 入力エリアでオプションの Vim キーバインディング
@@ -104,7 +106,7 @@ Claude Code Go は 6 層構造で構成されています：
 
 ## 必要条件
 
-- Go 1.21 以降
+- Go 1.26 以降
 - [Anthropic API キー](https://console.anthropic.com/) **または** Claude.ai アカウント（OAuth）
 
 ## インストール
@@ -315,7 +317,59 @@ claude [flags]
 | `/diff` | 現在の git diff を表示 |
 | `/init` | このプロジェクト用の CLAUDE.md を生成 |
 
-`/config`、`/mcp`、`/resume`、`/terminal-setup` は登録済みですが、まだ実装されていません — 当面は、MCP 管理に上記の CLI サブコマンドを使用してください。
+`/config`、`/mcp`、`/resume`、`/terminal-setup` はすべて完全に実装済みです（セッション再開、MCP ステータス、対話型設定、ターミナルキーバインド設定）。
+
+## Code Mode
+
+モデルは「1 回の LLM 往復で 1 ツール」ではなく、**JavaScript/TypeScript を書いて 1 回のサンドボックス実行で複数のツール呼び出しを合成**します——`CodeMode` ツール、pure Go の [moejs](https://github.com/MoeForge/moejs) エンジン（CGO 不要）。中間データはサンドボックス内に留まり、戻り値と `console.log` 出力だけがモデルに返ります（往復削減、コンテキスト節約）。
+
+```js
+// モデルが書き、サンドボックスで実行：
+const src = await tools.Read({ file_path: "main.go" });
+const todos = src.split("\n").filter(l => l.includes("TODO"));
+console.log("found", todos.length);
+return { count: todos.length, lines: todos };
+```
+
+### サンドボックス API
+
+| サンドボックス内 | 機能 |
+|------------------|------|
+| `tools.<Name>(input)` | 登録済みツールを呼び出し（非同期）。`Promise.all` で並列実行。**すべての呼び出しが完全な権限パイプラインを通過。** |
+| `codemode.search(query)` / `describe(name)` | 段階的ツール発見（キーワード順位 → 必要時に完全スキーマ） |
+| `codemode.history(limit)` | 最近の実行履歴（id、code、結果）を再利用 |
+| `codemode.replay(id)` | 記録された実行を再実行——権限は通常どおり適用 |
+| `codemode.run(name)` / `snippets()` | 名前付き再利用スニペットの実行/一覧 |
+| `codemode.audit(id)` | 1 回の実行で記録された書き込み副作用 |
+| `codemode.approvals()` / `revoke(tool)` | CodeMode スコープの永続承認の一覧/取り消し |
+| `import { x } from "name"` | ホスト管理ディレクトリの制御された共有モジュール |
+| `console.log(...)` | キャプチャされる出力 |
+
+ツール入力フィールド：`code`、`typescript`（型剥離コンパイル）、`replay`（履歴 id で再実行）、`save_as`（成功した実行を名前付きスニペットとして保存）、`batch_writes`（すべての書き込みを 1 回の承認で）。
+
+### 安全モデル
+
+- **サンドボックス化は認可ではない**——内部の各ツール呼び出しは直接呼び出しと同じ 9 層権限パイプラインを実行。ファイルシステム/ネットワーク/env/`eval` アクセスなし；実行はタイムアウトとメモリ上限で制限。
+- **バッチ承認**——ツールがプロンプトを表示しあなたが承認すると、その実行内の*同じ*ツールへの後続呼び出しは事前承認（実行スコープのみ）。ルールによる直接許可は毎回再チェックされるため、Shift+Tab の権限モード切替が即座に反映。拒否は決してキャッシュしない。
+- **永続承認**——権限ダイアログに「CodeMode 内で *tool* を常に許可」オプション：CodeMode スコープ、ユーザー自身が付与、取り消し可能（`codemode.revoke`）。Deny ルールが常に優先。
+- **Write ゲート**——`batch_writes: true` の場合、最初の書き込み呼び出しで 1 回だけ確認（実行全体のスコープ説明付き）、その決定が実行内のすべての書き込みをカバー。読み取りは通常フロー。
+- **結果スピル**——32 KiB 超の出力はファイルに書き込まれ、モデルは 4 KiB プレビュー＋ポインタを受け取る（`Read`/`Grep` 可能）。
+
+### ワークフロー機能
+
+- **Replay**：任意の記録済み実行を id で再実行（`replay` 入力または `codemode.replay`）、履歴に `replay_of` 来歴付き。
+- **Snippets**：成功した実行を名前付き再利用スクリプトに（`save_as` → `codemode.run`）。スニペットは完全なコードを保存；ネスト実行は呼び出し元の承認スコープを共有（再帰深度上限 3）。
+- **書き込み監査**：実際に実行された各書き込み呼び出しを記録（ツール＋入力要約）——*何が変わったか*の正直な追跡、`codemode.audit` で照会。
+
+ランタイムデータは `~/.claude/codemode/` 配下：`history.jsonl`、`spill/`、`modules/`、`snippets/`、`approvals.json`。
+
+### イベント駆動スタンバイ（ゼロポーリング）
+
+MCP サーバーのプッシュ通知はメッセージキューにルーティングされ、エージェントを自動で起こします——トークンを消費するポーリングループは不要。Code Mode と組み合わせ：スクリプトがハンドシェイク/サブスクリプションを行い、エージェントは待機、サービス通知が次の実行をトリガー（スニペットロジックを再利用可能）。
+
+**既知の制限**：自動ロールバックなし（監査証跡が変更内容を伝える；git チェックポイント復元は評価中）、replay は記録されたコードを使用（≤2000 文字——長いワークフローはスニペットに保存）、write ゲートは完全な二段階計画プレビューではなく最初の具体的な書き込み＋スコープ説明に基づく。
+
+設計詳細：[`docs/project/design/codemode.md`](docs/project/design/codemode.md)。
 
 ## AI エージェントによる開発
 
@@ -343,7 +397,7 @@ QA Agent          →  テスト戦略、各層の受け入れテスト、統合
 
 ### 前提条件
 
-- Go 1.21+
+- Go 1.26+
 - `golangci-lint`（オプション、リンティング用）
 
 ### ビルド＆テスト
@@ -374,6 +428,7 @@ make all
 
 最近のマイルストーン：
 
+- **2026-11-18** — Code Mode v1→v3（サンドボックス JS/TS ツール合成：バッチ承認、TypeScript、履歴、スピル、制御 import、replay、スニペット、書き込み監査、永続承認、write ゲート）；MCP イベント駆動ウェイク（サーバー通知→エージェント、ゼロポーリング）；カーネルを本リポジトリに再内部化（外部エンジン依存なし）；Bubble Tea v2 移行；ユーザーに見えるスタブ 26 個をすべて埋め戻し（負債：スタブ 0）
 - **2026-09-05** — `mcp`（7 コマンド）と `plugin`（8 コマンド + `marketplace` サブツリー）の CLI グループが投入され、出力は TS CLI とバイト単位で同一に。ユーザーに見えるスタブを 42 → 27 に削減
 - **2026-08-30** — `--version` フォーマットのパリティ；TS CLI に対するサブコマンドの全インベントリ（§B11）
 - **2026-08-29** — 保守モードのプロセスが導入：CI で強制される負債レッドライン、パリティテストスケルトン
@@ -383,11 +438,12 @@ make all
 ### 現在の状態
 
 ```
-✅ 完了: コアエンジン + ストリーミング、TUI、34 ツール、17 スラッシュコマンド（うち 4 つはスタブ）、
-         mcp/plugin/auth/doctor CLI サブコマンド、9 層権限パイプライン、
-         コンテキスト圧縮（snip/micro/auto）、OAuth、セッション永続化
+✅ 完了: コアエンジン + ストリーミング、TUI、35 ツール + Code Mode サンドボックス（v3）、
+         17 スラッシュコマンド、mcp/plugin/auth/doctor CLI サブコマンド、9 層権限パイプライン、
+         コンテキスト圧縮（snip/micro/auto）、OAuth、セッション永続化、
+         MCP イベント駆動ウェイク（ゼロポーリング）
 🔧 モード: 保守 — TypeScript CLI に対するギャップ台帳駆動のパリティ作業
-📉 負債: 56 TODO(dep) / 27 ユーザーに見えるスタブ、CI で強制される増加禁止レッドライン
+📉 負債: 11 TODO(dep) / 0 ユーザーに見えるスタブ、CI で強制される増加禁止レッドライン
 🚀 リリース: v0.8.0、5 プラットフォーム向けバイナリ
 ```
 

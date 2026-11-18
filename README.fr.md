@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Version Go"></a>
+  <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Version Go"></a>
   <a href="https://goreportcard.com/report/github.com/tunsuy/claude-code-go"><img src="https://goreportcard.com/badge/github.com/tunsuy/claude-code-go?style=flat-square" alt="Go Report Card"></a>
   <a href="https://codecov.io/gh/tunsuy/claude-code-go"><img src="https://codecov.io/gh/tunsuy/claude-code-go/branch/main/graph/badge.svg?style=flat-square" alt="Couverture"></a>
   <a href="https://pkg.go.dev/github.com/tunsuy/claude-code-go"><img src="https://pkg.go.dev/badge/github.com/tunsuy/claude-code-go.svg" alt="Go Reference"></a>
@@ -22,6 +22,7 @@
 <p align="center">
   <a href="README.md">English</a> •
   <a href="README.zh-CN.md">简体中文</a> •
+  <a href="README.zh-TW.md">繁體中文</a> •
   <a href="README.ja.md">日本語</a> •
   <a href="README.ko.md">한국어</a> •
   <a href="README.es.md">Español</a> •
@@ -64,11 +65,12 @@ Ce projet est une **réimplémentation complète en Go de [Claude Code](https://
 ## Fonctionnalités
 
 - **TUI interactive** — Interface terminal complète construite avec [Bubble Tea](https://github.com/charmbracelet/bubbletea), avec thèmes sombre/clair
-- **Utilisation d'outils agentiques** — 34 outils intégrés (fichier, shell, recherche, web, tâches, sous-agents, …), tous médiés par un pipeline de permissions à 9 couches
+- **Utilisation d'outils agentiques** — 35 outils intégrés (fichier, shell, recherche, web, tâches, sous-agents, …), tous médiés par un pipeline de permissions à 9 couches
+- **Code Mode** — Le modèle écrit du JavaScript/TypeScript qui compose plusieurs appels d'outils en UNE exécution en sandbox (moteur [moejs](https://github.com/MoeForge/moejs) en Go pur) : replay, snippets réutilisables, audit des écritures, approbations par lot — voir [Code Mode](#code-mode)
 - **Sous-commandes CLI** — `claude mcp …`, `claude plugin …`, `claude auth …`, `claude doctor`, `claude update` ; les groupes `mcp` et `plugin` produisent une sortie identique octet par octet à celle du CLI TypeScript
 - **Gestion des plugins** — Installation/activation/désactivation de plugins depuis des marketplaces locaux, avec validation complète des manifestes (`claude plugin validate`)
 - **Coordination multi-agents** — Lance des sous-agents en arrière-plan pour des tâches parallèles
-- **Support MCP** — Connecte des outils externes via le [Model Context Protocol](https://modelcontextprotocol.io) (transports stdio + HTTP), importables depuis Claude Desktop
+- **Support MCP** — Connecte des outils externes via le [Model Context Protocol](https://modelcontextprotocol.io) (transports stdio + HTTP + WebSocket), importables depuis Claude Desktop ; les notifications push du serveur réveillent l'agent de façon événementielle (zéro polling)
 - **Mémoire CLAUDE.md** — Charge automatiquement le contexte du projet depuis les fichiers `CLAUDE.md` tout au long de l'arborescence
 - **Gestion des sessions** — Reprend les conversations précédentes ; compacte automatiquement les historiques longs
 - **Mode Vim** — Raccourcis clavier Vim optionnels dans la zone de saisie
@@ -102,7 +104,7 @@ Voir [`docs/project/architecture.md`](docs/project/architecture.md) pour une des
 
 ## Prérequis
 
-- Go 1.21 ou ultérieur
+- Go 1.26 ou ultérieur
 - Une [clé API Anthropic](https://console.anthropic.com/) **ou** un compte Claude.ai (OAuth)
 
 ## Installation
@@ -313,7 +315,59 @@ Tapez `/` dans la zone de saisie pour voir toutes les commandes disponibles :
 | `/diff` | Afficher le diff git courant |
 | `/init` | Générer un CLAUDE.md pour ce projet |
 
-`/config`, `/mcp`, `/resume` et `/terminal-setup` sont enregistrées mais pas encore implémentées — en attendant, utilisez les sous-commandes CLI ci-dessus pour la gestion des serveurs MCP.
+`/config`, `/mcp`, `/resume` et `/terminal-setup` sont entièrement implémentées (reprise de session, statut MCP, paramètres interactifs, configuration des touches du terminal).
+
+## Code Mode
+
+Au lieu d'un aller-retour LLM par outil, le modèle **écrit du JavaScript/TypeScript qui compose plusieurs appels d'outils en UNE exécution en sandbox** — l'outil `CodeMode`, propulsé par le moteur [moejs](https://github.com/MoeForge/moejs) en Go pur (sans CGO). Les données intermédiaires restent dans le sandbox ; seules la valeur de retour et la sortie `console.log` reviennent au modèle (moins d'allers-retours, moins de contexte).
+
+```js
+// Écrit par le modèle, exécuté dans le sandbox :
+const src = await tools.Read({ file_path: "main.go" });
+const todos = src.split("\n").filter(l => l.includes("TODO"));
+console.log("found", todos.length);
+return { count: todos.length, lines: todos };
+```
+
+### API du sandbox
+
+| Dans le sandbox | Rôle |
+|-----------------|------|
+| `tools.<Name>(input)` | Appelle n'importe quel outil enregistré (asynchrone). `Promise.all` exécute les appels en parallèle. **Chaque appel passe par le pipeline de permissions complet.** |
+| `codemode.search(query)` / `describe(name)` | Découverte progressive d'outils (noms classés → schéma complet à la demande) |
+| `codemode.history(limit)` | Exécutions récentes (id, code, résultat) à réutiliser |
+| `codemode.replay(id)` | Rejoue une exécution enregistrée — les permissions s'appliquent toujours |
+| `codemode.run(name)` / `snippets()` | Exécute / liste des snippets réutilisables nommés |
+| `codemode.audit(id)` | Effets de bord d'écriture enregistrés pour une exécution |
+| `codemode.approvals()` / `revoke(tool)` | Liste / révoque les approbations persistantes de portée CodeMode |
+| `import { x } from "name"` | Modules partagés contrôlés depuis un répertoire géré par l'hôte |
+| `console.log(...)` | Sortie capturée |
+
+Champs d'entrée : `code`, `typescript` (compilation avec effacement des types), `replay` (rejouer par id d'historique), `save_as` (enregistrer une exécution réussie comme snippet nommé), `batch_writes` (une approbation pour toutes les écritures).
+
+### Modèle de sécurité
+
+- **Le sandbox n'est pas une autorisation** — chaque appel interne exécute le même pipeline de permissions à 9 couches qu'un appel direct. Aucun accès au système de fichiers, au réseau, à l'env ni à `eval` ; l'exécution est bornée par un timeout et une limite de mémoire.
+- **Approbation par lot** — quand un outil demande confirmation et que vous approuvez, les appels suivants au *même* outil dans cette exécution sont pré-approuvés (portée exécution uniquement). Les autorisations par règles sont revérifiées à chaque appel : les changements de mode en direct (Shift+Tab) s'appliquent immédiatement. Les refus ne sont jamais mis en cache.
+- **Approbations persistantes** — le dialogue de permissions propose « toujours autoriser *tool* dans CodeMode » : une approbation de portée CodeMode, accordée par l'utilisateur, révocable (`codemode.revoke`). Les règles Deny l'emportent toujours.
+- **Porte d'écriture** — avec `batch_writes: true`, le premier appel d'écriture demande une seule fois (avec une note de portée pour toute l'exécution) ; la décision couvre toutes les écritures de cette exécution. Les lectures gardent le flux normal.
+- **Spill des résultats** — les sorties de plus de 32 KiB sont écrites dans un fichier ; le modèle reçoit un aperçu de 4 KiB plus un pointeur qu'il peut `Read`/`Grep`.
+
+### Fonctions de workflow
+
+- **Replay** : rejoue n'importe quelle exécution enregistrée par id (entrée `replay` ou `codemode.replay`), avec provenance complète (`replay_of`) dans l'historique.
+- **Snippets** : transforme les exécutions réussies en scripts réutilisables nommés (`save_as` → `codemode.run`). Les snippets stockent le code complet ; les exécutions imbriquées partagent la portée d'approbation de l'appelant (profondeur de récursion limitée à 3).
+- **Audit des écritures** : chaque appel d'écriture exécuté est enregistré (outil + résumé d'entrée) — une trace honnête de *ce qui a changé*, consultable via `codemode.audit`.
+
+Les données d'exécution vivent sous `~/.claude/codemode/` : `history.jsonl`, `spill/`, `modules/`, `snippets/`, `approvals.json`.
+
+### Veille événementielle (zéro polling)
+
+Les notifications push des serveurs MCP sont routées vers la file de messages et réveillent l'agent automatiquement — pas de boucles de polling qui brûlent des tokens. Combiné à Code Mode : un script fait le handshake/l'abonnement, l'agent attend, et la notification du service déclenche l'exécution suivante (qui peut réutiliser la logique des snippets).
+
+**Limitations connues** : pas de rollback automatique (la trace d'audit dit ce qui a changé ; la restauration par git-checkpoint est en évaluation), replay utilise le code enregistré (≤2000 caractères — enregistrez les longs workflows comme snippets), et la porte d'écriture approuve sur la première écriture concrète plus une note de portée, pas un aperçu complet du plan en deux phases.
+
+Détails de conception : [`docs/project/design/codemode.md`](docs/project/design/codemode.md).
 
 ## Entièrement construit par des agents IA
 
@@ -341,7 +395,7 @@ C'est une démonstration concrète qu'une application Go multi-couches non trivi
 
 ### Prérequis
 
-- Go 1.21+
+- Go 1.26+
 - `golangci-lint` (optionnel, pour le linting)
 
 ### Compiler et tester
@@ -372,6 +426,7 @@ La construction initiale (avril 2026) a livré l'architecture complète à six c
 
 Jalons récents :
 
+- **2026-11-18** — Code Mode v1→v3 (composition d'outils JS/TS en sandbox : approbation par lot, TypeScript, historique, spill, imports contrôlés, replay, snippets, audit des écritures, approbations persistantes, porte d'écriture) ; réveil MCP événementiel (notifications serveur → agent, zéro polling) ; kernel ré-internalisé (aucune dépendance à un moteur externe) ; migration Bubble Tea v2 ; les 26 stubs visibles restants comblés (dette : 0 stub)
 - **2026-09-05** — groupes CLI `mcp` (7 commandes) et `plugin` (8 commandes + sous-arbre `marketplace`) livrés, sortie identique octet par octet au CLI TS ; stubs visibles par l'utilisateur réduits de 42 à 27
 - **2026-08-30** — parité du format de `--version` ; inventaire complet des sous-commandes face au CLI TS (§B11)
 - **2026-08-29** — processus de mode maintenance livré : lignes rouges de dette appliquées par la CI, squelette de tests de parité
@@ -381,11 +436,12 @@ Le plan initial par phases (v0.2.0 → v1.0.0) est conservé, avec l'état d'ach
 ### État actuel
 
 ```
-✅ Terminé :  Moteur central + streaming, TUI, 34 outils, 17 commandes slash (4 stubs),
-              sous-commandes CLI mcp/plugin/auth/doctor, pipeline de permissions à 9 couches,
-              compaction de contexte (snip/micro/auto), OAuth, persistance de session
+✅ Terminé :  Moteur central + streaming, TUI, 35 outils + sandbox Code Mode (v3),
+              17 commandes slash, sous-commandes CLI mcp/plugin/auth/doctor, pipeline de permissions à 9 couches,
+              compaction de contexte (snip/micro/auto), OAuth, persistance de session,
+              réveil MCP événementiel (zéro polling)
 🔧 Mode :     Maintenance — travail de parité piloté par le registre des écarts face au CLI TypeScript
-📉 Dette :    56 TODO(dep) / 27 stubs visibles par l'utilisateur, lignes rouges à la baisse appliquées par la CI
+📉 Dette :    11 TODO(dep) / 0 stub visible par l'utilisateur, lignes rouges à la baisse appliquées par la CI
 🚀 Release :  v0.8.0, binaires pour 5 plateformes
 ```
 

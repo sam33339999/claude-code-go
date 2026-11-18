@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 版本"></a>
+  <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 版本"></a>
   <a href="https://goreportcard.com/report/github.com/tunsuy/claude-code-go"><img src="https://goreportcard.com/badge/github.com/tunsuy/claude-code-go?style=flat-square" alt="Go Report Card"></a>
   <a href="https://codecov.io/gh/tunsuy/claude-code-go"><img src="https://codecov.io/gh/tunsuy/claude-code-go/branch/main/graph/badge.svg?style=flat-square" alt="代码覆盖率"></a>
   <a href="https://pkg.go.dev/github.com/tunsuy/claude-code-go"><img src="https://pkg.go.dev/badge/github.com/tunsuy/claude-code-go.svg" alt="Go Reference"></a>
@@ -22,6 +22,7 @@
 <p align="center">
   <a href="README.md">English</a> •
   <a href="README.zh-CN.md">简体中文</a> •
+  <a href="README.zh-TW.md">繁體中文</a> •
   <a href="README.ja.md">日本語</a> •
   <a href="README.ko.md">한국어</a> •
   <a href="README.es.md">Español</a> •
@@ -64,11 +65,12 @@
 ## 功能特性
 
 - **交互式 TUI** — 基于 [Bubble Tea](https://github.com/charmbracelet/bubbletea) 构建的全功能终端界面，支持深色/浅色主题
-- **智能工具调用** — 34 个内置工具（文件、命令、搜索、Web、任务、子 Agent 等），所有操作均经过 9 层权限流水线审批
+- **智能工具调用** — 35 个内置工具（文件、命令、搜索、Web、任务、子 Agent 等），所有操作均经过 9 层权限流水线审批
+- **Code Mode** — 模型编写 JavaScript/TypeScript，在一次沙箱执行中组合多个工具调用（纯 Go [moejs](https://github.com/MoeForge/moejs) 引擎）：replay、可复用 snippet、写入审计、批次批准——见 [Code Mode](#code-mode)
 - **CLI 子命令** — `claude mcp …`、`claude plugin …`、`claude auth …`、`claude doctor`、`claude update`；`mcp` 与 `plugin` 两组输出与 TypeScript 原版**字节级一致**
 - **插件管理** — 从本地 marketplace 安装/启用/停用插件，带完整 manifest 校验（`claude plugin validate`）
 - **多 Agent 协作** — 可启动后台子 Agent 并行处理任务
-- **MCP 支持** — 通过 [Model Context Protocol](https://modelcontextprotocol.io) 接入外部工具（stdio + HTTP 传输），可从 Claude Desktop 导入
+- **MCP 支持** — 通过 [Model Context Protocol](https://modelcontextprotocol.io) 接入外部工具（stdio + HTTP + WebSocket 传输），可从 Claude Desktop 导入；服务端推送通知事件驱动唤醒代理（零轮询）
 - **CLAUDE.md 记忆** — 自动加载项目目录树中所有 `CLAUDE.md` 文件作为上下文
 - **会话管理** — 恢复历史对话；自动压缩过长的上下文历史
 - **Vim 模式** — 输入框支持可选的 Vim 按键绑定
@@ -102,7 +104,7 @@ Claude Code Go 采用六层架构：
 
 ## 环境要求
 
-- Go 1.21 或更高版本
+- Go 1.26 或更高版本
 - [Anthropic API Key](https://console.anthropic.com/) **或** Claude.ai 账号（OAuth）
 
 ## 安装
@@ -313,7 +315,59 @@ claude [flags]
 | `/diff` | 查看当前 git diff |
 | `/init` | 为本项目生成 CLAUDE.md |
 
-`/config`、`/mcp`、`/resume`、`/terminal-setup` 已注册但尚未实现——MCP 管理请暂时使用上方的 CLI 子命令。
+`/config`、`/mcp`、`/resume`、`/terminal-setup` 均已完整实现（会话恢复、MCP 状态、交互式设置、终端按键配置）。
+
+## Code Mode
+
+模型不再「一次 LLM 往返调一个工具」，而是**编写 JavaScript/TypeScript，在一次沙箱执行中组合多个工具调用**——`CodeMode` 工具，基于纯 Go 的 [moejs](https://github.com/MoeForge/moejs) 引擎（无 CGO）。中间数据留在沙箱内，只有返回值与 `console.log` 输出回到模型（更少往返、更省上下文）。
+
+```js
+// 由模型编写、在沙箱中执行：
+const src = await tools.Read({ file_path: "main.go" });
+const todos = src.split("\n").filter(l => l.includes("TODO"));
+console.log("found", todos.length);
+return { count: todos.length, lines: todos };
+```
+
+### 沙箱 API
+
+| 沙箱内 | 作用 |
+|--------|------|
+| `tools.<Name>(input)` | 调用任何已注册工具（异步）。`Promise.all` 并行调用。**每次调用都走完整权限流水线。** |
+| `codemode.search(query)` / `describe(name)` | 渐进式工具发现（关键词排名 → 按需取完整 schema） |
+| `codemode.history(limit)` | 近期执行记录（id、code、结果）供复用 |
+| `codemode.replay(id)` | 重跑某次历史执行——权限照常审批 |
+| `codemode.run(name)` / `snippets()` | 执行/列出具名可复用 snippet |
+| `codemode.audit(id)` | 某次执行记录的写副作用清单 |
+| `codemode.approvals()` / `revoke(tool)` | 列出/撤销 CodeMode 范围的持久批准 |
+| `import { x } from "name"` | 受控共享模块（host 管理目录） |
+| `console.log(...)` | 捕获输出 |
+
+工具输入字段：`code`、`typescript`（类型剥离编译）、`replay`（按历史 id 重跑）、`save_as`（成功执行存为具名 snippet）、`batch_writes`（全部写操作一次批准）。
+
+### 安全模型
+
+- **沙箱不等于授权**——每个内部工具调用走与直接调用相同的 9 层权限流水线。无文件系统/网络/env/`eval` 访问；执行受超时与内存上限约束。
+- **批次批准**——工具弹窗询问而你批准后，本次执行内对*同一*工具的后续调用预批准（仅执行 scope）。规则直接放行每次重查，Shift+Tab 切换权限模式立即生效。拒绝永不缓存。
+- **持久批准**——权限对话框提供「在 CodeMode 内永远允许 *tool*」：CodeMode 范围、用户亲自授予、可撤销（`codemode.revoke`）。Deny 规则永远优先。
+- **Write 闸门**——`batch_writes: true` 时，第一个写调用询问一次（附执行级范围说明），决定覆盖本次执行的所有写操作；读操作走正常流程。
+- **结果 spill**——超过 32 KiB 的输出写入文件，模型拿到 4 KiB 预览＋文件指针（可 `Read`/`Grep`）。
+
+### 工作流功能
+
+- **Replay**：按 id 重跑任何历史执行（`replay` 输入或 `codemode.replay`），历史带 `replay_of` 溯源。
+- **Snippets**：把成功执行沉淀为具名可复用脚本（`save_as` → `codemode.run`）。snippet 存全量代码；嵌套执行共享调用方的批准 scope（递归深度上限 3）。
+- **写入审计**：每个实际执行的写调用都记录（工具＋输入摘要）——诚实追溯*改了什么*，`codemode.audit` 可查。
+
+运行数据位于 `~/.claude/codemode/`：`history.jsonl`、`spill/`、`modules/`、`snippets/`、`approvals.json`。
+
+### 事件驱动待命（零轮询）
+
+MCP 服务端推送通知会路由进消息队列并自动唤醒代理——不跑轮询循环烧 token。搭配 Code Mode：脚本完成握手/订阅，代理待命，服务通知触发下一次执行（可复用 snippet 逻辑）。
+
+**已知局限**：无自动回滚（审计清单告诉你改了什么；git checkpoint 还原评估中）、replay 使用记录的代码（≤2000 字符——长工作流请存 snippet）、write 闸门基于首个具体写＋范围声明而非两阶段完整计划预览。
+
+设计细节：[`docs/project/design/codemode.md`](docs/project/design/codemode.md)。
 
 ## 零人工代码的构建故事
 
@@ -341,7 +395,7 @@ QA Agent          →  测试策略、逐层验收、集成测试
 
 ### 前置条件
 
-- Go 1.21+
+- Go 1.26+
 - `golangci-lint`（可选，用于代码检查）
 
 ### 构建与测试
@@ -378,6 +432,7 @@ claude-code-go/
 │   ├── compact/         # 对话压缩
 │   ├── config/          # 配置（文件 + 环境变量）
 │   ├── coordinator/     # 多 Agent 协调器
+│   ├── codemode/        # Code Mode 沙箱引擎（moejs）
 │   ├── engine/          # 推理引擎、工具分发
 │   ├── hooks/           # 工具前/后钩子
 │   ├── mcp/             # MCP 服务器管理
@@ -389,6 +444,7 @@ claude-code-go/
 │   ├── state/           # 应用状态
 │   ├── tools/           # Tool 接口、注册表及内置工具实现
 │   │   ├── agent/       #   子 Agent 与消息工具
+│   │   ├── codemode/    #   CodeMode 工具（沙箱 JS/TS 工具编排）
 │   │   ├── fileops/     #   文件读写/编辑/搜索工具
 │   │   ├── interact/    #   用户交互与 Worktree 工具
 │   │   ├── mcp/         #   MCP 工具适配器
@@ -410,6 +466,7 @@ claude-code-go/
 
 近期里程碑：
 
+- **2026-11-18** — Code Mode v1→v3（沙箱 JS/TS 工具编排：批次批准、TypeScript、历史、spill、受控 import、replay、snippet、写入审计、持久批准、write 闸门）；MCP 事件驱动唤醒（服务端通知→代理，零轮询）；内核搬回本仓（无外部引擎依赖）；Bubble Tea v2 迁移；26 个用户可见桩全部回填（债务：0 桩）
 - **2026-09-05** — `mcp`（7 个命令）与 `plugin`（8 个命令 + `marketplace` 子树）CLI 命令组落地，输出与 TS 原版字节级一致；用户可见桩 42 → 27
 - **2026-08-30** — `--version` 格式对齐；对照 TS CLI 完成子命令全量盘点（§B11）
 - **2026-08-29** — 维护模式流程落地：CI 强制的欠账红线、parity 测试骨架
@@ -419,11 +476,12 @@ claude-code-go/
 ### 当前状态
 
 ```
-✅ 已完成: 核心引擎 + 流式输出、TUI、34 个工具、17 个斜杠命令（另有 4 个桩）、
-          mcp/plugin/auth/doctor CLI 子命令、9 层权限流水线、
-          三级上下文压缩（snip/micro/auto）、OAuth、会话持久化
+✅ 已完成: 核心引擎 + 流式输出、TUI、35 个工具 + Code Mode 沙箱（v3）、
+          17 个斜杠命令、mcp/plugin/auth/doctor CLI 子命令、9 层权限流水线、
+          三级上下文压缩（snip/micro/auto）、OAuth、会话持久化、
+          MCP 事件驱动唤醒（零轮询）
 🔧 模式:  维护期——以差距台账驱动的对等修复（对照 TypeScript CLI）
-📉 欠账:  56 个 TODO(dep) / 27 个用户可见桩，CI 红线只降不升
+📉 欠账:  11 个 TODO(dep) / 0 个用户可见桩，CI 红线只降不升
 🚀 发布:  v0.8.0，5 平台二进制
 ```
 
