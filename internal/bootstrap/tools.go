@@ -52,11 +52,9 @@ func RegisterBuiltinTools(reg *tools.Registry, pool *agtmcp.Pool) {
 	reg.Register(agent.GetAgentStatusTool)
 
 	// ── Interaction / plan mode ──────────────────────────────────────────────
-	// TodoWrite and AskUserQuestion are registered by wire.go after their
-	// dependencies exist (app state store / HIL channels); the rest are
-	// stateless singletons.
-	reg.Register(interact.EnterPlanModeTool)
-	reg.Register(interact.ExitPlanModeTool)
+	// TodoWrite, AskUserQuestion, EnterPlanMode and ExitPlanMode are registered
+	// by wire.go after their dependencies exist (app state store / HIL
+	// channels); the rest are stateless singletons.
 	reg.Register(interact.EnterWorktreeTool)
 	reg.Register(interact.ExitWorktreeTool)
 

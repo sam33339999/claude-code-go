@@ -1748,3 +1748,9 @@ type MCPClientInfo struct {
 ---
 
 *文档由 Agent-Core 生成，详细描述核心层的 Go 接口设计，作为 Agent-Tools 实现工具的契约依据。*
+
+---
+
+## 维护期变更记录
+
+- **2026-11-18 BF-09/BF-21（CheckerConfig.ModeFn）**：permissions.CheckerConfig 新增可选 `ModeFn func() types.PermissionMode`——设置后每次检查读 live mode（覆盖 PermCtx.Mode 快照），支持会话中 Shift+Tab 模式循环与 plan-mode 工具切换。wire.go 接 AppStateStore。Checker 接口本身零变更；nil ModeFn 行为不变（向后兼容）。锁序：checker.mu → store.mu（store 不回调 checker，无死锁）。

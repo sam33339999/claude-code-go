@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // ── EnterPlanMode ─────────────────────────────────────────────────────────────
@@ -15,11 +17,19 @@ type EnterPlanModeInput struct {
 	Plan string `json:"plan,omitempty"`
 }
 
-// EnterPlanModeTool is the exported singleton instance.
-// TODO(dep): Requires Agent-Core plan-mode state management.
-var EnterPlanModeTool tools.Tool = &enterPlanModeTool{}
+// NewEnterPlanModeTool constructs the EnterPlanMode tool backed by the app
+// state store (BF-09). It switches ToolPermissionContext.Mode to plan; the
+// permission checker reads the live mode (CheckerConfig.ModeFn) and denies
+// write operations while allowing reads. Registered by wire.go after the
+// store exists. A nil store makes every call report an honest error.
+func NewEnterPlanModeTool(store *state.AppStateStore) tools.Tool {
+	return &enterPlanModeTool{store: store}
+}
 
-type enterPlanModeTool struct{ tools.BaseTool }
+type enterPlanModeTool struct {
+	tools.BaseTool
+	store *state.AppStateStore
+}
 
 func (t *enterPlanModeTool) Name() string { return "EnterPlanMode" }
 
@@ -50,9 +60,25 @@ func (t *enterPlanModeTool) InterruptBehavior() tools.InterruptBehavior {
 }
 func (t *enterPlanModeTool) UserFacingName(_ tools.Input) string { return "EnterPlanMode" }
 
-func (t *enterPlanModeTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement via Agent-Core plan-mode state machine.
-	return &tools.Result{IsError: true, Content: "EnterPlanMode not yet implemented (TODO(dep))"}, nil
+func (t *enterPlanModeTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	if t.store == nil {
+		return &tools.Result{IsError: true, Content: "EnterPlanMode: no app state store configured"}, nil
+	}
+	var in EnterPlanModeInput
+	if len(input) > 0 {
+		if err := json.Unmarshal(input, &in); err != nil {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("EnterPlanMode: invalid input: %v", err)}, nil
+		}
+	}
+	t.store.SetState(func(prev state.AppState) state.AppState {
+		prev.ToolPermissionContext.Mode = types.PermissionModePlan
+		return prev
+	})
+	text := "Entered plan mode. Research and plan only — write operations are blocked until ExitPlanMode is called. The user can also cycle modes with Shift+Tab."
+	if in.Plan != "" {
+		text += "\n\nPlan:\n" + in.Plan
+	}
+	return &tools.Result{Content: text}, nil
 }
 
 // ── ExitPlanMode ──────────────────────────────────────────────────────────────
@@ -63,11 +89,18 @@ type ExitPlanModeInput struct {
 	Approved bool `json:"approved"`
 }
 
-// ExitPlanModeTool is the exported singleton instance.
-// TODO(dep): Requires Agent-Core plan-mode state management.
-var ExitPlanModeTool tools.Tool = &exitPlanModeTool{}
+// NewExitPlanModeTool constructs the ExitPlanMode tool backed by the app
+// state store (BF-09). It returns the mode to default (normal permission
+// rules). Divergence from oracle (documented in tools.md): no interactive
+// plan-approval dialog — approved=false simply exits without executing.
+func NewExitPlanModeTool(store *state.AppStateStore) tools.Tool {
+	return &exitPlanModeTool{store: store}
+}
 
-type exitPlanModeTool struct{ tools.BaseTool }
+type exitPlanModeTool struct {
+	tools.BaseTool
+	store *state.AppStateStore
+}
 
 func (t *exitPlanModeTool) Name() string { return "ExitPlanMode" }
 
@@ -91,9 +124,22 @@ func (t *exitPlanModeTool) IsConcurrencySafe(_ tools.Input) bool { return false 
 func (t *exitPlanModeTool) IsReadOnly(_ tools.Input) bool        { return true }
 func (t *exitPlanModeTool) UserFacingName(_ tools.Input) string  { return "ExitPlanMode" }
 
-func (t *exitPlanModeTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
-	// TODO(dep): Implement via Agent-Core plan-mode state machine.
-	return &tools.Result{IsError: true, Content: "ExitPlanMode not yet implemented (TODO(dep))"}, nil
+func (t *exitPlanModeTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	if t.store == nil {
+		return &tools.Result{IsError: true, Content: "ExitPlanMode: no app state store configured"}, nil
+	}
+	var in ExitPlanModeInput
+	if err := json.Unmarshal(input, &in); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("ExitPlanMode: invalid input: %v", err)}, nil
+	}
+	t.store.SetState(func(prev state.AppState) state.AppState {
+		prev.ToolPermissionContext.Mode = types.PermissionModeDefault
+		return prev
+	})
+	if in.Approved {
+		return &tools.Result{Content: "Exited plan mode. The plan is approved — proceed with implementation under normal permission rules."}, nil
+	}
+	return &tools.Result{Content: "Exited plan mode without approval. Do not execute the plan; ask the user how to proceed."}, nil
 }
 
 // ── EnterWorktree ─────────────────────────────────────────────────────────────

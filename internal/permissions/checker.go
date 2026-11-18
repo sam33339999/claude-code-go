@@ -46,6 +46,10 @@ type PermissionRequest struct {
 // checker is the concrete Checker implementation.
 type checker struct {
 	permCtx types.ToolPermissionContext
+	// modeFn, when set, supplies the LIVE permission mode (BF-09/BF-21:
+	// Shift+Tab cycling and plan-mode tools mutate AppState; the checker must
+	// not keep a stale construction-time snapshot). nil falls back to permCtx.Mode.
+	modeFn func() types.PermissionMode
 	// mu guards permCtx and persist: persistAllowRule mutates the allow rules
 	// while CanUseTool reads them from the engine goroutine.
 	mu         sync.RWMutex
@@ -80,12 +84,18 @@ type CheckerConfig struct {
 	// project's .claude/settings.json. If nil, persistence is disabled and
 	// always-allow responses only update the in-memory rules.
 	Persist *PersistConfig
+	// ModeFn optionally supplies the live permission mode (BF-09/BF-21).
+	// When set, it overrides PermCtx.Mode on every check so mid-session mode
+	// changes (Shift+Tab cycle, EnterPlanMode/ExitPlanMode) take effect
+	// immediately. Typically wired to AppStateStore.GetState().
+	ModeFn func() types.PermissionMode
 }
 
 // NewChecker constructs a new Checker.
 func NewChecker(cfg CheckerConfig) Checker {
 	c := &checker{
 		permCtx:    cfg.PermCtx,
+		modeFn:     cfg.ModeFn,
 		dispatcher: cfg.Dispatcher,
 		registry:   cfg.Registry,
 		askCh:      cfg.AskCh,
@@ -111,7 +121,7 @@ func (c *checker) CanUseTool(
 	defer c.mu.RUnlock()
 
 	// 1. bypassPermissions mode → unconditional allow.
-	if c.permCtx.Mode == types.PermissionModeBypassPermissions {
+	if c.currentMode() == types.PermissionModeBypassPermissions {
 		return tools.PermissionResult{Behavior: tools.PermissionAllow}, nil
 	}
 
@@ -162,7 +172,7 @@ func (c *checker) CanUseTool(
 	}
 
 	// 7. PermissionMode default decisions.
-	switch c.permCtx.Mode {
+	switch c.currentMode() {
 	case types.PermissionModeDontAsk:
 		return tools.PermissionResult{Behavior: tools.PermissionAllow}, nil
 	case types.PermissionModePlan:
@@ -324,6 +334,17 @@ func (c *checker) shouldFallbackToPrompting() bool {
 // GetDenialCount implements Checker.
 func (c *checker) GetDenialCount() int {
 	return c.denial.DenialCount
+}
+
+// currentMode returns the live permission mode: ModeFn when configured
+// (BF-09/BF-21), else the construction-time snapshot. Callers hold c.mu;
+// ModeFn typically reads the AppState store (checker.mu → store.mu ordering;
+// the store never calls back into the checker, so no deadlock).
+func (c *checker) currentMode() types.PermissionMode {
+	if c.modeFn != nil {
+		return c.modeFn()
+	}
+	return c.permCtx.Mode
 }
 
 // resolveMatcherFn retrieves the tool's PreparePermissionMatcher result (if available).
