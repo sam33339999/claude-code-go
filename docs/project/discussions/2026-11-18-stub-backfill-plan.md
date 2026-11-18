@@ -97,6 +97,8 @@
 | BF-06 | completed（已合并） | bf-cli-b2 | 提交 d629d14；agents 对齐 oracle 单一命令形态＋--setting-sources；update＋upgrade 别名（GitHub releases 检查）；install [target] 平台 archive 原子安装；cases.md B8/B9/B10 关闭＋二级缺口剩 1；debt 19→13；全仓 -race 绿；实机 `claude agents` ✓ |
 | BF-07 | completed（已合并） | bf-todowrite | 提交 b464e1f；NewTodoWriteTool(store)＋AppState.Todos＋TUI 面板；oracle 语义（全 completed 清空、固定文案、整表替换）；debt 13→12、TODO(dep) 44→41；全仓 -race 绿 |
 | BF-08 | completed（已合并） | bf-askuser | 提交 8e52822；HIL channel 对＋TUI 问答对话框（权限管线同构）；headless nil channel 诚实报错；ctx/abort 取消路径；debt 12→11、TODO(dep) 41→38；全仓 -race 绿 |
-| BF-09..BF-16 | pending | — | 按批次派发（BF-16 已改同仓） |
+| BF-09 | completed（已合并） | bf-planmode-yolo | 提交 f06444c；NewEnter/ExitPlanModeTool(store)＋CheckerConfig.ModeFn live mode；debt 11→9、TODO(dep) 38→32；全仓 -race 绿 |
+| BF-21 | completed（已合并） | bf-planmode-yolo | 人类新增需求：Shift+Tab 模式循环 default→acceptEdits→plan→YOLO→default；状态列可见指示器（⚠ YOLO warning）＋切换系统訊息；oracle 顺序，YOLO 纳入循环为明确要求之分歧（文档化） |
+| BF-10..BF-16 | pending | — | Batch 3（BF-16 已改同仓） |
 
 > 状态变更由 PM 独家更新本表；Agent 汇报按 agent-output.md JSON 格式。
