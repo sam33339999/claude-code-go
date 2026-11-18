@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
 // reservedLines is the number of terminal lines reserved for non-message UI
@@ -53,6 +55,11 @@ func (m AppModel) View() string {
 	// --- Status bar ---
 	sb.WriteString(m.statusBar.View(m.termWidth, m.theme))
 	sb.WriteString("\n")
+
+	// --- Todo panel (BF-07) ---
+	if todos := m.appState.GetState().Todos; len(todos) > 0 {
+		sb.WriteString(renderTodoPanel(todos, m.theme))
+	}
 
 	// --- Input area ---
 	sb.WriteString(m.input.View(m.theme))
@@ -109,6 +116,27 @@ func (m *AppModel) syncViewportContent() {
 	if m.pinnedToBottom {
 		m.viewport.GotoBottom()
 	}
+}
+
+// renderTodoPanel renders the session todo list (BF-07) above the input area.
+// Display-only: reads AppState.Todos (mutex-protected store), never touches
+// engine history or schemas (cache-first gate).
+func renderTodoPanel(todos []types.TodoItem, theme Theme) string {
+	var sb strings.Builder
+	sb.WriteString(mutedStyle(theme).Bold(true).Render("Todos"))
+	sb.WriteString("\n")
+	for _, t := range todos {
+		marker := "[ ]"
+		switch t.Status {
+		case types.TodoCompleted:
+			marker = "[x]"
+		case types.TodoInProgress:
+			marker = "[>]"
+		}
+		sb.WriteString(mutedStyle(theme).Render("  " + marker + " " + t.Content))
+		sb.WriteString("\n")
+	}
+	return sb.String()
 }
 
 // renderConfigDialog renders the read-only /config settings panel (BF-05).

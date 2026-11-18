@@ -2,7 +2,7 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T04:38:36Z
 source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, spinner.go, statusbar.go, styles.go, theme.go, update.go, view.go, welcome.go]
 ---
 
@@ -95,3 +95,4 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **2026-11-18 BF-03-F1 评审修复（CR-BF03-1）**：`applyCommandResult` 提取 `applyResumeResult`（NewMessages 消费＋isLoading 拒绝，返回 stop 标志）与 `applyDisplayResult`（Display 渲染）两个私有 helper，主函数 107→72 行（≤80 规范），逐路径行为不变。/mcp 显示-only 守护补强：TestSlashMCP_FetchesStatusViaCmd 追加引擎历史 DeepEqual 不变断言（cache gate）。
 - **2026-11-18 BF-05 /config 面板**：view.go 新增 renderConfigDialog（dialogConfig overlay case），渲染 AppState 当前设置（Model/Theme/Vim/Effort/WorkingDir/Session），Esc 关闭沿用既有 keys.go。纯展示不触引擎历史（DeepEqual 守护测试）。只读面板，交互编辑为文档化后续项。
 - **2026-11-18 BF-18 持久化接线**：AppModel.transcript 字段＋New/newAppModel 末位 rec 参数（可 nil）；StreamDone/StreamError 返回 persistTranscriptCmd（创建时快照拷贝 msgs 防引擎后续突变竞态）；/resume 采纳 NewSessionID 时经 switchTranscriptCmd 换文件（与 display/dream/mcp Cmd 用 tea.Batch 组合）；TranscriptErrMsg 降级为系统警告。sessionID 启动时取自 recorder。
+- **2026-11-18 BF-07 Todo 面板**：renderTodoPanel 于 View 输入区上方渲染 AppState.Todos（[x] completed／[>] in_progress／[ ] pending），空列表不渲染。读 mutex 保护 store，纯展示（cache gate 三问全否）。

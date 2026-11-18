@@ -722,6 +722,12 @@ type AskUserQuestionInput struct {
 
 #### TodoWrite
 
+> **BF-07 已实现（2026-11-18）**：`NewTodoWriteTool(store *state.AppStateStore)` 构造期注入
+> （bootstrap 于 store 建立后注册，不在 RegisterBuiltinTools）；列表存 `AppState.Todos`
+> （`pkg/types.TodoItem`），TUI renderTodoPanel 展示。oracle 语义对齐：全 completed 清空列表、
+> 固定确认文案、整表替换。分歧（v1）：单一主会话列表（无 per-agent keying）、无磁盘持久化、
+> 无 feature-flagged verification nudge。schema 字节与桩期一致（cache gate：不前缀移动）。
+
 ```go
 // 管理结构化 TODO 列表（与 TUI 的 Todo Panel 同步）
 // 注意：TodoWrite 工具不在消息流中渲染（renderToolResultMessage 返回 null）
@@ -1013,4 +1019,5 @@ FileEdit 要求 `old_string` 在文件中唯一出现一次。实现：
 |------|------|--------|---------|
 | v1.1 | 2026-11-18 | Agent-Tools | BF-01：删除 MCPProxyTool/MCPToolInput 桩，改用 agtkeel `mcp.AdaptToTool`；新增 `RegisterServerTools`（会话钉住、一次性注册）、`NewListMcpResourcesTool`/`NewReadMcpResourceTool`（Pool 构造期注入）；`RegisterBuiltinTools` 签名新增 `pool *mcp.Pool` 参数；bootstrap 启动时连接已配置服务器并注册其工具（§4.4）。BF-02：Sleep 实现 context-aware 定时（§7.9） |
 | v1.2 | 2026-11-18 | 主会话 | 内核搬回（反转 PR #31）：agtkeel/* import 路径恢复 internal/*、pkg/types；Tool 框架回到 internal/tools 根包。零接口签名变更，仅 import 路径。 |
+| v1.3 | 2026-11-18 | 主会话 | BF-07 TodoWrite 实现：NewTodoWriteTool(store) 构造注入（wire.go 于 store 后注册）；AppState.Todos＋pkg/types.TodoItem；oracle 语义（全 completed 清空、固定文案、整表替换）；分歧文档化（单会话列表、无持久化）。RegisterBuiltinTools 33 工具（TodoWrite 移出）。 |
 | v1.0 | 2026-04-02 | Agent-Tools | 初稿 |

@@ -140,6 +140,10 @@ type AppState struct {
 	WorkingDir string          `json:"workingDir"`
 	GitBranch  string          `json:"gitBranch,omitempty"`
 
+	// Todos is the session todo list maintained by the TodoWrite tool and
+	// rendered by the TUI panel (BF-07). Replaced wholesale via SetState.
+	Todos []types.TodoItem `json:"todos,omitempty"`
+
 	// Task tree (sub-agents).  Copy-on-write; clone before mutating.
 	Tasks map[string]TaskState `json:"tasks,omitempty"`
 

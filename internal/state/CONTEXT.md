@@ -2,7 +2,7 @@
 package: state
 import_path: internal/state
 layer: infra
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T04:38:36Z
 source_files: [store.go]
 ---
 
@@ -12,7 +12,7 @@ source_files: [store.go]
 
 ## Structs
 
-- **AppState** — 16 fields: Settings, Verbose, MainLoopModel, ToolPermissionContext, SessionId, WorkingDir, GitBranch, Tasks, ...
+- **AppState** — 17 fields: Settings, Verbose, MainLoopModel, ToolPermissionContext, SessionId, WorkingDir, GitBranch, Todos, ...
 - **ModelSetting** — 2 fields: ModelID, Provider
 - **Store** — 6 fields
 - **TaskState** — 4 fields: AgentId, Status, SessionId, TaskType
@@ -34,14 +34,14 @@ source_files: [store.go]
 ## Change Impact
 
 **Exported type references (files that use types from this package):**
-- `AppState` → `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/model.go`, `internal/tui/transcript_tui_test.go` (test) + 2 more
+- `AppState` → `internal/bootstrap/wire.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/init.go`, `internal/tui/mcp_resume_test.go` (test) + 4 more
 - `ModelSetting` → `internal/bootstrap/wire.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/tui_test.go` (test)
 
 ## Dependencies
 
 **Imports:** `internal/config`, `pkg/types`
 
-**Imported by:** `internal/bootstrap`, `internal/tui`
+**Imported by:** `internal/bootstrap`, `internal/tools/interact`, `internal/tui`
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->

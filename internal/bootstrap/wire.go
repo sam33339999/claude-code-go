@@ -20,6 +20,7 @@ import (
 	"github.com/tunsuy/claude-code-go/internal/permissions"
 	"github.com/tunsuy/claude-code-go/internal/state"
 	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/claude-code-go/internal/tools/interact"
 	"github.com/tunsuy/claude-code-go/pkg/types"
 )
 
@@ -142,6 +143,9 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	model := resolveModel(settings, opts.ModelOverride)
 	appState := buildAppState(settings, opts, model)
 	store := state.NewAppStateStore(appState)
+	// BF-07: TodoWrite needs the live store; registered here (not in
+	// RegisterBuiltinTools) because the store is built after tool registration.
+	reg.Register(interact.NewTodoWriteTool(store))
 
 	// ── Phase 7: Permission checker (HIL support) ────────────────────────────
 	// Create permission channels for TUI ↔ Engine communication.
@@ -249,6 +253,9 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	model := resolveModel(settings, opts.ModelOverride)
 	appState := buildAppState(settings, opts, model)
 	store := state.NewAppStateStore(appState)
+	// BF-07: TodoWrite needs the live store; registered here (not in
+	// RegisterBuiltinTools) because the store is built after tool registration.
+	reg.Register(interact.NewTodoWriteTool(store))
 
 	// ── Phase 7: Permission checker (HIL support) ────────────────────────────
 	askCh := make(chan permissions.AskRequest, 1)
