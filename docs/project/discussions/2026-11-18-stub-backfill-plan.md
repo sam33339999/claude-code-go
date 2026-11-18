@@ -94,6 +94,7 @@
 | BF-19 | pending（同仓技术债） | 待建 | CR-BF03-2 根因修复：internal/mcp Pool 快照式 GetAll API（现返回共享可变指针）。**已非合并阻塞**——BF-01-F1 消除会话期 pool 写入后回落为潜在隐患＋约束文档化；内核搬回后根治在同仓做。併案 CR-BF01-7（jsonRPC reader 绑定 initialize ctx、HTTP Close 语义）。API 形态由 Tech Lead 裁决 |
 | BF-18 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 a75c1c7；internal/transcript Recorder＋TUI turn 边界落盘＋headless 收尾＋/resume 换文件；已合并 feat/impl，合并后全仓 -race 复验绿；正式评审留待人类 PR |
 | BF-05 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 e7411d4；/config 只读面板＋/terminal-setup 检测；已合并 feat/impl；正式评审留待人类 PR |
-| BF-06..BF-16 | pending | — | 按批次派发 |
+| BF-06 | completed（已合并） | bf-cli-b2 | 提交 d629d14；agents 对齐 oracle 单一命令形态＋--setting-sources；update＋upgrade 别名（GitHub releases 检查）；install [target] 平台 archive 原子安装；cases.md B8/B9/B10 关闭＋二级缺口剩 1；debt 19→13；全仓 -race 绿；实机 `claude agents` ✓ |
+| BF-07..BF-16 | pending | — | 按批次派发（BF-08/16 已改同仓） |
 
 > 状态变更由 PM 独家更新本表；Agent 汇报按 agent-output.md JSON 格式。
