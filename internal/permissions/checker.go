@@ -41,6 +41,13 @@ type PermissionRequest struct {
 	// ToolResult is the preliminary result from tools.CheckPermissions (may be
 	// PermissionPassthrough if the tool deferred).
 	ToolResult tools.PermissionResult
+	// FromCodeMode marks requests originating inside a CodeMode execution
+	// (CM-03 v3): the TUI offers a CodeMode-scoped "always allow" option
+	// instead of the project-wide one.
+	FromCodeMode bool
+	// Note, when set, is appended to the user-facing permission message
+	// (e.g. the CodeMode batch-writes gate scope explanation).
+	Note string
 }
 
 // checker is the concrete Checker implementation.
@@ -282,12 +289,16 @@ func (c *checker) askUser(
 	message string,
 ) (tools.PermissionResult, error) {
 	askReq := AskRequest{
-		ID:          req.ToolUseID,
-		ToolName:    req.ToolName,
-		ToolUseID:   req.ToolUseID,
-		Message:     message,
-		Input:       req.Input,
-		ProjectPath: getProjectPath(),
+		ID:           req.ToolUseID,
+		ToolName:     req.ToolName,
+		ToolUseID:    req.ToolUseID,
+		Message:      message,
+		Input:        req.Input,
+		ProjectPath:  getProjectPath(),
+		FromCodeMode: req.FromCodeMode,
+	}
+	if req.Note != "" {
+		askReq.Message = message + "\n\n" + req.Note
 	}
 	select {
 	case c.askCh <- askReq:
@@ -302,17 +313,23 @@ func (c *checker) askUser(
 			return tools.PermissionResult{Behavior: tools.PermissionDeny, Reason: "response channel closed"}, nil
 		}
 		if resp.Decision == tools.PermissionAllow {
-			if resp.AlwaysAllow {
+			if resp.AlwaysAllow && !resp.AlwaysInCodeMode {
 				// "Yes, and always allow" — register a rule so subsequent
 				// calls of the same shape are allowed without asking.
 				c.persistAllowRule(ruleForTool(req.ToolName, req.Input, c.registry))
 			}
 			c.denial.RecordApproval()
 			reason := "user approved"
-			if resp.AlwaysAllow {
+			if resp.AlwaysInCodeMode {
+				reason = "user approved (always in CodeMode)"
+			} else if resp.AlwaysAllow {
 				reason = "user approved (always allowed)"
 			}
-			return tools.PermissionResult{Behavior: tools.PermissionAllow, Reason: reason}, nil
+			return tools.PermissionResult{
+				Behavior:         tools.PermissionAllow,
+				Reason:           reason,
+				AlwaysInCodeMode: resp.AlwaysInCodeMode,
+			}, nil
 		}
 		c.denial.Record(DenialRecord{
 			ToolName:  req.ToolName,

@@ -21,6 +21,9 @@ type AskRequest struct {
 	BlockedPath string
 	// ProjectPath is the project path for "always allow" option.
 	ProjectPath string
+	// FromCodeMode marks requests originating inside a CodeMode execution
+	// (CM-03 v3): the dialog offers CodeMode-scoped persistent approval.
+	FromCodeMode bool
 }
 
 // AskResponse is sent from the TUI layer back to the permission system in reply
@@ -36,4 +39,9 @@ type AskResponse struct {
 	AlwaysAllow bool
 	// UserModified is true if the user altered the tool input before approving.
 	UserModified bool
+	// AlwaysInCodeMode is true if the user chose "always allow this tool
+	// inside CodeMode" (CM-03 v3). Mutually exclusive with AlwaysAllow: the
+	// approval is CodeMode-scoped, persisted by the CodeMode bridge, NOT a
+	// project-wide rule.
+	AlwaysInCodeMode bool
 }

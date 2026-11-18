@@ -90,6 +90,10 @@ type PermissionRequestMsg struct {
 	Message     string
 	Input       string // JSON
 	ProjectPath string // Project path for "always allow" option
+	// FromCodeMode marks requests from inside a CodeMode execution (CM-03):
+	// the dialog offers CodeMode-scoped persistent approval instead of the
+	// project-wide option.
+	FromCodeMode bool
 	// RespFn is called by the TUI once the user makes a decision.
 	// allow is the approve/deny choice; alwaysAllow is true only when the user
 	// picked the "yes, and don't ask again" option (allow must be true too).

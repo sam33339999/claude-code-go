@@ -184,7 +184,11 @@ full permission pipeline — sandboxing is not authorization. Progressive discov
 via `codemode.search/describe`; MemoryLimit/Timeout/eval-disabled guards; 32KiB
 result cap with file spill. v2 (CM-02): TypeScript input, execution-scoped batch
 approval, execution history (`codemode.history`), controlled imports from a host
-module directory. See `docs/project/design/codemode.md`.
+module directory. v3 (CM-03): replay (`replay` input / `codemode.replay`),
+named snippets (`save_as` / `codemode.run`), write side-effect audit
+(`codemode.audit`), persistent CodeMode-scoped approvals (user-granted,
+revocable, Deny always wins) and a batch-writes gate (`batch_writes`).
+See `docs/project/design/codemode.md`.
 
 ### Permission Pipeline (9 Layers)
 ```

@@ -1,8 +1,8 @@
 # Code Mode 设计文档（CM-01）
 
 > 负责 Agent：主会话（维护模式）
-> 状态：已实现（v2，2026-11-18）
-> 版本：v2.0
+> 状态：已实现（v3，2026-11-18）
+> 版本：v3.0
 > 研究依据：`docs/project/discussions/2026-11-18-codemode-feasibility.md`（含 moejs/goja 实测）
 
 ---
@@ -110,11 +110,48 @@ Runtime 介面（`internal/codemode/runtime.go`）隔离引擎：Execute(ctx, co
 `reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime()))`。
 RegisterBuiltinTools 不含 CodeMode（依赖 checker，同 plan/HIL 工具模式）。
 
-## 5. 已知局限（v2 后）
+### 2.6 Replay 与 Snippets（v3）
 
-- 无 replay/rollback/审批持久化（Cloudflare durable runtime 级别，留 v3）
-- 批次批准为执行 scope 同工具粒度（非 read/write 分类闸门；Agent Lee 模式留 v3）
-- import 仅 host 预置模块（沙箱不能创建模块——无 fs，结构性限制）
+- **Replay**：input `replay: "<execID>"`（与 code 互斥）或沙箱内
+  `codemode.replay(id)` → 从 history.jsonl 取 code＋typescript 旗标，走同一
+  engine＋bridge 重跑。**权限照走完整管线**（replay ≠ 免审批）；新执行记录
+  `replay_of` 溯源。历史 code 上限 2000 字符——长工作流用 snippet 保存全量
+- **Snippets**：input `save_as: "name"` 成功后存全量 code 到
+  `dataDir/snippets/<name>.js`（flat 名称、穿越拒绝、256KiB cap）；
+  `codemode.run(name)` 执行、`codemode.snippets()` 列清单
+- **巢状执行语义**：replay/run 共享外层执行的 execAllow／审计／工具名单
+  （执行 scope 一致）；深度上限 3（递归防护）；巢状 logs 前缀合并回外层结果；
+  巢状执行独立记录历史（replay_of/snippet 溯源）；阻塞外层 loop，外层
+  timeout/取消仍适用
+
+### 2.7 副作用审计（v3）
+
+- bridge 对**实际执行成功**的写调用（`tool.IsReadOnly(input)==false`）记录
+  `{tool, input≤500 字符}` 进 `historyEntry.side_effects`；读调用不记
+- `codemode.audit(execID)` 取回审计清单——rollback 的诚实基础：
+  知道改了什么，而非假装能自动 undo
+
+### 2.8 审批持久化与 Write 闸门（v3）
+
+- **持久批准**：CodeMode 内的 Ask 对话框提供「Yes, and always allow <tool>
+  inside CodeMode」（取代项目级选项）→ 存 `dataDir/approvals.json`；
+  仅在 CanUseTool==Ask 时咨询——**Deny 永远优先**（live 模式切换即时生效），
+  直接 rule-Allow 不缓存语义不变。`codemode.approvals()` 清单、
+  `codemode.revoke(tool)` 撤销（收紧方向，沙箱可直接执行）
+- **权限链 plumbing**：PermissionRequest/AskRequest +FromCodeMode/Note；
+  AskResponse/PermissionResult +AlwaysInCodeMode；checker 不落项目规则
+  （CodeMode bridge 自行持久化）；TUI 对话框按 FromCodeMode 切换选项文案
+- **Write 闸门**：input `batch_writes: true` → 第一个写调用触发一次 Ask
+  （Note 说明执行级范围）→ 批准覆盖本次执行**所有**写调用；并发写等待
+  同一决定（channel）；拒绝→全部写 blocked；读调用走正常流程。
+  完整写入计划预览需两阶段执行，留后续（对话框显示第一个具体写）
+
+## 5. 已知局限（v3 后）
+
+- 无 rollback 自动还原（git checkpoint 评估中，WP-5）；审计清单已就位
+- write 闸门为「首个写＋范围声明」单次批准，非完整计划预览（两阶段执行留后续）
+- replay 使用历史记录的 code（≤2000 字符）；长工作流应 save_as snippet
+- import/snippet 仅 host 预置目录（沙箱不能创建模块——无 fs，结构性限制）
 - moejs alpha：API 可能变动（钉版 v0.1.1＋介面隔离缓解）
 
 ## 5.1 事件驱动待命模式（EV-01 搭配）
@@ -139,4 +176,5 @@ Code Mode＋MCP 通知路由组成零轮询待命：
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|---------|
 | v1.0 | 2026-11-18 | 主会话 | CM-01 v1 实现：moejs 沙箱＋权限 bridge＋progressive discovery＋32KiB cap＋23 测试 |
+| v3.0 | 2026-11-18 | 主会话 | CM-03 v3（A+B 范围）：replay（input＋沙箱 hook，权限照走）；snippets（save_as/run/snippets，全量 code）；副作用审计（写调用记录＋codemode.audit）；审批持久化（CodeMode-scoped approvals.json，Deny 优先，可撤销）；write 闸门（batch_writes 单次批准覆盖全执行写）。权限链 +FromCodeMode/Note/AlwaysInCodeMode；TUI 对话框 CodeMode 选项。新增测试×22。C（git checkpoint rollback）做完后评估。 |
 | v2.0 | 2026-11-18 | 主会话 | CM-02 v2：TypeScript 输入（CompileTS）；批次批准（Ask→批准→执行内同工具预批准，Deny/直接 Allow 不缓存）；结果 spill（>32KiB→文件＋4KiB preview＋指针）；执行历史（history.jsonl＋codemode.history 复用）；受控 import（host modules 目录、flat 名称、256KiB cap）。新增测试×11（工具端×8＋引擎×3），总 34 测试。dataDir 接线 ~/.claude/codemode。 |

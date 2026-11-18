@@ -2,7 +2,7 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-18T07:56:44Z
+generated_at: 2026-11-18T08:28:02Z
 source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, spinner.go, statusbar.go, styles.go, theme.go, update.go, view.go, welcome.go]
 ---
 
@@ -28,7 +28,7 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **MemdirLoadedMsg** — 2 fields: Paths, ScopedFiles
 - **MessageLookups** — 4 fields: ToolUseToResult, ResolvedToolUseIDs, ErroredToolUseIDs, InProgressToolUseIDs
 - **PermissionDialog** — 8 fields
-- **PermissionRequestMsg** — 7 fields: RequestID, ToolName, ToolUseID, Message, Input, ProjectPath, RespFn
+- **PermissionRequestMsg** — 8 fields: RequestID, ToolName, ToolUseID, Message, Input, ProjectPath, FromCodeMode, RespFn
 - **QuestionRequestMsg** — 4 fields: RequestID, Question, Options, RespFn
 - **SlashCommandMsg** — 2 fields: Name, Args
 - **SpinnerModel** — 4 fields
@@ -102,3 +102,4 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **2026-11-18 UPD-01 Bubble Tea v2 迁移**：charm.land/bubbletea/v2 v2.1.1＋bubbles/v2＋lipgloss/v2＋glamour v1.0.0（Go 1.25）。View()→tea.View（screenView 设 AltScreen/MouseModeCellMotion）；KeyPressMsg（Code/Text/Mod 匹配；ctrl=字母+ModCtrl、shift+tab=Tab+ModShift、printable=Text!=""）；MouseWheelMsg 独立类型；viewport New(WithWidth/WithHeight)/SetWidth/ScrollUp/ScrollDown/HalfPageUp/Down；Theme 欄位 image/color.Color（lipgloss.Color 为函数）；textarea New() 零参兼容。自研 spinner 零影响。v2 守护测试×3。
 - **2026-11-18 对话框可见性修复**：View 先渲染 renderActiveDialog＋todo/coordinator 面板并计行（renderedLines），viewport 以副本 SetHeight(原高−extras) 收缩，保证总渲染高度≤termHeight——修复批准对话框被挤出终端底部不可见的 bug。回归测试 dialog_visibility_test.go×4。
 - **2026-11-18 EV-01**：processQueueCmd ModeExternalPrompt 分支——附加 display 訊息＋pinnedToBottom＋startQueryCmd，MCP 通知唤醒代理处理。
+- **2026-11-18 CM-03**：PermissionRequestMsg +FromCodeMode；newPermissionDialog 按来源切换 always-allow 选项文案（CodeMode-scoped vs 项目级）；listenForPermissionRequest RespFn 映射 AlwaysInCodeMode/AlwaysAllow 互斥。

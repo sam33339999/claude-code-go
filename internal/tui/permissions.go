@@ -38,6 +38,13 @@ func newPermissionDialog(msg PermissionRequestMsg) PermissionDialog {
 		projectName = "this project"
 	}
 
+	// CM-03: CodeMode-originated requests offer a CodeMode-scoped persistent
+	// approval instead of the project-wide rule (narrower blast radius).
+	alwaysOption := fmt.Sprintf("Yes, and always allow access to %s/ from this project", projectName)
+	if msg.FromCodeMode {
+		alwaysOption = fmt.Sprintf("Yes, and always allow %s inside CodeMode", msg.ToolName)
+	}
+
 	return PermissionDialog{
 		toolName:    msg.ToolName,
 		toolUseID:   msg.ToolUseID,
@@ -46,7 +53,7 @@ func newPermissionDialog(msg PermissionRequestMsg) PermissionDialog {
 		projectPath: msg.ProjectPath,
 		options: []string{
 			"Yes",
-			fmt.Sprintf("Yes, and always allow access to %s/ from this project", projectName),
+			alwaysOption,
 			"No",
 		},
 		cursor: 0,

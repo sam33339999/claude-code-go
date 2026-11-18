@@ -218,3 +218,47 @@ func TestMoejsV2_HistoryHook(t *testing.T) {
 		t.Errorf("history value: %#v", res.Value)
 	}
 }
+
+func TestMoejsV3_HookWiring(t *testing.T) {
+	rt := NewMoejsRuntime()
+	opts := Options{
+		Replay:    func(id string) (any, error) { return "replayed:" + id, nil },
+		Run:       func(name string) (any, error) { return "ran:" + name, nil },
+		Snippets:  func() (any, error) { return []string{"a", "b"}, nil },
+		Audit:     func(id string) (any, error) { return map[string]any{"id": id}, nil },
+		Approvals: func() (any, error) { return []string{"Write"}, nil },
+		Revoke:    func(name string) (any, error) { return "revoked:" + name, nil },
+	}
+	res, err := rt.Execute(context.Background(), `
+		return {
+			r: await codemode.replay("e1"),
+			s: await codemode.run("lib"),
+			l: await codemode.snippets(),
+			a: await codemode.audit("e1"),
+			p: await codemode.approvals(),
+			v: await codemode.revoke("Write"),
+		};
+	`, nil, opts)
+	if err != nil {
+		t.Fatalf("v3 hooks execute: %v", err)
+	}
+	m, ok := res.Value.(map[string]any)
+	if !ok {
+		t.Fatalf("result shape: %#v", res.Value)
+	}
+	if m["r"] != "replayed:e1" || m["s"] != "ran:lib" || m["v"] != "revoked:Write" {
+		t.Errorf("hook values: %#v", m)
+	}
+}
+
+func TestMoejsV3_HooksDisabledWhenNil(t *testing.T) {
+	rt := NewMoejsRuntime()
+	_, err := rt.Execute(context.Background(), `return await codemode.replay("e1");`, nil, Options{})
+	if err == nil || !strings.Contains(err.Error(), "not available") {
+		t.Errorf("nil Replay hook must raise not-available, got %v", err)
+	}
+	_, err = rt.Execute(context.Background(), `return await codemode.snippets();`, nil, Options{})
+	if err == nil || !strings.Contains(err.Error(), "not available") {
+		t.Errorf("nil Snippets hook must raise not-available, got %v", err)
+	}
+}

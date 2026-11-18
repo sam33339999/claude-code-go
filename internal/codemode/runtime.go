@@ -42,6 +42,25 @@ type Options struct {
 	// History, when set, backs codemode.history(limit) inside the sandbox
 	// (CM-02 v2 execution history for reuse).
 	History func(limit int) (any, error)
+	// Replay, when set, backs codemode.replay(execID) (CM-03 v3): re-run a
+	// recorded execution through the SAME permission-gated bridge.
+	Replay func(id string) (any, error)
+	// Run, when set, backs codemode.run(name) (CM-03 v3): execute a named
+	// snippet from the host snippet library, sharing the caller's approval
+	// scope.
+	Run func(name string) (any, error)
+	// Snippets, when set, backs codemode.snippets() (CM-03 v3): list the
+	// available snippet names.
+	Snippets func() (any, error)
+	// Audit, when set, backs codemode.audit(execID) (CM-03 v3): the recorded
+	// write side effects of one execution.
+	Audit func(id string) (any, error)
+	// Approvals, when set, backs codemode.approvals() (CM-03 v3): list the
+	// persisted CodeMode-scoped tool approvals.
+	Approvals func() (any, error)
+	// Revoke, when set, backs codemode.revoke(tool) (CM-03 v3): remove a
+	// persisted CodeMode-scoped approval (safe direction: tightening).
+	Revoke func(tool string) (any, error)
 }
 
 // Result is what one sandbox execution produced.
