@@ -3,13 +3,15 @@ package fileops
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/tunsuy/claude-code-go/internal/tools"
 )
 
-// NotebookEditTool is the exported singleton instance.
-// TODO(dep): Full Jupyter notebook editing requires a proper .ipynb JSON parser.
-// For now this provides the interface skeleton and basic validation.
+// NotebookEditTool is the exported singleton instance (BF-11: full .ipynb
+// cell editing — replace/insert/delete with loose-JSON round trip).
 var NotebookEditTool tools.Tool = &notebookEditTool{}
 
 type notebookEditTool struct{ tools.BaseTool }
@@ -95,17 +97,147 @@ func (t *notebookEditTool) GetPath(input tools.Input) string {
 	return ""
 }
 
-// Call executes the NotebookEdit tools.
-// TODO(dep): Full .ipynb editing implementation. Currently returns an error
-// indicating the feature is not yet implemented.
+// Call executes the NotebookEdit tool (BF-11): replace/insert/delete a cell
+// in a Jupyter .ipynb notebook. The notebook is parsed as loose JSON
+// (map[string]json.RawMessage) so unknown top-level and cell fields survive
+// the round trip. Source may be a string or []string on input (both are valid
+// Jupyter); it is always written as []string split after newlines.
 func (t *notebookEditTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
 	var in NotebookEditInput
 	if err := json.Unmarshal(input, &in); err != nil {
 		return &tools.Result{IsError: true, Content: "invalid input: " + err.Error()}, nil
 	}
-	// TODO(dep): implement full notebook editing
-	return &tools.Result{
-		IsError: true,
-		Content: "NotebookEdit is not yet implemented; requires .ipynb JSON parser",
-	}, nil
+	path := expandPath(in.NotebookPath)
+	if !filepath.IsAbs(path) {
+		return &tools.Result{IsError: true, Content: "notebook_path must be an absolute path"}, nil
+	}
+	if filepath.Ext(path) != ".ipynb" {
+		return &tools.Result{IsError: true, Content: "notebook_path must point to a .ipynb file"}, nil
+	}
+	mode := in.EditMode
+	if mode == "" {
+		mode = "replace"
+	}
+	switch mode {
+	case "replace", "insert", "delete":
+	default:
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("edit_mode must be replace, insert or delete, got %q", mode)}, nil
+	}
+	if in.CellType != "" && in.CellType != "code" && in.CellType != "markdown" {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("cell_type must be code or markdown, got %q", in.CellType)}, nil
+	}
+	if mode == "insert" && in.CellType == "" {
+		return &tools.Result{IsError: true, Content: "cell_type is required when edit_mode=insert"}, nil
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("read notebook: %v", err)}, nil
+	}
+	var nb map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &nb); err != nil {
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("parse notebook JSON: %v", err)}, nil
+	}
+	var cells []map[string]json.RawMessage
+	if cellsRaw, ok := nb["cells"]; ok {
+		if err := json.Unmarshal(cellsRaw, &cells); err != nil {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("parse cells: %v", err)}, nil
+		}
+	}
+
+	n := in.CellNumber
+	switch mode {
+	case "replace", "delete":
+		if n < 0 || n >= len(cells) {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("cell_number %d out of range (notebook has %d cells)", n, len(cells))}, nil
+		}
+	case "insert":
+		if n < 0 || n > len(cells) {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("cell_number %d out of range for insert (0..%d)", n, len(cells))}, nil
+		}
+	}
+
+	switch mode {
+	case "replace":
+		setCellSource(cells[n], in.NewSource)
+		if in.CellType != "" {
+			cells[n]["cell_type"], _ = json.Marshal(in.CellType)
+			if in.CellType == "markdown" {
+				delete(cells[n], "outputs")
+				delete(cells[n], "execution_count")
+			}
+		}
+	case "insert":
+		cell := map[string]json.RawMessage{
+			"cell_type": mustJSON(in.CellType),
+			"metadata":  json.RawMessage(`{}`),
+			"source":    mustJSON(sourceLines(in.NewSource)),
+		}
+		if in.CellType == "code" {
+			cell["outputs"] = json.RawMessage(`[]`)
+			cell["execution_count"] = json.RawMessage(`null`)
+		}
+		cells = append(cells, nil)
+		copy(cells[n+1:], cells[n:])
+		cells[n] = cell
+	case "delete":
+		cells = append(cells[:n], cells[n+1:]...)
+	}
+
+	cellsRaw, err := json.Marshal(cells)
+	if err != nil {
+		return nil, fmt.Errorf("NotebookEdit: marshal cells: %w", err)
+	}
+	nb["cells"] = cellsRaw
+	out, err := json.MarshalIndent(nb, "", " ")
+	if err != nil {
+		return nil, fmt.Errorf("NotebookEdit: marshal notebook: %w", err)
+	}
+	if err := writeFileAtomic(path, append(out, '\n')); err != nil {
+		return nil, fmt.Errorf("NotebookEdit: write notebook: %w", err)
+	}
+	switch mode {
+	case "insert":
+		return &tools.Result{Content: fmt.Sprintf("Inserted %s cell at index %d in %s", in.CellType, n, path)}, nil
+	case "delete":
+		return &tools.Result{Content: fmt.Sprintf("Deleted cell %d from %s (%d cells remain)", n, path, len(cells))}, nil
+	default:
+		return &tools.Result{Content: fmt.Sprintf("Updated cell %d in %s", n, path)}, nil
+	}
+}
+
+// setCellSource replaces a cell's source with newSource (as []string lines).
+func setCellSource(cell map[string]json.RawMessage, newSource string) {
+	cell["source"] = mustJSON(sourceLines(newSource))
+}
+
+// sourceLines splits s into Jupyter source lines: each line keeps its
+// trailing newline except the last. An empty string yields an empty slice.
+func sourceLines(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	var lines []string
+	for {
+		i := strings.IndexByte(s, '\n')
+		if i < 0 {
+			lines = append(lines, s)
+			break
+		}
+		lines = append(lines, s[:i+1])
+		s = s[i+1:]
+		if s == "" {
+			break
+		}
+	}
+	return lines
+}
+
+// mustJSON marshals v, panicking only on impossible inputs (string/[]string).
+func mustJSON(v any) json.RawMessage {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		panic(fmt.Sprintf("NotebookEdit: marshal %T: %v", v, err))
+	}
+	return raw
 }

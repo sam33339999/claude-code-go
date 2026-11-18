@@ -2,7 +2,7 @@
 package: tools
 import_path: internal/tools
 layer: tools
-generated_at: 2026-11-18T04:49:22Z
+generated_at: 2026-11-18T05:20:41Z
 source_files: [base.go, registry.go, tool.go]
 ---
 
@@ -144,8 +144,8 @@ type Tool interface {
 - `PathTool` → `internal/permissions/persist.go`, `internal/tools/fileops/fileedit.go`, `internal/tools/fileops/fileread.go`, `internal/tools/fileops/filewrite.go`, `internal/tools/fileops/notebookedit.go`
 - `PermissionContext` → `internal/engine/orchestration_test.go` (test), `internal/engine/query.go`, `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/agent/agent.go` + 17 more
 - `PermissionResult` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/ask.go`, `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test) + 7 more
-- `Registry` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/tools.go`, `internal/bootstrap/wire.go`, `internal/engine/engine.go` + 3 more
-- `Result` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/agent/agent.go`, `internal/tools/agent/getagentstatus.go` + 17 more
+- `Registry` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/tools.go`, `internal/bootstrap/wire.go`, `internal/engine/engine.go` + 4 more
+- `Result` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/agent/agent.go`, `internal/tools/agent/getagentstatus.go` + 18 more
 - `Tool` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test), `internal/permissions/persist.go` + 33 more
 - `UseContext` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/engine/cache_params.go` + 38 more
 - `ValidationResult` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/fileops/fileread.go`, `internal/tools/fileops/glob.go` + 5 more

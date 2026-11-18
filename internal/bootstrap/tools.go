@@ -65,7 +65,7 @@ func RegisterBuiltinTools(reg *tools.Registry, pool *agtmcp.Pool) {
 	// ── Misc ─────────────────────────────────────────────────────────────────
 	reg.Register(misc.SkillTool)
 	reg.Register(misc.BriefTool)
-	reg.Register(misc.ToolSearchTool)
+	reg.Register(misc.NewToolSearchTool(reg))
 	reg.Register(misc.SleepTool)
 	reg.Register(misc.SyntheticOutputTool)
 
