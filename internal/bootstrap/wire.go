@@ -157,6 +157,9 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	// BF-09: plan-mode tools mutate the live permission mode via the store.
 	reg.Register(interact.NewEnterPlanModeTool(store))
 	reg.Register(interact.NewExitPlanModeTool(store))
+	// BF-10: worktree tools switch the session WorkingDir via the store.
+	reg.Register(interact.NewEnterWorktreeTool(store))
+	reg.Register(interact.NewExitWorktreeTool(store))
 
 	// ── Phase 7: Permission checker (HIL support) ────────────────────────────
 	// Create permission channels for TUI ↔ Engine communication.
@@ -287,6 +290,9 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	// BF-09: plan-mode tools mutate the live permission mode via the store.
 	reg.Register(interact.NewEnterPlanModeTool(store))
 	reg.Register(interact.NewExitPlanModeTool(store))
+	// BF-10: worktree tools switch the session WorkingDir via the store.
+	reg.Register(interact.NewEnterWorktreeTool(store))
+	reg.Register(interact.NewExitWorktreeTool(store))
 
 	// ── Phase 7: Permission checker (HIL support) ────────────────────────────
 	askCh := make(chan permissions.AskRequest, 1)

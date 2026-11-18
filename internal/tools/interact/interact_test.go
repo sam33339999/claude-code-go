@@ -3,6 +3,9 @@ package interact_test
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -304,91 +307,133 @@ func TestPlanModeTools_NilStore(t *testing.T) {
 	}
 }
 
-// ── EnterWorktreeTool ─────────────────────────────────────────────────────────
+// ── EnterWorktreeTool / ExitWorktreeTool（BF-10）─────────────────────────────
 
-func TestEnterWorktreeTool_Name(t *testing.T) {
-	if interact.EnterWorktreeTool.Name() != "EnterWorktree" {
-		t.Errorf("expected EnterWorktree, got %q", interact.EnterWorktreeTool.Name())
+// initTestRepo creates a git repo with one commit and returns its path.
+func initTestRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
 	}
+	run("init", "-q")
+	os.WriteFile(filepath.Join(dir, "f.txt"), []byte("hello"), 0o644)
+	run("add", ".")
+	run("commit", "-qm", "init")
+	return dir
 }
 
-func TestEnterWorktreeTool_IsConcurrencySafe_False(t *testing.T) {
-	if interact.EnterWorktreeTool.IsConcurrencySafe(nil) {
-		t.Error("EnterWorktreeTool must not be concurrency-safe")
-	}
+func worktreeTools(dir string) (tools.Tool, tools.Tool, *state.AppStateStore) {
+	store := state.NewAppStateStore(state.AppState{WorkingDir: dir})
+	return interact.NewEnterWorktreeTool(store), interact.NewExitWorktreeTool(store), store
 }
 
-func TestEnterWorktreeTool_IsReadOnly_False(t *testing.T) {
-	if interact.EnterWorktreeTool.IsReadOnly(nil) {
-		t.Error("EnterWorktreeTool must not be read-only")
+func TestWorktreeTools_Metadata(t *testing.T) {
+	enter, exit, _ := worktreeTools(t.TempDir())
+	if enter.Name() != "EnterWorktree" || exit.Name() != "ExitWorktree" {
+		t.Errorf("names: %q / %q", enter.Name(), exit.Name())
 	}
-}
-
-func TestEnterWorktreeTool_UserFacingName_WithName(t *testing.T) {
-	in, _ := json.Marshal(interact.EnterWorktreeInput{Name: "my-branch"})
-	name := interact.EnterWorktreeTool.UserFacingName(in)
-	if name != "EnterWorktree(my-branch)" {
+	if enter.IsConcurrencySafe(nil) || exit.IsConcurrencySafe(nil) {
+		t.Error("worktree tools must not be concurrency-safe")
+	}
+	if enter.IsReadOnly(nil) || exit.IsReadOnly(nil) {
+		t.Error("worktree tools must not be read-only")
+	}
+	in, _ := json.Marshal(interact.EnterWorktreeInput{Name: "feature-x"})
+	if name := enter.UserFacingName(in); name != "EnterWorktree(feature-x)" {
 		t.Errorf("unexpected name: %q", name)
 	}
 }
 
-func TestEnterWorktreeTool_UserFacingName_NoName(t *testing.T) {
+func TestWorktree_EnterKeepExit(t *testing.T) {
+	dir := initTestRepo(t)
+	enter, exit, store := worktreeTools(dir)
+
+	in, _ := json.Marshal(interact.EnterWorktreeInput{Name: "feature-x"})
+	result, err := enter.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("enter failed: err=%v result=%+v", err, result)
+	}
+	wt := store.GetState().Worktree
+	if wt == nil || wt.Branch != "worktree/feature-x" || wt.OriginalDir != dir {
+		t.Fatalf("worktree state wrong: %+v", wt)
+	}
+	if store.GetState().WorkingDir != wt.WorktreeDir {
+		t.Error("WorkingDir must switch to the worktree")
+	}
+	if _, err := os.Stat(filepath.Join(wt.WorktreeDir, "f.txt")); err != nil {
+		t.Errorf("worktree should contain the repo files: %v", err)
+	}
+
+	// Double enter refused.
+	result, _ = enter.Call(in, nil, nil)
+	if !result.IsError {
+		t.Error("double enter must be refused")
+	}
+
+	in, _ = json.Marshal(interact.ExitWorktreeInput{Action: "keep"})
+	result, err = exit.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("exit keep failed: err=%v result=%+v", err, result)
+	}
+	if store.GetState().WorkingDir != dir || store.GetState().Worktree != nil {
+		t.Error("exit must restore WorkingDir and clear state")
+	}
+	if _, err := os.Stat(wt.WorktreeDir); err != nil {
+		t.Error("keep must leave the worktree on disk")
+	}
+}
+
+func TestWorktree_RemoveWithChangesGuard(t *testing.T) {
+	dir := initTestRepo(t)
+	enter, exit, store := worktreeTools(dir)
+	in, _ := json.Marshal(interact.EnterWorktreeInput{Name: "dirty"})
+	if result, _ := enter.Call(in, nil, nil); result.IsError {
+		t.Fatal(result.Content)
+	}
+	wt := store.GetState().Worktree
+	os.WriteFile(filepath.Join(wt.WorktreeDir, "f.txt"), []byte("changed"), 0o644)
+
+	in, _ = json.Marshal(interact.ExitWorktreeInput{Action: "remove"})
+	result, _ := exit.Call(in, nil, nil)
+	if !result.IsError || !strings.Contains(result.Content.(string), "uncommitted changes") {
+		t.Errorf("remove with changes must be refused, got %+v", result)
+	}
+
+	in, _ = json.Marshal(interact.ExitWorktreeInput{Action: "remove", DiscardChanges: true})
+	result, err := exit.Call(in, nil, nil)
+	if err != nil || result.IsError {
+		t.Fatalf("forced remove failed: err=%v result=%+v", err, result)
+	}
+	if _, err := os.Stat(wt.WorktreeDir); !os.IsNotExist(err) {
+		t.Error("forced remove must delete the worktree")
+	}
+}
+
+func TestWorktree_NotARepoAndNotInSession(t *testing.T) {
+	enter, exit, _ := worktreeTools(t.TempDir())
 	in, _ := json.Marshal(interact.EnterWorktreeInput{})
-	name := interact.EnterWorktreeTool.UserFacingName(in)
-	if name != "EnterWorktree" {
-		t.Errorf("unexpected name: %q", name)
+	if result, _ := enter.Call(in, nil, nil); !result.IsError {
+		t.Error("enter outside a git repo must fail")
+	}
+	in, _ = json.Marshal(interact.ExitWorktreeInput{Action: "keep"})
+	if result, _ := exit.Call(in, nil, nil); !result.IsError {
+		t.Error("exit without a worktree session must fail")
 	}
 }
 
-func TestEnterWorktreeTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(interact.EnterWorktreeInput{Name: "test"})
-	result, err := interact.EnterWorktreeTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
-	}
-	if !result.IsError {
-		t.Error("expected IsError=true for stub tool")
-	}
-}
-
-// ── ExitWorktreeTool ──────────────────────────────────────────────────────────
-
-func TestExitWorktreeTool_Name(t *testing.T) {
-	if interact.ExitWorktreeTool.Name() != "ExitWorktree" {
-		t.Errorf("expected ExitWorktree, got %q", interact.ExitWorktreeTool.Name())
-	}
-}
-
-func TestExitWorktreeTool_IsDestructive_True(t *testing.T) {
-	if !interact.ExitWorktreeTool.IsDestructive(nil) {
-		t.Error("ExitWorktreeTool must be destructive")
-	}
-}
-
-func TestExitWorktreeTool_IsConcurrencySafe_False(t *testing.T) {
-	if interact.ExitWorktreeTool.IsConcurrencySafe(nil) {
-		t.Error("ExitWorktreeTool must not be concurrency-safe")
-	}
-}
-
-func TestExitWorktreeTool_InputSchema(t *testing.T) {
-	schema := interact.ExitWorktreeTool.InputSchema()
-	if _, ok := schema.Properties["action"]; !ok {
-		t.Error("schema missing 'action'")
-	}
-	if len(schema.Required) != 1 || schema.Required[0] != "action" {
-		t.Errorf("expected Required=[action], got %v", schema.Required)
-	}
-}
-
-func TestExitWorktreeTool_Call_ReturnsError(t *testing.T) {
-	in, _ := json.Marshal(interact.ExitWorktreeInput{Action: "keep"})
-	result, err := interact.ExitWorktreeTool.Call(in, nil, nil)
-	if err != nil {
-		t.Fatalf("unexpected hard error: %v", err)
-	}
-	if !result.IsError {
-		t.Error("expected IsError=true for stub tool")
+func TestWorktree_InvalidName(t *testing.T) {
+	dir := initTestRepo(t)
+	enter, _, _ := worktreeTools(dir)
+	in, _ := json.Marshal(interact.EnterWorktreeInput{Name: "bad name!"})
+	if result, _ := enter.Call(in, nil, nil); !result.IsError {
+		t.Error("invalid name must be rejected")
 	}
 }
 
@@ -399,6 +444,6 @@ func TestAllInteractTools_ImplementToolInterface(t *testing.T) {
 	var _ tools.Tool = interact.NewAskUserQuestionTool(nil, nil)
 	var _ tools.Tool = interact.NewEnterPlanModeTool(nil)
 	var _ tools.Tool = interact.NewExitPlanModeTool(nil)
-	var _ tools.Tool = interact.EnterWorktreeTool
-	var _ tools.Tool = interact.ExitWorktreeTool
+	var _ tools.Tool = interact.NewEnterWorktreeTool(nil)
+	var _ tools.Tool = interact.NewExitWorktreeTool(nil)
 }

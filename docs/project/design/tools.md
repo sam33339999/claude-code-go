@@ -1035,6 +1035,7 @@ FileEdit 要求 `old_string` 在文件中唯一出现一次。实现：
 | v1.3 | 2026-11-18 | 主会话 | BF-07 TodoWrite 实现：NewTodoWriteTool(store) 构造注入（wire.go 于 store 后注册）；AppState.Todos＋pkg/types.TodoItem；oracle 语义（全 completed 清空、固定文案、整表替换）；分歧文档化（单会话列表、无持久化）。RegisterBuiltinTools 33 工具（TodoWrite 移出）。 |
 | v1.4 | 2026-11-18 | 主会话 | BF-08 AskUserQuestion 实现：HIL channel 对（pkg/types.QuestionRequest/Response）构造注入，权限对话框管线同构；headless nil channel 诚实报错（ContainerOptions.Headless）；ctx/abort 取消路径。RegisterBuiltinTools 32 工具（AskUserQuestion 移出至 wire.go Phase 7）。 |
 | v1.5 | 2026-11-18 | 主会话 | BF-09 plan-mode 工具实现：NewEnterPlanModeTool/NewExitPlanModeTool(store) 切换 live mode（checker ModeFn）；ExitPlanMode 无批准对话框（分歧文档化）。RegisterBuiltinTools 30 工具。 |
+| v1.8 | 2026-11-18 | 主会话 | BF-10 Worktree 工具实现：git worktree add/remove 自包含（os/exec），AppState.Worktree 状态＋WorkingDir 切换；remove 未提交变更守卫（discard_changes 强制）；分支保留（分歧文档化）。RegisterBuiltinTools 28 工具（interact 全数 wire.go 注册）。 |
 | v1.7 | 2026-11-18 | 主会话 | BF-14 Brief 实现：抽取式摘要（词频评分＋位置加分，确定性零 LLM 调用）；分歧：oracle Brief=SendUserMessage（Kairos gated），按本仓设计规格实现摘要器。 |
 | v1.6 | 2026-11-18 | 主会话 | BF-12 ToolSearch 实现：NewToolSearchTool(reg) 注册表注入，关键词评分（name×3/hint×2/desc×1，camelCase 拆词），top-10 JSON。BF-11 NotebookEdit 实现：.ipynb loose-JSON round trip（保留未知字段）、replace/insert/delete、source 双格式、markdown 转换清 outputs、原子写。两者 schema 字节不变。 |
 | v1.0 | 2026-04-02 | Agent-Tools | 初稿 |

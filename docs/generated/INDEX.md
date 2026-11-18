@@ -1,6 +1,6 @@
 ---
 type: auto-generated-index
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-18T05:27:09Z
 package_count: 39
 ---
 
@@ -24,7 +24,7 @@ package_count: 39
 | `internal/hooks` | Infra | Dispatcher | [CONTEXT](../../internal/hooks/CONTEXT.md) |
 | `internal/plugin` | Infra | Manager | [CONTEXT](../../internal/plugin/CONTEXT.md) |
 | `internal/session` | Infra | SessionStorer(3m), SessionManager, SessionStore | [CONTEXT](../../internal/session/CONTEXT.md) |
-| `internal/state` | Infra | AppState, ModelSetting, Store, TaskState | [CONTEXT](../../internal/state/CONTEXT.md) |
+| `internal/state` | Infra | AppState, ModelSetting, Store, TaskState, WorktreeState | [CONTEXT](../../internal/state/CONTEXT.md) |
 | `internal/api` | Services | Client(2m), StreamReader(1m), APIError, APIErrorData, Accumulator | [CONTEXT](../../internal/api/CONTEXT.md) |
 | `internal/compact` | Services | Compressor(2m), AutoCompactTrackingState, AutoCompactor, CacheEdit, CompactionExtra | [CONTEXT](../../internal/compact/CONTEXT.md) |
 | `internal/mcp` | Services | MCPClient(7m), Transport(3m), HTTPTransportConfig, JSONRPCError, JSONRPCMessage | [CONTEXT](../../internal/mcp/CONTEXT.md) |

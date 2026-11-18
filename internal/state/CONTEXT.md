@@ -2,20 +2,21 @@
 package: state
 import_path: internal/state
 layer: infra
-generated_at: 2026-11-18T05:05:54Z
+generated_at: 2026-11-18T05:27:09Z
 source_files: [store.go]
 ---
 
 # internal/state
 
-> Layer: **Infra** · Files: 1 · Interfaces: 0 · Structs: 4 · Functions: 7
+> Layer: **Infra** · Files: 1 · Interfaces: 0 · Structs: 5 · Functions: 7
 
 ## Structs
 
-- **AppState** — 17 fields: Settings, Verbose, MainLoopModel, ToolPermissionContext, SessionId, WorkingDir, GitBranch, Todos, ...
+- **AppState** — 18 fields: Settings, Verbose, MainLoopModel, ToolPermissionContext, SessionId, WorkingDir, GitBranch, Todos, ...
 - **ModelSetting** — 2 fields: ModelID, Provider
 - **Store** — 6 fields
 - **TaskState** — 4 fields: AgentId, Status, SessionId, TaskType
+- **WorktreeState** — 3 fields: OriginalDir, WorktreeDir, Branch
 
 ## Function Types
 
@@ -36,6 +37,7 @@ source_files: [store.go]
 **Exported type references (files that use types from this package):**
 - `AppState` → `internal/bootstrap/wire.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tools/interact/worktree.go`, `internal/tui/init.go` + 6 more
 - `ModelSetting` → `internal/bootstrap/wire.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/tui_test.go` (test)
+- `WorktreeState` → `internal/tools/interact/worktree.go`
 
 ## Dependencies
 
@@ -49,3 +51,4 @@ source_files: [store.go]
 ## Design Notes
 
 - **2026-09-23 基座换库（agtkeel import-swap）**：可复用 agent 内核已逐字提取到 `github.com/tunsuy/agtkeel`（MIT），本包 import 随之改写：`internal/{api,compact,msgqueue,engine,session,permissions,hooks,mcp,config}` → `agtkeel/*`、`internal/tools`（接口契约+注册表）→ `agtkeel/tools`、`pkg/types` → `agtkeel/types`、`pkg/utils/{fs,ids}` → `agtkeel/utils/*`。本包代码**仅 import 路径重写，零逻辑改动**，`go build`/`go vet`/`go test -race ./...` 全绿。已知表现局限：docgen 依赖图按本模块前缀分类，agtkeel 视作第三方库，故上方 Imports 栏不再展示内核依赖（与 cobra 等一致）。
+- **2026-11-18 BF-10**：AppState.Worktree *WorktreeState（OriginalDir/WorktreeDir/Branch）記錄 worktree session；EnterWorktree 切換 WorkingDir，ExitWorktree 還原。
