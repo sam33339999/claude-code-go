@@ -411,8 +411,8 @@ func TestNewTransport_Unknown(t *testing.T) {
 
 func TestNewTransport_WS(t *testing.T) {
 	_, err := NewTransport(TransportWS, nil)
-	if err == nil {
-		t.Error("expected error for WS (not implemented)")
+	if err == nil || !strings.Contains(err.Error(), "WSTransportConfig") {
+		t.Errorf("expected config-type error for WS nil config, got %v", err)
 	}
 }
 
@@ -971,12 +971,12 @@ func TestNewTransport_WrongConfigType(t *testing.T) {
 	}
 }
 
-func TestNewTransport_WebSocket_NotImplemented(t *testing.T) {
+func TestNewTransport_WebSocket_WrongConfig(t *testing.T) {
 	_, err := NewTransport(TransportWS, nil)
 	if err == nil {
-		t.Error("expected error for websocket transport")
+		t.Error("expected error for websocket transport with nil config")
 	}
-	if !strings.Contains(err.Error(), "not yet implemented") {
+	if !strings.Contains(err.Error(), "WSTransportConfig") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }

@@ -294,16 +294,17 @@ executeOneTool (已实现)
 | 3.2.3 | ❌ 实现 GCP ADC（Application Default Credentials） | 未开始 | |
 | 3.2.4 | ❌ 添加 `gcpAuthRefresh` 支持 | 未开始 | |
 
-### 3.3 MCP WebSocket Transport ❌ 未开始
+### 3.3 MCP WebSocket Transport ✅ 已完成（2026-11-18，BF-16）
 
-**现状**（2026-08-29 核查）：`internal/mcp/transport.go` 中 `TransportWS` 已声明但构造直接返回 "not yet implemented"；stdio/sse/http 三种可用。
+**现状**（2026-11-18）：`internal/mcp/transport_ws.go` 实现 `wsTransport`（gorilla/websocket v1.5.3）；
+stdio/sse/http/ws 四种可用。Pool.Connect 经 WS 完成 initialize 握手＋tools/list（全链路测试钉住）。
 
 | # | 任务 | 状态 | 说明 |
 |---|------|------|------|
-| 3.3.1 | ❌ 引入 `nhooyr.io/websocket` 依赖 | 未开始 | 轻量级 WebSocket 库 |
-| 3.3.2 | ❌ 实现 `wsTransport` | 未开始 | 实现 `Transport` 接口 |
-| 3.3.3 | ❌ 自动重连逻辑 | 未开始 | 连接断开后指数退避重连 |
-| 3.3.4 | ❌ 集成测试 | 未开始 | 使用 mock WS server 测试 |
+| 3.3.1 | ✅ 引入 WebSocket 依赖 | 完成 | 选型 **gorilla/websocket v1.5.3**（Tech Lead 裁决：成熟稳定；原计划 nhooyr.io 已更名 coder/websocket） |
+| 3.3.2 | ✅ 实现 `wsTransport` | 完成 | Send/Recv/Close；背景 reader＋ctx 取消（stdio 先例）；写串行化；ServerConfig.WS＋dialServer 分支 |
+| 3.3.3 | ⚠️ 自动重连逻辑 | 部分 | Pool.Reconnect 手动重连可用；指数退避**自动**重连未做（与 BF-19 快照 API 一并跟进，避免会话期后台 pool 变更） |
+| 3.3.4 | ✅ 集成测试 | 完成 | gorilla upgrader mock WS server：round-trip/ctx 取消/Close 幂等/dial 错误/Pool 全链路握手/nil config |
 
 ### 3.4 插件系统实现 ⚠️ 部分完成（CLI 层已落地，加载引擎待做）
 
