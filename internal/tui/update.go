@@ -37,7 +37,19 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.isLoading {
 			m.spinner = m.spinner.Tick(elapsed)
 		}
+		// Refresh the process memory figure every memSampleInterval, sampling
+		// in a Cmd so the Update loop never waits on it.
+		if !m.memSamplePending && msg.Time.Sub(m.lastMemSample) >= memSampleInterval {
+			m.lastMemSample = msg.Time
+			m.memSamplePending = true
+			return m, tea.Batch(tickCmd(), memSampleCmd())
+		}
 		return m, tickCmd()
+
+	case memSampleMsg:
+		m.memSamplePending = false
+		m.statusBar.memBytes = msg.bytes
+		return m, nil
 
 	// --- Memdir load complete ---
 	case MemdirLoadedMsg:
@@ -174,8 +186,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// BF-18: persist the completed turn off the Update loop.
 		cmds := []tea.Cmd{persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages())}
 
-		// P1: Between-turn drain — process queued commands now that the query finished.
-		if m.msgQueue != nil && m.msgQueue.Len() > 0 {
+		// P1: Between-turn drain — process queued commands now that the query
+		// finished (deferred while the /resume picker is open; it drains on close).
+		if m.msgQueue != nil && m.msgQueue.Len() > 0 && m.activeDialog != dialogResume {
 			cmds = append(cmds, processQueueCmd(&m))
 		}
 		return m, tea.Batch(cmds...)
@@ -289,7 +302,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Result:  msg.Result,
 			})
 			m.msgQueue.Enqueue(msgqueue.NewCommand(notif, msgqueue.ModeExternalPrompt, msgqueue.PriorityNext))
-			if !m.isLoading {
+			if !m.isLoading && m.activeDialog != dialogResume {
 				cmds = append(cmds, processQueueCmd(&m))
 			}
 		}
@@ -361,6 +374,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case queuedSlashMsg:
 		return m.handleSlashCommand(msg.Text)
 
+	case asyncCommandResultMsg:
+		return m.applyCommandResult(msg.result, msg.name)
+
 	// --- Bracketed paste: insert into the input box ---
 	case tea.PasteMsg:
 		if m.activeDialog != dialogNone {
@@ -414,8 +430,22 @@ func (m AppModel) handleSlashCommand(text string) (AppModel, tea.Cmd) {
 		MessageCount: len(m.messages),
 	}
 
+	// A bare /resume reads every recent session file; run it off the Update
+	// loop so long histories don't freeze the UI.
+	if name == "resume" && args == "" {
+		return m, func() tea.Msg {
+			return asyncCommandResultMsg{name: name, result: slashCmd.Execute(cmdCtx, args)}
+		}
+	}
+
 	result := slashCmd.Execute(cmdCtx, args)
 	return m.applyCommandResult(result, name)
+}
+
+// asyncCommandResultMsg delivers a slash command result computed in a Cmd.
+type asyncCommandResultMsg struct {
+	name   string
+	result commands.Result
 }
 
 // processQueueCmd dequeues the next command from the message queue and
@@ -506,6 +536,20 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 			m.activeDialog = dialogExit
 		case "config":
 			m.activeDialog = dialogConfig
+		case "resume":
+			if len(result.Sessions) == 0 {
+				break
+			}
+			if m.isLoading {
+				// Still show the listing so the user can pick an ID later.
+				m.messages = append(m.messages,
+					newSystemErrorMessage("Cannot resume a session while a query is running. Press Esc to interrupt it first."),
+					newSystemMessage(result.Text))
+				m.syncViewportContent()
+				break
+			}
+			m.resumePicker = newResumePicker(result.Sessions)
+			m.activeDialog = dialogResume
 		}
 		return m, nil
 	}

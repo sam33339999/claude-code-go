@@ -770,3 +770,57 @@ func TestView_ShortTerminalWithTallInputFits(t *testing.T) {
 		t.Errorf("view is %d lines on a 12-line terminal", lines)
 	}
 }
+
+// --- Process memory in the status bar ---
+
+func TestSampleProcessMemory_Plausible(t *testing.T) {
+	b := sampleProcessMemory()
+	if b < 1<<20 || b > 64<<30 {
+		t.Errorf("implausible process memory sample: %d bytes", b)
+	}
+}
+
+func TestFormatBytes(t *testing.T) {
+	cases := map[uint64]string{512 << 10: "512KB", 3 << 20: "3.0MB", 48 << 20: "48MB", 3 << 29: "1.5GB"}
+	for b, want := range cases {
+		if got := formatBytes(b); got != want {
+			t.Errorf("%d: got %q want %q", b, got, want)
+		}
+	}
+}
+
+func TestStatusBar_ShowsMemory(t *testing.T) {
+	m := newTestModel()
+	// A tick past the interval requests a sample via a Cmd (off the loop).
+	updated, cmd := m.Update(TickMsg{Time: m.lastMemSample.Add(2 * memSampleInterval)})
+	m = updated.(AppModel)
+	sample := findMsg[memSampleMsg](cmd)
+	if sample == nil || !m.memSamplePending {
+		t.Fatal("tick should schedule a background memory sample")
+	}
+	// Not again before the interval has passed.
+	if _, c := m.Update(TickMsg{Time: m.lastMemSample.Add(memSampleInterval / 2)}); findMsg[memSampleMsg](c) != nil {
+		t.Error("must not sample more often than memSampleInterval")
+	}
+	// No second sample while one is in flight.
+	if _, cmd2 := m.Update(TickMsg{Time: m.lastMemSample.Add(4 * memSampleInterval)}); findMsg[memSampleMsg](cmd2) != nil {
+		t.Error("must not stack memory samples")
+	}
+	m = applyMsg(m, *sample)
+	if m.memSamplePending || m.statusBar.memBytes == 0 {
+		t.Error("sample result should land in the status bar")
+	}
+	if !strings.Contains(stripANSI(m.statusBar.View(120, m.theme)), "mem ") {
+		t.Error("status bar should show process memory")
+	}
+}
+
+func TestSampleProcessMemory_MatchesOSRSS(t *testing.T) {
+	rss, ok := processRSS()
+	if !ok {
+		t.Skip("OS RSS unavailable on this platform")
+	}
+	if goMem := goRuntimeMemory(); rss < goMem/2 {
+		t.Errorf("RSS %d implausibly below Go runtime memory %d", rss, goMem)
+	}
+}

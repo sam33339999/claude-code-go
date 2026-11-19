@@ -2,13 +2,13 @@
 package: commands
 import_path: internal/commands
 layer: cli
-generated_at: 2026-11-19T06:00:32Z
+generated_at: 2026-11-19T08:08:11Z
 source_files: [builtins.go, mcp.go, registry.go, resume.go, terminal_setup.go]
 ---
 
 # internal/commands
 
-> Layer: **CLI** · Files: 5 · Interfaces: 1 · Structs: 5 · Functions: 5
+> Layer: **CLI** · Files: 5 · Interfaces: 1 · Structs: 6 · Functions: 5
 
 ## Interfaces
 
@@ -26,7 +26,8 @@ type MCPServerLister interface {
 - **Command** — 3 fields: Name, Description, Execute
 - **CommandContext** — 9 fields: WorkingDir, Model, SessionID, DarkMode, VimEnabled, Effort, MessageCount, TokensInput, ...
 - **Registry** — 2 fields
-- **Result** — 13 fields: Text, Display, ShouldExit, NewMessages, NewSessionID, NewTheme, NewModel, NewEffort, ...
+- **Result** — 14 fields: Text, Display, ShouldExit, NewMessages, NewSessionID, NewTheme, NewModel, NewEffort, ...
+- **SessionSummary** — 5 fields: ID, Title, ModTime, MessageCount, Current
 - **TerminalInfo** — 3 fields: Terminal, Shell, Term
 
 ## Functions
@@ -53,8 +54,9 @@ type MCPServerLister interface {
 - `Command` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
 - `CommandContext` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
 - `MCPServerLister` → `internal/tui/cmds.go`, `internal/tui/init.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/model.go`
-- `Registry` → `internal/tui/model.go`
-- `Result` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
+- `Registry` → `internal/tui/completion.go`, `internal/tui/model.go`
+- `Result` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/tui_test.go` (test), `internal/tui/update.go`
+- `SessionSummary` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/resumepicker.go`
 
 ## Dependencies
 
