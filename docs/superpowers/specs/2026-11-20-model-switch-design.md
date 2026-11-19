@@ -1,7 +1,7 @@
 # `/model` 選單切換主腦（等級＋快取警示）設計
 
 - 日期：2026-11-20
-- 狀態：草案，待負責人核准。
+- 狀態：已核准並實作（2026-11-20，分支 `feat/model-switch`）。
 - 範圍：provider-tiers 設計 §10 的第 2 件（原本只寫「切換時警示快取失效」，討論後擴大為「讓 `/model` 真正能切換」）。第 3 件 `/btw` 另寫設計。
 - 相關：`docs/superpowers/specs/2026-11-19-provider-tiers-design.md`、`docs/config-toml.md`、`docs/PROMPT_CACHE_AND_COST.md`。
 

@@ -95,6 +95,17 @@ context_window = 200000
 
 provider 的金鑰環境變數沒設時，啟動照常進行，但派工到那個等級會直接失敗，錯誤訊息會點名環境變數，**不會**默默改用主腦。
 
+## 在會話中切換主腦（`/model`）
+
+`/model` 會打開選單，列出 `default`（`settings.json` 的主腦）和 lite / pro / max，選了就把主腦換成該目標的 provider client、模型、`context_window` 和 `max_tokens`，可以跨 provider。**只在本 session 有效**，重開回到 `settings.json`。
+
+- `/model <參考>` 也可以：等級名、舊別名（`opus` → `max`）、`providerID:modelID`，或目前主腦 provider 上的模型 ID。
+- 對話已有內容時會先確認：換模型或 provider 會讓 prompt 快取失效，下一則請求要重送整段對話；新模型的窗口比目前對話小時，下一輪會壓縮並可能截掉最舊的內容。
+- 未綁定或金鑰缺失的等級顯示為不可用；查詢進行中不能切換。
+- 跟著主腦一起換的：主對話、繼承主腦的 sub-agent、記憶抽取等背景查詢。已派出的 sub-agent 續跑時仍用派工當下的模型。
+- 綁到 `main:<模型>` 的等級永遠用啟動時（`settings.json`）的 provider 和金鑰，不受 `/model` 影響。
+- 換 provider 時，歷史中的 thinking 區塊會被移除（簽章只對原 provider 有效）。
+
 ## `/tier` 指令
 
 ```
