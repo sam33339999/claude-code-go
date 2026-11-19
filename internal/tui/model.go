@@ -117,6 +117,8 @@ type AppModel struct {
 	appState    *state.AppStateStore
 	// mcpPool exposes MCP server connection state for /mcp (may be nil).
 	mcpPool commands.MCPServerLister
+	// tiers is the model tier table for /tier and the [main] context window (may be nil).
+	tiers commands.TierManager
 	// transcript persists conversation turns to the session JSONL (may be nil).
 	transcript *transcript.Recorder
 	// questionAskCh/questionRespCh carry AskUserQuestion HIL traffic (BF-08);
@@ -219,6 +221,7 @@ func newAppModel(
 	qg *msgqueue.QueryGuard,
 	memoryStore *memdir.MemoryStore,
 	mcpPool commands.MCPServerLister,
+	tiers commands.TierManager,
 	rec *transcript.Recorder,
 	questionAskCh <-chan types.QuestionRequest,
 	questionRespCh chan<- types.QuestionResponse,
@@ -239,6 +242,7 @@ func newAppModel(
 		queryEngine:         qe,
 		appState:            appStore,
 		mcpPool:             mcpPool,
+		tiers:               tiers,
 		transcript:          rec,
 		questionAskCh:       questionAskCh,
 		questionRespCh:      questionRespCh,
@@ -258,7 +262,7 @@ func newAppModel(
 		statusBar: StatusBar{
 			model:         model,
 			cwd:           cwd,
-			contextWindow: compact.ContextWindow(model),
+			contextWindow: compact.ResolveContextWindow(model, mainContextWindow(tiers)),
 		},
 		welcomeHeader:  NewWelcomeHeader(model, cwd),
 		renderCache:    newMessageRenderCache(),
@@ -391,4 +395,12 @@ func tickCmd() tea.Cmd {
 	return tea.Tick(tickInterval, func(t time.Time) tea.Msg {
 		return TickMsg{Time: t}
 	})
+}
+
+// mainContextWindow returns [main] context_window from the tier table, or 0.
+func mainContextWindow(tiers commands.TierManager) int {
+	if tiers == nil {
+		return 0
+	}
+	return tiers.MainContextWindow()
 }

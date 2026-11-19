@@ -80,6 +80,8 @@ type CommandContext struct {
 	TokensInput int
 	// TokensOutput is the number of output tokens used in the session so far.
 	TokensOutput int
+	// Tiers is the model tier table for /tier (nil = tiers unavailable).
+	Tiers TierManager
 }
 
 // Command is a single slash command registration.

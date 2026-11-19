@@ -238,6 +238,7 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 		container.QueryGuard,
 		container.MemoryStore,
 		container.MCPPool,
+		tiersOrNil(container.Tiers),
 		rec,
 		container.QuestionAskCh,
 		container.QuestionRespCh,

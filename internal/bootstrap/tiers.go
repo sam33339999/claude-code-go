@@ -7,6 +7,7 @@ import (
 
 	"github.com/tunsuy/glaude/internal/agenttype"
 	"github.com/tunsuy/glaude/internal/api"
+	"github.com/tunsuy/glaude/internal/commands"
 	"github.com/tunsuy/glaude/internal/modeltier"
 )
 
@@ -155,4 +156,13 @@ func engineDebugLogf(opts ContainerOptions) func(string, ...any) {
 	return func(format string, args ...any) {
 		fmt.Fprintf(os.Stderr, "debug: "+format+"\n", args...)
 	}
+}
+
+// tiersOrNil converts a possibly-nil *modeltier.Store into the TUI's
+// TierManager without producing a typed-nil interface.
+func tiersOrNil(s *modeltier.Store) commands.TierManager {
+	if s == nil {
+		return nil
+	}
+	return s
 }

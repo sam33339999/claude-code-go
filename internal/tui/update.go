@@ -428,6 +428,7 @@ func (m AppModel) handleSlashCommand(text string) (AppModel, tea.Cmd) {
 		VimEnabled:   m.input.vimEnabled,
 		Effort:       m.effort,
 		MessageCount: len(m.messages),
+		Tiers:        m.tiers,
 	}
 
 	// A bare /resume reads every recent session file; run it off the Update
@@ -515,7 +516,7 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 	if result.NewModel != "" {
 		m.queryEngine.SetModel(result.NewModel)
 		m.statusBar.model = result.NewModel
-		m.statusBar.contextWindow = compact.ContextWindow(result.NewModel)
+		m.statusBar.contextWindow = compact.ResolveContextWindow(result.NewModel, mainContextWindow(m.tiers))
 		m.appState.SetState(func(prev state.AppState) state.AppState {
 			prev.MainLoopModel.ModelID = result.NewModel
 			return prev
