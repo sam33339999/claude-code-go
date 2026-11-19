@@ -13,12 +13,14 @@ import (
 	"github.com/tunsuy/glaude/internal/agenttype"
 	"github.com/tunsuy/glaude/internal/api"
 	cmengine "github.com/tunsuy/glaude/internal/codemode"
+	"github.com/tunsuy/glaude/internal/compact"
 	"github.com/tunsuy/glaude/internal/config"
 	"github.com/tunsuy/glaude/internal/coordinator"
 	"github.com/tunsuy/glaude/internal/engine"
 	"github.com/tunsuy/glaude/internal/hooks"
 	"github.com/tunsuy/glaude/internal/mcp"
 	"github.com/tunsuy/glaude/internal/memdir"
+	"github.com/tunsuy/glaude/internal/modeltier"
 	"github.com/tunsuy/glaude/internal/msgqueue"
 	"github.com/tunsuy/glaude/internal/oauth"
 	"github.com/tunsuy/glaude/internal/permissions"
@@ -57,6 +59,9 @@ type ContainerOptions struct {
 	// Headless marks non-interactive (-p) runs: user-question HIL is disabled
 	// (AskUserQuestion reports an honest error instead of blocking).
 	Headless bool
+	// ProviderClientFactory builds clients for config.toml providers; nil
+	// uses api.NewClient. Tests inject fakes here.
+	ProviderClientFactory providerClientFactory
 }
 
 // AppContainer holds all wired application dependencies.
@@ -95,6 +100,8 @@ type AppContainer struct {
 	AgentProfiles *agenttype.Registry
 	// MemoryStore is the project's auto-memory store (may be nil).
 	MemoryStore *memdir.MemoryStore
+	// Tiers is the ~/.glaude/config.toml tier table (never nil).
+	Tiers *modeltier.Store
 }
 
 // defaultModel is used when no model override is provided for Anthropic
@@ -227,6 +234,7 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	registerMemoryStopHooks(stopHooks, settings, memoryStore)
 
 	// ── Phase 8: Engine construction ─────────────────────────────────────────
+	router := wireTiers(opts, apiClient)
 	eng := engine.New(engine.Config{
 		Client:            apiClient,
 		Registry:          reg,
@@ -234,6 +242,8 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 		PermissionChecker: permChecker,
 		StopHooks:         stopHooks,
 		MsgQueue:          mq,
+		MainContextWindow: router.store.MainContextWindow(),
+		DebugLogf:         engineDebugLogf(opts),
 	})
 
 	// ── Phase 9: Coordinator construction ────────────────────────────────────
@@ -244,7 +254,7 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 
 	coord := coordinator.New(coordinator.Config{
 		CoordinatorMode:  true,
-		RunAgent:         buildRunAgentFn(eng, reg, store, onProgress, agentProfiles),
+		RunAgent:         buildRunAgentFn(eng, reg, store, onProgress, agentProfiles, router),
 		OnProgress:       onProgress,
 		OnStatusChange:   onStatusChange,
 		SummaryGenerator: coordinator.DefaultSummaryGenerator,
@@ -268,6 +278,7 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 		QueryGuard:       qg,
 		AgentProfiles:    agentProfiles,
 		MemoryStore:      memoryStore,
+		Tiers:            router.store,
 	}, nil
 }
 
@@ -370,6 +381,7 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	})
 
 	// ── Phase 8: Engine construction ─────────────────────────────────────────
+	router := wireTiers(opts, client)
 	eng := engine.New(engine.Config{
 		Client:            client,
 		Registry:          reg,
@@ -377,6 +389,8 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 		PermissionChecker: permChecker,
 		StopHooks:         stopHooksTest,
 		MsgQueue:          mqTest,
+		MainContextWindow: router.store.MainContextWindow(),
+		DebugLogf:         engineDebugLogf(opts),
 	})
 
 	// ── Phase 9: Coordinator construction ────────────────────────────────────
@@ -387,7 +401,7 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 
 	coord := coordinator.New(coordinator.Config{
 		CoordinatorMode:  true,
-		RunAgent:         buildRunAgentFn(eng, reg, store, onProgress, agentProfilesTest),
+		RunAgent:         buildRunAgentFn(eng, reg, store, onProgress, agentProfilesTest, router),
 		OnProgress:       onProgress,
 		OnStatusChange:   onStatusChange,
 		SummaryGenerator: coordinator.DefaultSummaryGenerator,
@@ -411,6 +425,7 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 		QueryGuard:       qgTest,
 		AgentProfiles:    agentProfilesTest,
 		MemoryStore:      testMemoryStore,
+		Tiers:            router.store,
 	}, nil
 }
 
@@ -500,6 +515,7 @@ func buildRunAgentFn(
 	store *state.AppStateStore,
 	onProgress coordinator.OnProgressFn,
 	agentProfiles *agenttype.Registry,
+	router *tierRouter,
 ) coordinator.RunAgentFn {
 	// runStates retains per-agent query state (params + latest history) for
 	// resume-on-message. sync.Map is safe for concurrent access; values are
@@ -530,7 +546,15 @@ func buildRunAgentFn(
 			}
 		}
 
-		params, seed := buildSubAgentQuery(req, reg, agentProfiles, parentModel, st.Settings.Provider, inboxCh, &runStates, agentID)
+		params, seed, err := buildSubAgentQuery(req, reg, agentProfiles, parentModel, st.Settings.Provider, inboxCh, &runStates, agentID, router)
+		if err != nil {
+			return "", fmt.Errorf("sub-agent dispatch: %w", err)
+		}
+		// Every sub-agent owns its compaction state (circuit breaker included);
+		// a resumed agent keeps the tracker retained in runStates.
+		if params.CompactTracker == nil {
+			params.CompactTracker = compact.NewTracker()
+		}
 
 		// Inject AgentID into context for downstream use.
 		agentCtx := agentctx.WithAgentID(ctx, string(agentID))
@@ -583,7 +607,8 @@ func buildSubAgentQuery(
 	inboxCh <-chan string,
 	runStates *sync.Map,
 	agentID coordinator.AgentID,
-) (engine.QueryParams, []types.Message) {
+	router *tierRouter,
+) (engine.QueryParams, []types.Message, error) {
 	// Resume: continue the retained conversation with identical prompt/tools/
 	// model (cache continuity). The new trigger message arrives via the inbox
 	// and is drained at the first turn boundary.
@@ -591,7 +616,7 @@ func buildSubAgentQuery(
 		if params, ok := prev.(engine.QueryParams); ok && len(params.Messages) > 0 {
 			params.InboxCh = inboxCh
 			params.ToolUseContext = nil // rebuilt by the caller
-			return params, params.Messages
+			return params, params.Messages, nil
 		}
 	}
 
@@ -608,7 +633,8 @@ func buildSubAgentQuery(
 	}
 
 	if req.SubagentType == string(agenttype.AgentTypeFork) {
-		return buildForkQuery(req, parentModel, inboxCh, maxTurns)
+		params, seed := buildForkQuery(req, parentModel, inboxCh, maxTurns)
+		return params, seed, nil
 	}
 
 	// Build system prompt: request override > profile > default.
@@ -630,14 +656,17 @@ func buildSubAgentQuery(
 	// Build ExcludeTools from profile.
 	excludeTools := buildExcludeToolsFromProfile(profile, reg, req.AllowedTools, req.DenyTools)
 
-	// Resolve model: env > request > profile > inherit. Anthropic family
-	// aliases (e.g. explore's "haiku") fall back to the parent model on the
-	// openai provider, where they would 404 "Model not exist".
+	// Resolve model: env > request > profile > inherit, routed through the
+	// tier table (see resolveSubAgentTarget). Unbound tiers keep the legacy
+	// alias rules, so explore's "lite" still inherits on the openai provider.
 	profileModel := ""
 	if profile != nil {
 		profileModel = profile.Model
 	}
-	queryModel := agenttype.ResolveModelForProvider(provider, parentModel, req.Model, profileModel)
+	target, err := resolveSubAgentTarget(router, provider, parentModel, req.Model, profileModel)
+	if err != nil {
+		return engine.QueryParams{}, nil, err
+	}
 
 	// Build the initial user message.
 	userMsg := types.Message{
@@ -654,10 +683,14 @@ func buildSubAgentQuery(
 		QuerySource:  "sub-agent",
 		MaxTurns:     maxTurns,
 		ExcludeTools: excludeTools,
-		Model:        queryModel,
+		Model:        target.Model,
 		NoWriteBack:  true,
 		InboxCh:      inboxCh,
-	}, messages
+
+		Client:                  target.Client,
+		ContextWindow:           target.ContextWindow,
+		MaxOutputTokensOverride: target.MaxTokens,
+	}, messages, nil
 }
 
 // buildForkQuery builds the query for a forked agent: the parent's cache-safe

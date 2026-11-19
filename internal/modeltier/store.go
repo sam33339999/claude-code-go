@@ -167,3 +167,8 @@ func writeAtomic(path string, cfg *Config) error {
 	}
 	return nil
 }
+
+// Path returns the config.toml path this Store reads and writes.
+func (s *Store) Path() string {
+	return s.path
+}

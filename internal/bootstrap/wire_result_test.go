@@ -20,7 +20,7 @@ func TestSubAgentResult_FallsBackToAssistantText(t *testing.T) {
 		// No MsgTypeStreamText — only the authoritative assistant message.
 		{Type: engine.MsgTypeAssistantMessage, AssistantMsg: &assistant},
 	}}
-	fn := buildRunAgentFn(eng, tools.NewRegistry(), forkTestState(), nil, forkTestProfiles())
+	fn := buildRunAgentFn(eng, tools.NewRegistry(), forkTestState(), nil, forkTestProfiles(), nil)
 
 	result, err := fn(context.Background(), "a-worker-r1", coordinator.SpawnRequest{
 		SubagentType: "worker",
@@ -46,7 +46,7 @@ func TestSubAgentResult_PrefersLastAssistantText(t *testing.T) {
 		{Type: engine.MsgTypeStreamText, TextDelta: "FINAL ANSWER"},
 		{Type: engine.MsgTypeAssistantMessage, AssistantMsg: &final},
 	}}
-	fn := buildRunAgentFn(eng, tools.NewRegistry(), forkTestState(), nil, forkTestProfiles())
+	fn := buildRunAgentFn(eng, tools.NewRegistry(), forkTestState(), nil, forkTestProfiles(), nil)
 
 	result, err := fn(context.Background(), "a-worker-r2", coordinator.SpawnRequest{
 		SubagentType: "worker",
