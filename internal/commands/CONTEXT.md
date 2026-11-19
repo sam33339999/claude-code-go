@@ -2,13 +2,13 @@
 package: commands
 import_path: internal/commands
 layer: cli
-generated_at: 2026-11-19T14:01:30Z
-source_files: [builtins.go, mcp.go, registry.go, resume.go, terminal_setup.go, tier.go]
+generated_at: 2026-11-19T15:15:26Z
+source_files: [builtins.go, mcp.go, registry.go, resume.go, setup.go, terminal_setup.go, tier.go]
 ---
 
 # internal/commands
 
-> Layer: **CLI** · Files: 6 · Interfaces: 2 · Structs: 6 · Functions: 5
+> Layer: **CLI** · Files: 7 · Interfaces: 3 · Structs: 11 · Functions: 5
 
 ## Interfaces
 
@@ -18,6 +18,19 @@ source_files: [builtins.go, mcp.go, registry.go, resume.go, terminal_setup.go, t
 ```go
 type MCPServerLister interface {
     GetAll() []*mcp.ServerConnection
+}
+```
+
+### SetupBackend (5 methods)
+> SetupBackend is what the /setup wizard needs from the outside world.
+
+```go
+type SetupBackend interface {
+    Current() SetupDefaults
+    ListModels(ctx context.Context, in SetupInput) ([]SetupModel, error)
+    Apply(ctx context.Context, plan SetupPlan) (SetupReport, error)
+    Overrides() []string
+    NeedsSetup() bool
 }
 ```
 
@@ -42,6 +55,11 @@ type TierManager interface {
 - **Registry** — 2 fields
 - **Result** — 14 fields: Text, Display, ShouldExit, NewMessages, NewSessionID, NewTheme, NewModel, NewEffort, ...
 - **SessionSummary** — 5 fields: ID, Title, ModTime, MessageCount, Current
+- **SetupDefaults** — 5 fields: Format, BaseURL, Model, KeySources, Tiers
+- **SetupInput** — 3 fields: Format, BaseURL, APIKey
+- **SetupModel** — 2 fields: ID, ContextWindow
+- **SetupPlan** — 4 fields: Input, MainModel, Tiers, ContextWindows
+- **SetupReport** — 5 fields: SettingsPath, ConfigPath, SettingsWritten, ConfigWritten, Warnings
 - **TerminalInfo** — 3 fields: Terminal, Shell, Term
 
 ## Functions
@@ -58,19 +76,28 @@ type TierManager interface {
 - `DisplayError`
 - `DisplayMessage`
 - `DisplayNone`
+- `SetupFormatAnthropic`
+- `SetupFormatOpenAI`
 
 ## Change Impact
 
 **Test Mocks (must add new methods when interfaces change):**
 - `stubRegistry` in `internal/permissions/checker_test.go`
+- `fakeSetupBackend` in `internal/tui/setup_dialog_test.go`
 
 **Exported type references (files that use types from this package):**
 - `Command` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
 - `CommandContext` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
 - `MCPServerLister` → `internal/tui/cmds.go`, `internal/tui/init.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/model.go`
 - `Registry` → `internal/tui/completion.go`, `internal/tui/model.go`
-- `Result` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/tiers_test.go` (test), `internal/tui/tui_test.go` (test), `internal/tui/update.go`
+- `Result` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/setup_dialog_test.go` (test), `internal/tui/tiers_test.go` (test), `internal/tui/tui_test.go` (test), `internal/tui/update.go`
 - `SessionSummary` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/resumepicker.go`
+- `SetupBackend` → `internal/bootstrap/setup.go`, `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`, `internal/tui/setup_dialog.go` + 1 more
+- `SetupDefaults` → `internal/bootstrap/setup.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`, `internal/tui/setupwizard_test.go` (test)
+- `SetupInput` → `internal/bootstrap/setup.go`, `internal/bootstrap/setup_test.go` (test), `internal/tui/setup_dialog.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`
+- `SetupModel` → `internal/bootstrap/setup.go`, `internal/tui/setup_dialog.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`, `internal/tui/setupwizard_test.go` (test)
+- `SetupPlan` → `internal/bootstrap/setup.go`, `internal/bootstrap/setup_test.go` (test), `internal/tui/setup_dialog.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`
+- `SetupReport` → `internal/bootstrap/setup.go`, `internal/tui/setup_dialog.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`, `internal/tui/setupwizard_test.go` (test)
 - `TierManager` → `internal/bootstrap/tiers.go`, `internal/tui/init.go`, `internal/tui/model.go`
 
 ## Dependencies
@@ -89,3 +116,4 @@ type TierManager interface {
 - **2026-11-18 BF-05 /config＋/terminal-setup 桩回填**：cmdConfig 改返回 Result{OpenDialog:"config"}（TUI 既有 wiring），面板只读（编辑经 /model /theme /vim /effort 与设置文件，交互编辑为后续项）。新增 terminal_setup.go：DetectTerminal(lookup) 纯函数环境检测（12 种终端识别，未知诚实报告），FormatTerminalSetup 非侵入指引（Ctrl+J 多行提示＋cobra completion 指引），不写文件不改终端设置（与原版键绑定安装的差距已在 tui.md v1.3 文档化）。
 - **2026-11-19 `/tier`**：`TierManager` 介面（`*modeltier.Store` 直接實作），經 `CommandContext.Tiers` 注入（commands 不得 import bootstrap）。改綁定在 Execute 內同步寫檔（小檔案，比照其他同步指令），下一個派出的 sub-agent 生效。等級表是唯一狀態來源，TUI 不需另外更新狀態。
 - 最終審查後補修：`TierManager` +`Warnings()`；`/tier` 列表最上方顯示 config.toml 的啟動警告（TUI 的 alt screen 會蓋掉 stderr）。
+- **2026-11-19 `/setup` 與 `SetupBackend`**：`/setup` 只回傳 `OpenDialog: "setup"`，commands 層不做 I/O、不 import `internal/api`（資料型別自己定義）。`SetupDefaults.KeySources` 依格式記錄可沿用的金鑰來源（`settings` 只對目前格式有效、`env:<VAR>`），讓換格式後的提示與阻擋正確。`SetupInput.APIKey` 為空表示沿用，沿用的金鑰由 backend 取得，不經過 TUI。

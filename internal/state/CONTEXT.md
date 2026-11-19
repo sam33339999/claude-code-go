@@ -2,7 +2,7 @@
 package: state
 import_path: internal/state
 layer: infra
-generated_at: 2026-11-19T13:49:59Z
+generated_at: 2026-11-19T15:15:26Z
 source_files: [store.go]
 ---
 
@@ -35,8 +35,8 @@ source_files: [store.go]
 ## Change Impact
 
 **Exported type references (files that use types from this package):**
-- `AppState` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tools/interact/worktree.go` + 11 more
-- `ModelSetting` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/mcp_resume_test.go` (test), `internal/tui/tiers_test.go` (test), `internal/tui/tui_test.go` (test)
+- `AppState` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tools/interact/worktree.go` + 12 more
+- `ModelSetting` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/mcp_resume_test.go` (test), `internal/tui/setup_dialog_test.go` (test), `internal/tui/tiers_test.go` (test) + 1 more
 - `WorktreeState` → `internal/tools/interact/worktree.go`
 
 ## Dependencies

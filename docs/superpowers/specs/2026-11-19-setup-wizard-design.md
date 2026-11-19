@@ -1,7 +1,7 @@
 # `/setup` 首次設定引導 設計
 
 - 日期：2026-11-19
-- 狀態：草案，待負責人核准。
+- 狀態：已核准並實作（2026-11-19，分支 `feat/setup-wizard`）。使用說明見 `docs/setup.md`。
 - 分支：`feat/setup-wizard`（從 `feat/provider-tiers` 分出，依賴其 `internal/modeltier` 與 `main:<模型>` 等級綁定；PR #4 合併後改以 `dev` 為基底）。
 - 相關：`docs/superpowers/specs/2026-11-19-provider-tiers-design.md`（等級與 config.toml）、`docs/config-toml.md`。
 
