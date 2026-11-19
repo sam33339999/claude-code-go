@@ -186,3 +186,23 @@ context_window = -1
 		t.Errorf("warnings = %v, want one naming main.context_window", warnings)
 	}
 }
+
+// TestExampleConfigParses keeps docs/config.example.toml in sync with the
+// loader: it must parse without a single warning.
+func TestExampleConfigParses(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "config.example.toml")
+	s, warnings := Load(path)
+	if len(warnings) != 0 {
+		t.Fatalf("example produced warnings: %v", warnings)
+	}
+	b, kind := s.Resolve("lite")
+	if kind != Bound || b.Provider != "zai" || b.Model != "glm-5.3-flash" || b.ContextWindow != 131072 || b.MaxTokens != 8192 {
+		t.Errorf("lite = %+v %v", b, kind)
+	}
+	if b, kind := s.Resolve("max"); kind != Bound || b.Provider != MainProviderID {
+		t.Errorf("max = %+v %v", b, kind)
+	}
+	if _, ok := s.Provider("qwencloud"); !ok {
+		t.Error("qwencloud provider missing")
+	}
+}

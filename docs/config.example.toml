@@ -1,0 +1,76 @@
+# ~/.glaude/config.toml 範例
+#
+# 用法：複製到 ~/.glaude/config.toml，依需要刪改，然後重新啟動 glaude。
+#   cp docs/config.example.toml ~/.glaude/config.toml
+#
+# 說明文件：docs/config-toml.md
+# - 這個檔案只影響 sub-agent 的模型路由，以及主腦的上下文長度（[main]）。
+#   主腦的 provider / model 仍由 settings.json 決定。
+# - 金鑰只能透過 api_key_env 指定「環境變數名稱」，不接受明文 api_key。
+# - 新增或修改 provider 後要重新啟動；/tier 只能在已註冊的 provider 之間改綁定。
+# - /tier 寫回檔案時會重新輸出整個 TOML，這些註解會遺失。
+
+# ── Provider 註冊 ────────────────────────────────────────────────
+# id 自訂（"main" 是保留字，代表主腦的 client 與認證，不能在這裡註冊）。
+# format：
+#   "openai"    → OpenAI Chat Completions 相容端點
+#   "anthropic" → Anthropic Messages API
+# base_url 結尾的 /v1 會自動去掉。
+
+[providers.qwencloud]
+format      = "openai"
+base_url    = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+api_key_env = "DASHSCOPE_API_KEY"
+
+[providers.openrouter]
+format      = "openai"
+base_url    = "https://openrouter.ai/api/v1"
+api_key_env = "OPENROUTER_API_KEY"
+
+[providers.zai]
+format      = "openai"
+base_url    = "https://api.z.ai/api/paas/v4"
+api_key_env = "ZAI_API_KEY"
+
+# 選填：provider 層的模型表（目前支援 context_window、max_tokens）。
+# 小窗口模型（例如 32k）請務必寫上 context_window，否則會被當成 200k。
+[providers.openrouter.models."qwen/qwen3.8-27b"]
+context_window = 262144
+max_tokens     = 16384
+
+[providers.zai.models."glm-5.3-flash"]
+context_window = 131072
+
+# ── 主腦 ────────────────────────────────────────────────────────
+# 選填：只影響主腦的自動壓縮門檻與狀態列顯示，不改主腦的請求內容。
+# 主腦用的是不在內建表裡的模型（例如 openai provider 上的 qwen）時才需要寫。
+# [main]
+# context_window = 131072
+
+# ── 等級綁定 ────────────────────────────────────────────────────
+# 等級 = provider id + 模型 ID（模型 ID 原樣傳給該端點）。
+# lite / pro / max 永遠是已知等級；沒寫或留空表 = 未綁定：
+#   - lite / pro / max 未綁定時，照舊別名 haiku / sonnet / opus 的規則
+#     （Anthropic 系 provider 用對應家族模型；openai provider 則繼承主腦）。
+#   - 自訂等級未綁定時，繼承主腦。
+# 等級上的 context_window / max_tokens 優先於 provider 模型表。
+# 內建的 explore agent 預設用 lite。
+
+[tiers.lite]
+provider   = "zai"
+model      = "glm-5.3-flash"
+max_tokens = 8192
+
+[tiers.pro]
+provider = "openrouter"
+model    = "qwen/qwen3.8-27b"
+
+# 綁到主腦的 client 與認證（含 OAuth），只換模型：
+[tiers.max]
+provider = "main"
+model    = "claude-opus-5-5"
+
+# 自訂等級也可以；在 Agent 工具的 model 參數或 CLAUDE_CODE_SUBAGENT_MODEL 寫 "cheap" 即可使用。
+# [tiers.cheap]
+# provider = "qwencloud"
+# model    = "qwen-turbo"
