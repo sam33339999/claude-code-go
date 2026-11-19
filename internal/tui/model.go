@@ -32,6 +32,7 @@ const (
 	dialogConfig                // /config
 	dialogQuestion              // AskUserQuestion (BF-08)
 	dialogResume                // /resume session picker
+	dialogSetup                 // /setup first-run wizard
 )
 
 // questionState holds the active AskUserQuestion dialog (BF-08): the question,
@@ -119,6 +120,10 @@ type AppModel struct {
 	mcpPool commands.MCPServerLister
 	// tiers is the model tier table for /tier and the [main] context window (may be nil).
 	tiers commands.TierManager
+	// setupBackend serves the /setup wizard (may be nil); setupWizard is its
+	// live state while dialogSetup is open.
+	setupBackend commands.SetupBackend
+	setupWizard  *setupWizard
 	// transcript persists conversation turns to the session JSONL (may be nil).
 	transcript *transcript.Recorder
 	// questionAskCh/questionRespCh carry AskUserQuestion HIL traffic (BF-08);
@@ -222,6 +227,7 @@ func newAppModel(
 	memoryStore *memdir.MemoryStore,
 	mcpPool commands.MCPServerLister,
 	tiers commands.TierManager,
+	setup commands.SetupBackend,
 	rec *transcript.Recorder,
 	questionAskCh <-chan types.QuestionRequest,
 	questionRespCh chan<- types.QuestionResponse,
@@ -243,6 +249,7 @@ func newAppModel(
 		appState:            appStore,
 		mcpPool:             mcpPool,
 		tiers:               tiers,
+		setupBackend:        setup,
 		transcript:          rec,
 		questionAskCh:       questionAskCh,
 		questionRespCh:      questionRespCh,
@@ -282,6 +289,9 @@ func newAppModel(
 		for _, w := range tiers.Warnings() {
 			m.messages = append(m.messages, newSystemMessage("Warning: "+w+" (see /tier)"))
 		}
+	}
+	if setup != nil && setup.NeedsSetup() {
+		m.messages = append(m.messages, newSystemMessage(setupStartupNotice))
 	}
 	return m
 }

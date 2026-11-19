@@ -198,6 +198,10 @@ func (m AppModel) renderActiveDialog() string {
 		if m.resumePicker != nil {
 			return m.resumePicker.view(m.dialogWidth(), m.resumePickerMaxHeight(), m.theme)
 		}
+	case dialogSetup:
+		if m.setupWizard != nil {
+			return m.setupWizard.view(m.dialogWidth(), m.resumePickerMaxHeight(), m.theme)
+		}
 	}
 	return ""
 }
