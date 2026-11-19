@@ -156,6 +156,7 @@ func (e *engineImpl) runCompaction(ctx context.Context, params QueryParams, mess
 		}
 		if result, err := e.autoCompactor.Compact(ctx, messages, compactParams, tgt, tracker); err == nil {
 			messages, rewritten = result.SummaryMessages, true
+			tracker.RecordPostCompact(e.estimatePrompt(params, messages, promptUsage{}))
 		}
 	}
 	return messages, rewritten

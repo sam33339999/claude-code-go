@@ -55,23 +55,41 @@ func NewAutoCompactor() *AutoCompactor {
 }
 
 // AutoCompactThreshold returns the token count at which auto-compact triggers:
-// Window − min(MaxOutputTokens, MaxOutputTokensForSummary) − AutoCompactBufferTokens.
+// Window − outputReserve − buffer, where
+//
+//	outputReserve = min(MaxOutputTokens, MaxOutputTokensForSummary, Window/4)
+//	buffer        = min(AutoCompactBufferTokens, Window/10)
+//
+// For 200k windows this is the original Window − min(maxOut, 20000) − 13000;
+// the Window-proportional caps keep small (e.g. 32k) windows usable instead
+// of yielding a threshold below the fixed prompt overhead (or negative).
 func AutoCompactThreshold(t Target) int {
+	window := t.Window()
 	maxOutput := t.MaxOutputTokens
 	if maxOutput <= 0 || maxOutput > MaxOutputTokensForSummary {
 		maxOutput = MaxOutputTokensForSummary
 	}
-	return t.Window() - maxOutput - AutoCompactBufferTokens
+	maxOutput = min(maxOutput, window/4)
+	return window - maxOutput - min(AutoCompactBufferTokens, window/10)
 }
 
 // ShouldCompact reports whether estTokens (the estimated prompt size,
 // including system prompt and tool schemas) warrants auto-compaction for t.
-// It returns false once tr's circuit breaker is open.
+// It returns false once tr's circuit breaker is open, and — after a
+// compaction — until the prompt has grown by Window/10 beyond the
+// post-compaction estimate (a summary cannot shrink fixed overhead, so
+// re-compacting without growth would only repeat every turn).
 func (a *AutoCompactor) ShouldCompact(estTokens int, t Target, tr *Tracker) bool {
 	if tr.breakerOpen() {
 		return false
 	}
-	return estTokens >= AutoCompactThreshold(t)
+	if estTokens < AutoCompactThreshold(t) {
+		return false
+	}
+	if post := tr.lastPostCompact(); post > 0 && estTokens < post+max(t.Window()/10, 1) {
+		return false
+	}
+	return true
 }
 
 // summaryMaxOut is the output cap for the summarisation request:
@@ -100,7 +118,7 @@ func (a *AutoCompactor) Compact(
 	preCount := EstimateTokens(messages)
 	summarySystem := buildSummarySystemPrompt(params)
 	maxOut := summaryMaxOut(t)
-	budget := t.Window() - maxOut - AutoCompactBufferTokens - len(summarySystem)/4
+	budget := t.Window() - maxOut - min(AutoCompactBufferTokens, t.Window()/10) - len(summarySystem)/4
 	apiMessages, err := messagesToAPIParams(fitForSummary(messages, budget))
 	if err != nil {
 		tr.recordFailure()

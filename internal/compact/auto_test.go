@@ -52,7 +52,7 @@ func TestShouldCompact_UsesTargetWindow(t *testing.T) {
 	t.Setenv("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "")
 	a := NewAutoCompactor()
 	tgt := Target{Model: "qwen", ContextWindow: 32000, MaxOutputTokens: 8192}
-	threshold := 32000 - 8192 - 13000
+	threshold := 32000 - 8000 - 3200 // outputReserve=min(8192, 32000/4), buffer=min(13000, 32000/10)
 	if got := AutoCompactThreshold(tgt); got != threshold {
 		t.Fatalf("threshold = %d, want %d", got, threshold)
 	}
@@ -156,7 +156,7 @@ func TestCompact_FitsSummaryInput(t *testing.T) {
 	for _, m := range sent {
 		sentTokens += len(m.Content) / 4
 	}
-	if budget := 60000 - 8192 - AutoCompactBufferTokens; sentTokens > budget {
+	if budget := 60000 - 8192 - min(AutoCompactBufferTokens, 60000/10); sentTokens > budget {
 		t.Errorf("sent ~%d tokens, budget %d", sentTokens, budget)
 	}
 	if sent[0].Role != string(types.RoleUser) || strings.Contains(string(sent[0].Content), "tool_result") {
@@ -241,7 +241,53 @@ func TestCompact_FitKeepsToolLoopTail(t *testing.T) {
 	for _, m := range sent {
 		total += len(m.Content) / 4
 	}
-	if budget := 60000 - 8192 - AutoCompactBufferTokens; total > budget {
+	if budget := 60000 - 8192 - min(AutoCompactBufferTokens, 60000/10); total > budget {
 		t.Errorf("sent ~%d tokens, budget %d", total, budget)
+	}
+}
+
+// TestAutoCompactThreshold_SmallWindow: reserves scale down for small
+// windows (32k models are the main tier use case); 200k is unchanged.
+func TestAutoCompactThreshold_SmallWindow(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "")
+	cases := []struct {
+		window, maxOut, want int
+	}{
+		{32768, 8192, 32768 - 8192 - 3276},
+		{32768, 16384, 32768 - 8192 - 3276},
+		{16384, 4096, 16384 - 4096 - 1638},
+		{200_000, 8192, 200_000 - 8192 - AutoCompactBufferTokens},
+	}
+	for _, c := range cases {
+		got := AutoCompactThreshold(Target{Model: "m", ContextWindow: c.window, MaxOutputTokens: c.maxOut})
+		if got != c.want {
+			t.Errorf("window %d maxOut %d: threshold %d, want %d", c.window, c.maxOut, got, c.want)
+		}
+		if got <= 0 {
+			t.Errorf("window %d: threshold must stay positive", c.window)
+		}
+	}
+}
+
+// TestShouldCompact_NoRepeatWithoutGrowth: when the post-compaction prompt
+// is still above the threshold (prompt overhead alone is too big),
+// compaction must wait for real growth instead of firing every turn.
+func TestShouldCompact_NoRepeatWithoutGrowth(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "")
+	a := NewAutoCompactor()
+	tgt := Target{Model: "m", ContextWindow: 32768, MaxOutputTokens: 8192}
+	thr := AutoCompactThreshold(tgt)
+	tr := NewTracker()
+	tr.RecordPostCompact(thr + 500)
+	if a.ShouldCompact(thr+1000, tgt, tr) {
+		t.Error("must not re-compact without window/10 growth since the last compaction")
+	}
+	if !a.ShouldCompact(thr+500+32768/10, tgt, tr) {
+		t.Error("should compact again after enough growth")
+	}
+	tr2 := NewTracker()
+	tr2.RecordPostCompact(1000) // normal case: summary is small
+	if !a.ShouldCompact(thr, tgt, tr2) {
+		t.Error("normal threshold behaviour must be unchanged")
 	}
 }

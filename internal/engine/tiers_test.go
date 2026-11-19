@@ -98,7 +98,7 @@ func TestQuery_TierCompactionHitsTierClient(t *testing.T) {
 	main, tier := &countingClient{}, &countingClient{}
 	eng := New(Config{Client: main, Registry: tools.NewRegistry(), Model: "main-model"})
 	runQuery(t, eng, QueryParams{
-		Messages: bigHistory(25_000), Client: tier, Model: "glm", ContextWindow: 40_000,
+		Messages: bigHistory(32_000), Client: tier, Model: "glm", ContextWindow: 40_000,
 		CompactTracker: compact.NewTracker(), NoWriteBack: true,
 	})
 	_, tc := tier.counts()
@@ -116,7 +116,7 @@ func TestQuery_SubAgentBreakerIsolated(t *testing.T) {
 	eng := New(Config{Client: main, Registry: tools.NewRegistry(), Model: "main-model"})
 	sub := compact.NewTracker()
 	for range compact.MaxConsecutiveFailures {
-		runQuery(t, eng, QueryParams{Messages: bigHistory(25_000), ContextWindow: 40_000, CompactTracker: sub, NoWriteBack: true})
+		runQuery(t, eng, QueryParams{Messages: bigHistory(32_000), ContextWindow: 40_000, CompactTracker: sub, NoWriteBack: true})
 	}
 	if sub.Snapshot().ConsecutiveFailures != compact.MaxConsecutiveFailures {
 		t.Fatalf("sub tracker failures = %d", sub.Snapshot().ConsecutiveFailures)
@@ -136,7 +136,7 @@ func TestQuery_ParallelSubAgentsNoRace(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			runQuery(t, eng, QueryParams{
-				Messages: bigHistory(25_000), Client: &countingClient{}, Model: "glm",
+				Messages: bigHistory(32_000), Client: &countingClient{}, Model: "glm",
 				ContextWindow: 40_000, CompactTracker: compact.NewTracker(), NoWriteBack: true,
 			})
 		}()
@@ -184,7 +184,7 @@ func TestSetModel_ConcurrentSafe(t *testing.T) {
 	<-done
 
 	eng.SetModel("new")
-	runQuery(t, eng, QueryParams{Messages: bigHistory(25_000), NoWriteBack: true})
+	runQuery(t, eng, QueryParams{Messages: bigHistory(32_000), NoWriteBack: true})
 	_, c := main.counts()
 	if c != 1 || main.completes[0].Model != "new" {
 		t.Errorf("summary requests = %d, want 1 with model new (C5)", c)
@@ -197,7 +197,7 @@ func TestThreshold_IncludesPromptOverhead(t *testing.T) {
 	eng := New(Config{Client: main, Registry: tools.NewRegistry(), Model: "m", MainContextWindow: 40_000})
 	runQuery(t, eng, QueryParams{
 		Messages:     []types.Message{userText("hi")},
-		SystemPrompt: SystemPrompt{Parts: []SystemPromptPart{{Text: strings.Repeat("s", 25_000*4)}}},
+		SystemPrompt: SystemPrompt{Parts: []SystemPromptPart{{Text: strings.Repeat("s", 32_000*4)}}},
 		NoWriteBack:  true,
 	})
 	if _, c := main.counts(); c != 1 {
@@ -213,7 +213,7 @@ func TestThreshold_PrefersLastUsage(t *testing.T) {
 		turn++
 		if turn == 1 {
 			evs := buildToolUseEvents("tu1", "Read", `{}`)
-			evs[0].MessageStart.Message.Usage.InputTokens = 30_000
+			evs[0].MessageStart.Message.Usage.InputTokens = 35_000
 			return newStaticReader(evs...), nil
 		}
 		return newStaticReader(buildEndTurnEvents("done")...), nil

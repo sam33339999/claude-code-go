@@ -32,6 +32,25 @@ func (t Target) Window() int {
 type Tracker struct {
 	mu    sync.Mutex
 	state AutoCompactTrackingState
+	// postCompact is the prompt estimate right after the last successful
+	// compaction (0 = none yet).
+	postCompact int
+}
+
+// RecordPostCompact stores the prompt estimate measured right after a
+// successful compaction. ShouldCompact then waits for real growth, so a
+// prompt whose fixed overhead already exceeds the threshold is not
+// re-summarised every turn.
+func (t *Tracker) RecordPostCompact(est int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.postCompact = est
+}
+
+func (t *Tracker) lastPostCompact() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.postCompact
 }
 
 // NewTracker returns an empty Tracker.
