@@ -64,7 +64,7 @@ func (w *setupWizard) viewEndpoint(theme Theme) string {
 	sb.WriteString(field("API key ", key, w.focus == 1) + "\n")
 	if len(w.apiKey) == 0 && w.keyReusable() {
 		src := "the key in settings.json"
-		if env, ok := strings.CutPrefix(w.defaults.KeySource, "env:"); ok {
+		if env, ok := strings.CutPrefix(w.defaults.KeySources[w.format()], "env:"); ok {
 			src = "environment variable " + env
 		}
 		sb.WriteString(mutedStyle(theme).Render("    (already set — leave empty to keep using "+src+")") + "\n")
@@ -158,7 +158,7 @@ func (w *setupWizard) keyDescription() string {
 		}
 		return "•••• " + suffix
 	}
-	if env, ok := strings.CutPrefix(w.defaults.KeySource, "env:"); ok {
+	if env, ok := strings.CutPrefix(w.defaults.KeySources[w.format()], "env:"); ok {
 		return "from environment variable " + env + " (not written)"
 	}
 	return "keep the key in settings.json"

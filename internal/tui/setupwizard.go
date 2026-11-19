@@ -91,7 +91,7 @@ func (w *setupWizard) format() string { return setupFormats[w.formatIdx].id }
 
 // keyReusable reports whether an empty API key field reuses an existing key.
 func (w *setupWizard) keyReusable() bool {
-	return w.defaults.KeySource != "" && w.format() == w.defaults.Format
+	return w.defaults.KeySources[w.format()] != ""
 }
 
 // input returns the endpoint as entered (empty APIKey = reuse existing key).

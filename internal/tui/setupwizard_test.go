@@ -102,7 +102,7 @@ func TestSetupWizard_BaseURLDefaultPerFormat(t *testing.T) {
 }
 
 func TestSetupWizard_KeyMaskedAndReuseHint(t *testing.T) {
-	d := commands.SetupDefaults{Format: commands.SetupFormatOpenAI, KeySource: "settings"}
+	d := commands.SetupDefaults{Format: commands.SetupFormatOpenAI, KeySources: map[string]string{commands.SetupFormatOpenAI: "settings"}}
 	w := newSetupWizard(d, nil)
 	toEndpoint(w, 1)
 	if !strings.Contains(wView(w), "leave empty") {
@@ -122,7 +122,7 @@ func TestSetupWizard_KeyMaskedAndReuseHint(t *testing.T) {
 }
 
 func TestSetupWizard_EnterValidates(t *testing.T) {
-	w := newSetupWizard(commands.SetupDefaults{Format: commands.SetupFormatOpenAI, KeySource: "settings"}, nil)
+	w := newSetupWizard(commands.SetupDefaults{Format: commands.SetupFormatOpenAI, KeySources: map[string]string{commands.SetupFormatOpenAI: "settings"}}, nil)
 	toEndpoint(w, 1)
 	gen := w.gen
 	if a := wKey(w, "enter"); a != actValidate {
@@ -369,5 +369,30 @@ func TestSetupWizard_PasteGoesToFocusedField(t *testing.T) {
 	w.handlePaste("sk-pasted\n")
 	if got := w.input().APIKey; got != "sk-pasted" {
 		t.Errorf("APIKey = %q, want sk-pasted (newlines stripped)", got)
+	}
+}
+
+// TestSetupWizard_KeySourcePerFormat: an env key for the other format must be
+// offered after switching formats, and a settings key must not carry over.
+func TestSetupWizard_KeySourcePerFormat(t *testing.T) {
+	d := commands.SetupDefaults{
+		Format: commands.SetupFormatAnthropic,
+		KeySources: map[string]string{
+			commands.SetupFormatAnthropic: "settings",
+			commands.SetupFormatOpenAI:    "env:OPENAI_API_KEY",
+		},
+	}
+	w := newSetupWizard(d, nil)
+	toEndpoint(w, 1)
+	if v := wView(w); !strings.Contains(v, "OPENAI_API_KEY") || !strings.Contains(v, "leave empty") {
+		t.Errorf("env key for openai not offered:\n%s", v)
+	}
+	if a := wKey(w, "enter"); a != actValidate {
+		t.Errorf("empty key with env source = %v, want actValidate", a)
+	}
+	w2 := newSetupWizard(commands.SetupDefaults{Format: commands.SetupFormatAnthropic, KeySources: map[string]string{commands.SetupFormatAnthropic: "settings"}}, nil)
+	toEndpoint(w2, 1)
+	if a := wKey(w2, "enter"); a != actNone {
+		t.Errorf("settings key must not carry over to another format: %v", a)
 	}
 }

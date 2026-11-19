@@ -14,12 +14,15 @@ const (
 // SetupDefaults are the current global settings the /setup wizard starts from.
 type SetupDefaults struct {
 	// Format, BaseURL and Model come from ~/.glaude/settings.json only.
+	// Format is always SetupFormatAnthropic or SetupFormatOpenAI (an unset
+	// provider is reported as SetupFormatAnthropic).
 	Format  string
 	BaseURL string
 	Model   string
-	// KeySource says where an existing key would come from: "" (none),
-	// "settings" (global settings.json) or "env:<VAR>".
-	KeySource string
+	// KeySources says, per format, where a reusable key would come from:
+	// "settings" (global settings.json, only for the current Format),
+	// "env:<VAR>", or absent/"" when the user must type a key.
+	KeySources map[string]string
 	// Tiers maps lite/pro/max to their current binding: "main:<model>",
 	// "<provider>:<model>", or "" when unbound.
 	Tiers map[string]string
