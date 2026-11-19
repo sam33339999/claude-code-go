@@ -9,6 +9,9 @@ import (
 
 // Theme holds semantic colour roles for the TUI.
 type Theme struct {
+	// Name identifies the theme (render-cache key; "" for ad-hoc themes).
+	Name string
+
 	Primary   color.Color
 	Secondary color.Color
 	Accent    color.Color
@@ -28,6 +31,7 @@ type Theme struct {
 
 // DefaultDarkTheme is the built-in dark theme.
 var DefaultDarkTheme = Theme{
+	Name:      "dark",
 	Primary:   lipgloss.Color("12"),  // bright blue
 	Secondary: lipgloss.Color("7"),   // white
 	Accent:    lipgloss.Color("205"), // pink
@@ -43,6 +47,7 @@ var DefaultDarkTheme = Theme{
 
 // DefaultLightTheme is the built-in light theme.
 var DefaultLightTheme = Theme{
+	Name:      "light",
 	Primary:   lipgloss.Color("4"), // blue
 	Secondary: lipgloss.Color("0"), // black
 	Accent:    lipgloss.Color("5"), // magenta
@@ -58,6 +63,7 @@ var DefaultLightTheme = Theme{
 
 // TokyoNightTheme is the built-in Tokyo Night theme.
 var TokyoNightTheme = Theme{
+	Name:      "tokyo-night",
 	Primary:   lipgloss.Color("111"), // blue
 	Secondary: lipgloss.Color("189"), // light
 	Accent:    lipgloss.Color("175"), // pink

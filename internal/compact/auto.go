@@ -87,6 +87,13 @@ func autoCompactThreshold(model string, maxOutputTokens int) int {
 	return effective - AutoCompactBufferTokens
 }
 
+// ContextWindow returns the context window (in tokens) used for model — the
+// same value auto-compaction budgets against. Exposed for display (the TUI
+// status bar's context-usage meter).
+func ContextWindow(model string) int {
+	return resolveContextWindow(model)
+}
+
 // resolveContextWindow returns the known context window for a model, falling
 // back to defaultContextWindow for unrecognised models.
 // Env var CLAUDE_CODE_AUTO_COMPACT_WINDOW overrides.

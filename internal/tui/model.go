@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/glamour"
 	"github.com/tunsuy/glaude/internal/commands"
+	"github.com/tunsuy/glaude/internal/compact"
 	"github.com/tunsuy/glaude/internal/coordinator"
 	"github.com/tunsuy/glaude/internal/engine"
 	"github.com/tunsuy/glaude/internal/memdir"
@@ -147,7 +148,32 @@ type AppModel struct {
 	// mdRenderer is rebuilt whenever termWidth or darkMode changes.
 	mdRenderer      *glamour.TermRenderer
 	mdRendererWidth int
-	mdRendererDark  bool
+	mdRendererTheme string
+
+	// --- Render cache & stream throttling (perf) ---
+	// renderCache memoises rendered messages; shared across AppModel copies.
+	renderCache *messageRenderCache
+	// streamFlushPending is true while a streamFlushMsg is scheduled, so a
+	// burst of tokens triggers one re-render per streamFlushInterval.
+	streamFlushPending bool
+	// showThinking expands thinking blocks (toggled with ctrl+o).
+	showThinking bool
+
+	// --- Spinner / usage feedback ---
+	// activeTool is the tool currently running ("" when none); drives the
+	// spinner verb.
+	activeTool string
+	// streamedChars counts characters streamed this query, for the live
+	// "↓ N tokens" estimate before the API reports real usage.
+	streamedChars int
+	// queryOutputTokens accumulates real output tokens reported this query.
+	queryOutputTokens int
+
+	// --- Input completion & history ---
+	completion completionState
+	history    inputHistory
+	// fileIndex lists project files for @-mention completion (built lazily).
+	fileIndex *fileIndex
 
 	// --- Permission channels (HIL support) ---
 	// permAskCh receives permission requests from the engine.
@@ -223,10 +249,13 @@ func newAppModel(
 			TaskOrder: []string{},
 		},
 		statusBar: StatusBar{
-			model: model,
-			cwd:   cwd,
+			model:         model,
+			cwd:           cwd,
+			contextWindow: compact.ContextWindow(model),
 		},
 		welcomeHeader:  NewWelcomeHeader(model, cwd),
+		renderCache:    newMessageRenderCache(),
+		fileIndex:      newFileIndex(cwd),
 		pinnedToBottom: true,
 		memoryStore:    memoryStore,
 		viewport:       viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)),
@@ -267,14 +296,28 @@ func (m AppModel) visibleMessages() []types.Message {
 	return result
 }
 
-// newSystemMessage creates a system-role message with text.
+// newSystemMessage creates a TUI-local informational notice. It is tagged via
+// Message.ID (see isSystemMessage) and rendered distinctly from model output.
+// Text starting with "Error:" is classified as an error notice.
 func newSystemMessage(text string) types.Message {
+	id := systemMessageID
+	if strings.HasPrefix(text, "Error:") || strings.HasPrefix(text, "Error ") {
+		id = systemErrorMessageID
+	}
 	return types.Message{
-		Role: types.RoleAssistant, // displayed as assistant but muted
+		ID:   id,
+		Role: types.RoleAssistant,
 		Content: []types.ContentBlock{
 			{Type: types.ContentTypeText, Text: strPtr(text)},
 		},
 	}
+}
+
+// newSystemErrorMessage creates a TUI-local error notice.
+func newSystemErrorMessage(text string) types.Message {
+	msg := newSystemMessage(text)
+	msg.ID = systemErrorMessageID
+	return msg
 }
 
 // newUserMessage creates a user-role message with text.
@@ -290,11 +333,11 @@ func newUserMessage(text string) types.Message {
 func strPtr(s string) *string { return &s }
 
 // markdownRenderer returns a cached *glamour.TermRenderer, rebuilding it only
-// when termWidth or darkMode have changed since the last call (P1-C fix).
+// when termWidth or the theme have changed since the last call (P1-C fix).
 func (m *AppModel) markdownRenderer() *glamour.TermRenderer {
 	if m.mdRenderer != nil &&
 		m.mdRendererWidth == m.termWidth &&
-		m.mdRendererDark == m.darkMode {
+		m.mdRendererTheme == m.theme.Name {
 		return m.mdRenderer
 	}
 	width := m.termWidth - 2
@@ -303,7 +346,7 @@ func (m *AppModel) markdownRenderer() *glamour.TermRenderer {
 	}
 	// Use custom style with no padding to avoid interfering with our layout
 	r, err := glamour.NewTermRenderer(
-		glamour.WithStyles(newGlamourStyle(m.darkMode)),
+		glamour.WithStyles(newGlamourStyle(m.theme)),
 		glamour.WithWordWrap(width),
 	)
 	if err != nil {
@@ -311,7 +354,7 @@ func (m *AppModel) markdownRenderer() *glamour.TermRenderer {
 	}
 	m.mdRenderer = r
 	m.mdRendererWidth = m.termWidth
-	m.mdRendererDark = m.darkMode
+	m.mdRendererTheme = m.theme.Name
 	return m.mdRenderer
 }
 

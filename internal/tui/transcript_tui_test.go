@@ -156,8 +156,8 @@ func TestView_RendersTodoPanel(t *testing.T) {
 		}
 		return prev
 	})
-	view := m.View().Content
-	for _, want := range []string{"Todos", "[x] finished task", "[>] active task", "[ ] later task"} {
+	view := stripANSI(m.View().Content)
+	for _, want := range []string{"Todos (1/3)", "✔ finished task", "◼ active task", "☐ later task"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("expected %q in view with todos", want)
 		}
@@ -166,7 +166,7 @@ func TestView_RendersTodoPanel(t *testing.T) {
 		prev.Todos = nil
 		return prev
 	})
-	if strings.Contains(m.View().Content, "[x] finished task") {
+	if strings.Contains(stripANSI(m.View().Content), "finished task") {
 		t.Error("cleared todo list must not render")
 	}
 }

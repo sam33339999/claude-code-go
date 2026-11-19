@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	"github.com/tunsuy/glaude/pkg/types"
 )
 
@@ -16,96 +15,155 @@ type TokenUsage struct {
 	CacheCreated int
 }
 
-// StatusBar renders the top status line.
+// StatusBar renders the one-line status shown under the input box.
 type StatusBar struct {
-	model       string
-	cwd         string
-	effort      string // low, medium, high
-	tokenUsage  TokenUsage
-	cost        float64
-	coordinator bool
+	model  string
+	cwd    string
+	effort string // low, medium, high
+	// tokenUsage is cumulative for the session (all requests).
+	tokenUsage TokenUsage
+	// contextTokens is the prompt+output size of the latest request — what
+	// currently occupies the context window.
+	contextTokens int
+	// contextWindow is the model's window; 0 hides the meter.
+	contextWindow int
+	coordinator   bool
 	// mode is the live permission mode (BF-09/BF-21); rendered as a visible
 	// indicator so the user always knows the current mode (YOLO warned).
 	mode types.PermissionMode
+	// vim is the styled Vim mode label ("" when Vim is off).
+	vim string
 }
 
-// View renders the status bar to a string.
+// addUsage records one request's usage reported by the API.
+func (s StatusBar) addUsage(u TokenUsage) StatusBar {
+	s.tokenUsage.Input += u.Input
+	s.tokenUsage.Output += u.Output
+	s.tokenUsage.CacheRead += u.CacheRead
+	s.tokenUsage.CacheCreated += u.CacheCreated
+	s.contextTokens = u.Input + u.CacheRead + u.CacheCreated + u.Output
+	return s
+}
+
+// contextPercent returns the context-window usage in percent (0 when unknown).
+func (s StatusBar) contextPercent() int {
+	if s.contextWindow <= 0 {
+		return 0
+	}
+	p := s.contextTokens * 100 / s.contextWindow
+	if p > 100 {
+		p = 100
+	}
+	return p
+}
+
+// contextMeter renders "ctx ▰▰▱▱▱ 42%", coloured by how full the window is.
+func (s StatusBar) contextMeter(theme Theme) string {
+	if s.contextWindow <= 0 || s.contextTokens == 0 {
+		return ""
+	}
+	p := s.contextPercent()
+	const cells = 5
+	filled := (p*cells + 50) / 100
+	if p > 0 && filled == 0 {
+		filled = 1
+	}
+	bar := strings.Repeat("▰", filled) + strings.Repeat("▱", cells-filled)
+	style := mutedStyle(theme)
+	switch {
+	case p >= 90:
+		style = errorStyle(theme)
+	case p >= 70:
+		style = warningStyle(theme)
+	}
+	return style.Render(fmt.Sprintf("ctx %s %d%%", bar, p))
+}
+
+// View renders the status bar to a string no wider than width.
 func (s StatusBar) View(width int, theme Theme) string {
+	sep := mutedStyle(theme).Render(" · ")
+
 	modelStr := s.model
 	if modelStr == "" {
 		modelStr = "claude"
 	}
-
 	effortStr := s.effort
 	if effortStr == "" {
 		effortStr = "medium"
 	}
 
-	left := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		primaryStyle(theme).Render(modelStr),
-		mutedStyle(theme).Render(" | "),
-		mutedStyle(theme).Render(truncateCWD(s.cwd, 40)),
-	)
-	if s.coordinator {
-		left = left + mutedStyle(theme).Render(" | ") +
-			accentStyle(theme).Render("Coordinator")
+	// Right side: context meter, cumulative tokens, effort.
+	var right []string
+	if meter := s.contextMeter(theme); meter != "" {
+		right = append(right, meter)
 	}
-	// Permission mode indicator (BF-09/BF-21): always visible when not normal.
+	if total := s.tokenUsage.Input + s.tokenUsage.CacheRead + s.tokenUsage.CacheCreated + s.tokenUsage.Output; total > 0 {
+		right = append(right, mutedStyle(theme).Render(formatTokens(s.tokenUsage)+" tok"))
+	}
+	right = append(right, mutedStyle(theme).Render("effort "+effortStr))
+
+	// Left side: mode indicator first (it is the most important to notice),
+	// then model and cwd.
+	var left []string
+	if s.vim != "" {
+		left = append(left, s.vim)
+	}
 	switch s.mode {
 	case types.PermissionModeAcceptEdits:
-		left += mutedStyle(theme).Render(" | ") + accentStyle(theme).Render("⏵⏵ accept edits")
+		left = append(left, accentStyle(theme).Render("⏵⏵ accept edits")+mutedStyle(theme).Render(" (shift+tab)"))
 	case types.PermissionModePlan:
-		left += mutedStyle(theme).Render(" | ") + accentStyle(theme).Render("⏸ plan")
+		left = append(left, accentStyle(theme).Render("⏸ plan mode")+mutedStyle(theme).Render(" (shift+tab)"))
 	case types.PermissionModeBypassPermissions:
-		left += mutedStyle(theme).Render(" | ") + warningStyle(theme).Bold(true).Render("⚠ YOLO")
+		left = append(left, warningStyle(theme).Bold(true).Render("⚠ YOLO")+mutedStyle(theme).Render(" (shift+tab)"))
+	}
+	if s.coordinator {
+		left = append(left, accentStyle(theme).Render("Coordinator"))
+	}
+	left = append(left, primaryStyle(theme).Render(modelStr))
+	leftFixed := strings.Join(left, sep)
+
+	// On narrow terminals drop right-side items least-important first
+	// (effort, then tokens), keeping the context meter as long as possible.
+	rightStr := strings.Join(right, sep)
+	for len(right) > 1 && displayWidth(leftFixed)+displayWidth(rightStr)+1 > width {
+		right = right[:len(right)-1]
+		rightStr = strings.Join(right, sep)
 	}
 
-	// Show effort level with icon
-	effortIcon := map[string]string{
-		"low":    "⚡",
-		"medium": "⚖️",
-		"high":   "🧠",
-	}
-	icon := effortIcon[effortStr]
-	if icon == "" {
-		icon = "⚖️"
+	// The cwd absorbs whatever width is left; drop it entirely when tight.
+	avail := width - displayWidth(leftFixed) - displayWidth(rightStr) - displayWidth(sep) - 1
+	leftStr := leftFixed
+	if avail >= 8 {
+		leftStr += sep + mutedStyle(theme).Render(truncateLeftWidth(s.cwd, avail))
 	}
 
-	right := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		mutedStyle(theme).Render(icon+" "+effortStr+" | "),
-		mutedStyle(theme).Render(fmt.Sprintf(
-			"%s tok · $%.4f",
-			formatTokens(s.tokenUsage),
-			s.cost,
-		)),
-	)
-
-	leftW := lipgloss.Width(left)
-	rightW := lipgloss.Width(right)
-	gap := width - leftW - rightW
+	gap := width - displayWidth(leftStr) - displayWidth(rightStr)
 	if gap < 1 {
-		gap = 1
+		// Still too wide: keep the left side, truncated, and drop the right.
+		return truncateWidth(leftStr, width)
 	}
-
-	return left + strings.Repeat(" ", gap) + right
+	return leftStr + strings.Repeat(" ", gap) + rightStr
 }
 
-// formatTokens returns a compact token count string.
+// formatTokens returns a compact cumulative token count string.
 func formatTokens(u TokenUsage) string {
-	total := u.Input + u.Output
-	if total >= 1000 {
-		return fmt.Sprintf("%.1fk", float64(total)/1000)
-	}
-	return fmt.Sprintf("%d", total)
+	return compactCount(u.Input + u.CacheRead + u.CacheCreated + u.Output)
 }
 
-// truncateCWD shortens a directory path to at most maxLen characters.
-func truncateCWD(cwd string, maxLen int) string {
-	if len(cwd) <= maxLen {
-		return cwd
+// compactCount formats n as "950", "12.3k" or "1.2M".
+func compactCount(n int) string {
+	switch {
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n >= 1000:
+		return fmt.Sprintf("%.1fk", float64(n)/1000)
+	default:
+		return fmt.Sprintf("%d", n)
 	}
-	// Keep the last maxLen characters preceded by "…"
-	return "…" + cwd[len(cwd)-maxLen+1:]
+}
+
+// truncateCWD shortens a directory path to at most maxLen display cells,
+// keeping its tail.
+func truncateCWD(cwd string, maxLen int) string {
+	return truncateLeftWidth(cwd, maxLen)
 }

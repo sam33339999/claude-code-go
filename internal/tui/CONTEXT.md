@@ -2,13 +2,13 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-19T06:00:32Z
-source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, spinner.go, statusbar.go, styles.go, theme.go, update.go, view.go, welcome.go]
+generated_at: 2026-11-19T06:52:46Z
+source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, rendercache.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, update.go, view.go, welcome.go]
 ---
 
 # internal/tui
 
-> Layer: **TUI** · Files: 17 · Interfaces: 0 · Structs: 38 · Functions: 6
+> Layer: **TUI** · Files: 21 · Interfaces: 0 · Structs: 38 · Functions: 6
 
 ## Structs
 
@@ -16,7 +16,7 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **AgentProgressMsg** — 3 fields: TaskID, Activity, Detail
 - **AgentStatusMsg** — 5 fields: TaskID, Status, Description, Result, Summary
 - **AgentTaskState** — 12 fields: ID, Name, AgentType, Description, Status, StartTime, ElapsedMs, OutputTokens, ...
-- **AppModel** — 50 fields
+- **AppModel** — 59 fields
 - **CommandResultMsg** — 2 fields: Text, IsError
 - **CompactDoneMsg** — 1 fields: Summary
 - **CoordinatorPanel** — 3 fields: Tasks, SelectedIndex, TaskOrder
@@ -32,9 +32,9 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **QuestionRequestMsg** — 4 fields: RequestID, Question, Options, RespFn
 - **SlashCommandMsg** — 2 fields: Name, Args
 - **SpinnerModel** — 4 fields
-- **StatusBar** — 7 fields
-- **StreamAssistantTurnMsg** — 1 fields: FinalMessage
-- **StreamDoneMsg** — 1 fields: FinalMessage
+- **StatusBar** — 9 fields
+- **StreamAssistantTurnMsg** — 2 fields: FinalMessage, Usage
+- **StreamDoneMsg** — 2 fields: FinalMessage, Usage
 - **StreamErrorMsg** — 1 fields: Err
 - **StreamThinkingMsg** — 1 fields: Delta
 - **StreamTokenMsg** — 1 fields: Delta
@@ -45,7 +45,7 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **StreamUserTurnMsg** — 1 fields: FinalMessage
 - **SystemTextMsg** — 1 fields: Text
 - **TermResizedMsg** — 2 fields: Width, Height
-- **Theme** — 11 fields: Primary, Secondary, Accent, Muted, Error, Warning, Success, CodeBG, ...
+- **Theme** — 12 fields: Name, Primary, Secondary, Accent, Muted, Error, Warning, Success, ...
 - **TickMsg** — 1 fields: Time
 - **TokenUsage** — 4 fields: Input, Output, CacheRead, CacheCreated
 - **TranscriptErrMsg** — 1 fields: Err
@@ -82,7 +82,7 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 
 ## Dependencies
 
-**Imports:** `internal/commands`, `internal/coordinator`, `internal/engine`, `internal/memdir`, `internal/msgqueue`, `internal/permissions`, `internal/state`, `internal/tools`, `internal/transcript`, `pkg/types`
+**Imports:** `internal/commands`, `internal/compact`, `internal/coordinator`, `internal/engine`, `internal/memdir`, `internal/msgqueue`, `internal/permissions`, `internal/state`, `internal/tools`, `internal/transcript`, `pkg/types`
 
 **Imported by:** `internal/bootstrap`
 

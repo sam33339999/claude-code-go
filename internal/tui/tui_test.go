@@ -1431,17 +1431,22 @@ func TestRenderSystemMessage(t *testing.T) {
 }
 
 func TestRenderThinkingBlock(t *testing.T) {
-	theme := DefaultDarkTheme
-	// Short thinking (≤3 lines) — no truncation.
-	out := renderThinkingBlock("line1\nline2", theme)
-	if !strings.Contains(out, "line1") {
-		t.Error("thinking block should contain line1")
+	opts := renderOptions{width: 80, theme: DefaultDarkTheme}
+	// Collapsed (default): a single summary line, reasoning hidden.
+	out := renderThinkingBlock("line1\nline2", opts)
+	if strings.Contains(out, "line1") || !strings.Contains(out, "Thinking") || !strings.Contains(out, "ctrl+o") {
+		t.Errorf("collapsed thinking should be a one-line ctrl+o hint, got %q", out)
 	}
-	// Long thinking (>3 lines) — truncated.
-	long := "a\nb\nc\nd\ne"
-	out2 := renderThinkingBlock(long, theme)
-	if !strings.Contains(out2, "truncated") {
-		t.Error("long thinking block should say truncated")
+	if renderedLines(out) != 1 {
+		t.Errorf("collapsed thinking should be 1 line, got %d", renderedLines(out))
+	}
+	// Expanded (ctrl+o): full reasoning shown.
+	opts.showThinking = true
+	out2 := renderThinkingBlock("a\nb\nc\nd\ne", opts)
+	for _, want := range []string{"a", "e"} {
+		if !strings.Contains(stripANSI(out2), want) {
+			t.Errorf("expanded thinking missing %q: %q", want, out2)
+		}
 	}
 }
 
@@ -1461,7 +1466,7 @@ func TestRenderToolUseBlock(t *testing.T) {
 		ErroredToolUseIDs:    make(map[string]bool),
 		InProgressToolUseIDs: make(map[string]bool),
 	}
-	out := renderToolUseBlock(blk, theme, lookups)
+	out := renderToolUseBlock(blk, renderOptions{width: 80, theme: theme}, lookups)
 	if !strings.Contains(out, "Bash") {
 		t.Errorf("tool use block should contain tool name, got: %q", out)
 	}
@@ -1501,7 +1506,10 @@ func TestTruncate(t *testing.T) {
 		t.Error("truncate of short string should be identity")
 	}
 	res := truncate("hello world", 5)
-	if !strings.HasPrefix(res, "hello") {
+	if displayWidth(res) > 5 {
+		t.Errorf("truncate must fit in 5 cells, got %q", res)
+	}
+	if !strings.HasPrefix(res, "hell") {
 		t.Errorf("truncated string should start with original prefix, got %q", res)
 	}
 	if !strings.Contains(res, "…") {

@@ -145,11 +145,11 @@ func (d PermissionDialog) View(width int, theme Theme) string {
 	}
 
 	sb.WriteString("\n")
-	// Footer hints (matching original: Esc to cancel · Tab to amend · ctrl+e to explain)
-	sb.WriteString(mutedStyle(theme).Render("Esc to cancel · Tab to amend · ctrl+e to explain"))
+	// Footer hints: only keys handlePermissionKey actually supports.
+	sb.WriteString(mutedStyle(theme).Render("↑/↓ select · Enter confirm · 1-3 / y / n shortcut · Esc cancel"))
 
 	inner := sb.String()
-	maxW := width - 4
+	maxW := width - 2
 	if maxW < 20 {
 		maxW = 20
 	}
@@ -219,8 +219,5 @@ func summariseInput(raw string, maxLen int) string {
 			raw = string(b)
 		}
 	}
-	if len(raw) > maxLen {
-		return raw[:maxLen] + "…"
-	}
-	return raw
+	return truncateWidth(raw, maxLen)
 }

@@ -5,25 +5,113 @@ import (
 	"strings"
 
 	"charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/tunsuy/glaude/pkg/types"
 )
-
-// reservedLines is the number of terminal lines reserved for non-message UI
-// (status bar + input area + spinner + padding).
-const reservedLines = 6
 
 // minViewportLines is the floor for the message viewport height. Even when
 // bottom extras (coordinator panel, dialogs, todos) are tall, the output area
 // must stay usable rather than collapsing to a single line.
 const minViewportLines = 5
 
+// screenLayout is one frame's arrangement, top to bottom:
+//
+//	coordinator panel · message viewport · spinner · todo panel ·
+//	dialog OR (input box + completion popup) · status bar
+//
+// The bottom-anchored parts are measured first; the viewport gets whatever
+// height remains, so the total never exceeds termHeight and the input/dialog
+// are never clipped off-screen.
+type screenLayout struct {
+	coordPanel string
+	spinner    string
+	todoPanel  string
+	bottom     string // dialog, or input box + completion popup
+	statusBar  string
+	vpHeight   int
+}
+
+// layout computes the frame arrangement for the current state.
+func (m AppModel) layout() screenLayout {
+	var l screenLayout
+
+	if m.isLoading && m.showSpinner {
+		l.spinner = m.spinner.ViewStatus(m.theme, m.spinnerStatus())
+	}
+
+	// While a dialog is open it replaces the input box: the dialog owns the
+	// keyboard, and hiding the input leaves room for the dialog on short
+	// terminals.
+	if dialog := m.renderActiveDialog(); dialog != "" {
+		l.bottom = dialog
+	} else {
+		l.bottom = m.input.View(m.theme)
+		if popup := renderCompletion(m.completion, m.termWidth, m.theme); popup != "" {
+			l.bottom += "\n" + popup
+		}
+	}
+
+	sb := m.statusBar
+	sb.mode = m.appState.GetState().ToolPermissionContext.Mode
+	sb.vim = m.input.VimIndicator(m.theme)
+	l.statusBar = sb.View(m.termWidth, m.theme)
+
+	fixed := renderedLines(l.spinner) + renderedLines(l.bottom) + renderedLines(l.statusBar)
+	// Short terminal: the completion popup is the first thing to go, then the
+	// spinner line, so the input box and status bar stay on screen.
+	if fixed > m.termHeight-1 && m.activeDialog == dialogNone && m.completion.visible() {
+		l.bottom = m.input.View(m.theme)
+		fixed = renderedLines(l.spinner) + renderedLines(l.bottom) + renderedLines(l.statusBar)
+	}
+	if fixed > m.termHeight-1 && l.spinner != "" {
+		l.spinner = ""
+		fixed = renderedLines(l.bottom) + renderedLines(l.statusBar)
+	}
+
+	// The todo panel is display-only: on short terminals truncate (or hide) it
+	// so the interactive dialog and input keep their space. Keep at least one
+	// viewport line.
+	if todos := m.appState.GetState().Todos; len(todos) > 0 {
+		l.todoPanel = truncateToLines(renderTodoPanel(todos, m.termWidth, m.theme), m.termHeight-fixed-1)
+	}
+
+	topAvailable := m.termHeight - fixed - renderedLines(l.todoPanel)
+	if topAvailable < 1 {
+		topAvailable = 1
+	}
+
+	// The viewport gets a usable floor; the coordinator panel takes the rest
+	// and is truncated when space is tight (it is the least critical region).
+	l.vpHeight = topAvailable
+	if m.coordinatorMode {
+		panelBudget := topAvailable - minViewportLines
+		if panelBudget < 0 {
+			panelBudget = 0
+		}
+		l.coordPanel = truncateToLines(m.coordinatorPanel.View(m.termWidth, m.theme), panelBudget)
+		l.vpHeight = topAvailable - renderedLines(l.coordPanel)
+		if l.vpHeight < 1 {
+			l.vpHeight = 1
+		}
+	}
+	return l
+}
+
+// spinnerStatus reports what the spinner should describe right now.
+func (m AppModel) spinnerStatus() spinnerStatus {
+	// Finished requests contribute their real output tokens; the in-flight
+	// request is estimated from streamed characters (~4 chars per token)
+	// until the API reports its usage.
+	tokens := m.queryOutputTokens + m.streamedChars/4
+	return spinnerStatus{tool: m.activeTool, outputTokens: tokens}
+}
+
 // viewportHeight returns the available height for the message viewport.
 func (m AppModel) viewportHeight() int {
-	h := m.termHeight - reservedLines
-	if h < 1 {
-		h = 1
+	if m.termHeight == 0 {
+		return 1
 	}
-	return h
+	return m.layout().vpHeight
 }
 
 // View is the BubbleTea View method. It renders the entire TUI to a string.
@@ -31,94 +119,56 @@ func (m AppModel) View() tea.View {
 	if m.termWidth == 0 {
 		return m.screenView("")
 	}
-
-	// Measure bottom-anchored extras (todo, dialog) that render below the
-	// viewport. reservedLines covers status bar + input + spinner + padding.
-	dialog := m.renderActiveDialog()
-	dialogLines := renderedLines(dialog)
-
-	var todoPanel string
-	todoLines := 0
-	if todos := m.appState.GetState().Todos; len(todos) > 0 {
-		todoPanel = renderTodoPanel(todos, m.theme)
-		// The todo panel is display-only: on short terminals truncate (or hide)
-		// it so the interactive dialog and input keep their space. Keep at least
-		// one viewport line; the soft viewport floor is enforced against the
-		// coordinator panel below, not against the todo panel.
-		todoBudget := m.termHeight - reservedLines - dialogLines - 1
-		todoPanel = truncateToLines(todoPanel, todoBudget)
-		todoLines = renderedLines(todoPanel)
-	}
-
-	// Space left for the top region (coordinator panel + message viewport)
-	// after the bottom-fixed UI. Budgeting this keeps the total render within
-	// termHeight so the input/dialog at the bottom are never clipped off-screen.
-	topAvailable := m.termHeight - reservedLines - todoLines - dialogLines
-	if topAvailable < 1 {
-		topAvailable = 1
-	}
-
-	// The viewport gets a usable floor; the coordinator panel takes the rest
-	// and is truncated when space is tight (it is the least critical region).
-	// This prevents a flood of agents from squeezing the output AND prevents
-	// the panel from pushing the bottom UI off-screen.
-	var coordPanel string
-	vpHeight := topAvailable
-	if m.coordinatorMode {
-		panelBudget := topAvailable - minViewportLines
-		if panelBudget < 0 {
-			panelBudget = 0
-		}
-		coordPanel = truncateToLines(m.coordinatorPanel.View(m.termWidth, m.theme), panelBudget)
-		vpHeight = topAvailable - renderedLines(coordPanel)
-		if vpHeight < 1 {
-			vpHeight = 1
-		}
-	}
+	l := m.layout()
 
 	var sb strings.Builder
-
-	// --- Coordinator panel (multi-agent, top-anchored) ---
-	if coordPanel != "" {
-		sb.WriteString(coordPanel)
+	if l.coordPanel != "" {
+		sb.WriteString(l.coordPanel)
 		sb.WriteString("\n")
 	}
 
-	// --- Message list rendered through the viewport (height budgeted above) ---
+	// Message list through the viewport. The viewport keeps its own scroll
+	// offset, which was computed for the height at the last sync; re-pin to
+	// the bottom at this frame's height so the newest lines are never hidden
+	// behind a dialog or todo panel that appeared since.
 	vp := m.viewport
-	vp.SetHeight(vpHeight)
-	vpContent := strings.TrimRight(vp.View(), "\n ")
-	if vpContent != "" {
+	vp.SetHeight(l.vpHeight)
+	if m.pinnedToBottom {
+		vp.GotoBottom()
+	}
+	if vpContent := strings.TrimRight(vp.View(), "\n "); vpContent != "" {
 		sb.WriteString(vpContent)
 		sb.WriteString("\n")
 	}
 
-	// --- Spinner / loading indicator ---
-	if m.isLoading && m.showSpinner {
-		sb.WriteString(m.spinner.View(m.theme))
-		sb.WriteString("\n")
+	for _, part := range []string{l.spinner, l.todoPanel, l.bottom} {
+		if part != "" {
+			sb.WriteString(strings.TrimRight(part, "\n"))
+			sb.WriteString("\n")
+		}
 	}
-
-	// --- Status bar ---
-	m.statusBar.mode = m.appState.GetState().ToolPermissionContext.Mode
-	sb.WriteString(m.statusBar.View(m.termWidth, m.theme))
-	sb.WriteString("\n")
-
-	// --- Todo panel (BF-07) ---
-	if todoPanel != "" {
-		sb.WriteString(todoPanel)
-	}
-
-	// --- Input area ---
-	sb.WriteString(m.input.View(m.theme))
-
-	// --- Active dialog (bottom-anchored, space reserved above) ---
-	if dialog != "" {
-		sb.WriteString("\n")
-		sb.WriteString(dialog)
-	}
+	sb.WriteString(l.statusBar)
 
 	return m.screenView(sb.String())
+}
+
+// dialogWidth is the outer width of bordered dialogs.
+func (m AppModel) dialogWidth() int {
+	w := m.termWidth - 2
+	if w < 20 {
+		w = 20
+	}
+	return w
+}
+
+// dialogBox wraps dialog content in a rounded, coloured border.
+func dialogBox(content string, width int, border Theme) string {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(border.Warning).
+		Padding(0, 1).
+		Width(width).
+		Render(content)
 }
 
 // renderActiveDialog renders the currently open dialog ("" when none).
@@ -132,18 +182,18 @@ func (m AppModel) renderActiveDialog() string {
 		return renderConfirmDialog(
 			"Compact conversation?",
 			"This will summarise the history and reduce context usage.",
-			m.termWidth, m.theme,
+			m.dialogWidth(), m.theme,
 		)
 	case dialogExit:
 		return renderConfirmDialog(
 			"Exit Glaude?",
-			"Press y to confirm, n to cancel.",
-			m.termWidth, m.theme,
+			"Your session is saved and can be resumed with /resume.",
+			m.dialogWidth(), m.theme,
 		)
 	case dialogConfig:
 		return m.renderConfigDialog()
 	case dialogQuestion:
-		return renderQuestionDialog(m.questionReq, m.theme)
+		return renderQuestionDialog(m.questionReq, m.dialogWidth(), m.theme)
 	}
 	return ""
 }
@@ -179,26 +229,42 @@ func (m AppModel) screenView(content string) tea.View {
 	return v
 }
 
+// renderOpts returns the message render options for the current state.
+func (m *AppModel) renderOpts() renderOptions {
+	return renderOptions{
+		width:        m.termWidth,
+		dark:         m.darkMode,
+		theme:        m.theme,
+		md:           m.markdownRenderer(),
+		expanded:     m.expandedToolResults,
+		showThinking: m.showThinking,
+		cwd:          m.appState.GetState().WorkingDir,
+	}
+}
+
 // syncViewportContent re-renders the message list into the viewport content
-// and optionally scrolls to bottom when pinnedToBottom is true.
+// and optionally scrolls to bottom when pinnedToBottom is true. Completed
+// messages come from the render cache; only changed ones are re-rendered.
 // The welcome header is included as part of the content so it scrolls with messages.
 func (m *AppModel) syncViewportContent() {
 	var contentBuilder strings.Builder
 
-	// Always include welcome header at the top of the content
-	header := m.welcomeHeader.View(m.termWidth, m.theme)
-	if header != "" {
+	if header := m.welcomeHeader.View(m.termWidth, m.theme); header != "" {
 		contentBuilder.WriteString(header)
 	}
 
-	// Render messages
+	if m.renderCache == nil {
+		m.renderCache = newMessageRenderCache()
+	}
 	msgs := m.visibleMessages()
-	msgContent := MessageListView(msgs, m.termWidth, m.darkMode, m.theme, m.markdownRenderer(), m.expandedToolResults)
-	contentBuilder.WriteString(msgContent)
+	m.renderCache.prune(len(msgs))
+	contentBuilder.WriteString(renderMessageList(msgs, m.renderOpts(), m.renderCache))
 
 	// Trim trailing newlines to avoid excessive blank space at bottom.
-	content := strings.TrimRight(contentBuilder.String(), "\n")
-	m.viewport.SetContent(content)
+	m.viewport.SetContent(strings.TrimRight(contentBuilder.String(), "\n"))
+	if m.termHeight > 0 {
+		m.viewport.SetHeight(m.viewportHeight())
+	}
 	if m.pinnedToBottom {
 		m.viewport.GotoBottom()
 	}
@@ -207,45 +273,57 @@ func (m *AppModel) syncViewportContent() {
 // renderQuestionDialog renders the AskUserQuestion dialog (BF-08): question,
 // numbered options (selected marked), free-text answer buffer, key hints.
 // Display-only apart from the HIL response callback invoked by key handling.
-func renderQuestionDialog(q *questionState, theme Theme) string {
+func renderQuestionDialog(q *questionState, width int, theme Theme) string {
 	if q == nil {
 		return ""
 	}
 	var sb strings.Builder
 	sb.WriteString(warningStyle(theme).Bold(true).Render("Question"))
 	sb.WriteString("\n")
-	sb.WriteString(mutedStyle(theme).Render(q.question))
-	sb.WriteString("\n")
+	sb.WriteString(q.question)
+	sb.WriteString("\n\n")
 	for i, opt := range q.options {
-		marker := "  "
+		label := fmt.Sprintf("%d. %s", i+1, opt)
 		if i == q.selected {
-			marker = "> "
+			sb.WriteString(primaryStyle(theme).Bold(true).Render("❯ " + label))
+		} else {
+			sb.WriteString("  " + label)
 		}
-		sb.WriteString(mutedStyle(theme).Render(fmt.Sprintf("%s%d. %s", marker, i+1, opt)))
 		sb.WriteString("\n")
 	}
-	sb.WriteString(mutedStyle(theme).Render("Answer: " + q.answer))
+	if len(q.options) > 0 {
+		sb.WriteString("\n")
+	}
+	sb.WriteString(mutedStyle(theme).Render("Answer: ") + q.answer + accentStyle(theme).Render("▏"))
 	sb.WriteString("\n")
-	sb.WriteString(mutedStyle(theme).Render("(1-9 select · type answer · Enter submit · Esc dismiss)"))
-	return sb.String()
+	sb.WriteString(mutedStyle(theme).Render("1-9 select · type an answer · Enter submit · Esc dismiss"))
+	return dialogBox(sb.String(), width, theme)
 }
 
-// renderTodoPanel renders the session todo list (BF-07) above the input area.
+// renderTodoPanel renders the session todo list (BF-07) above the input area:
+// completed items struck through, the in-progress item highlighted.
 // Display-only: reads AppState.Todos (mutex-protected store), never touches
 // engine history or schemas (cache-first gate).
-func renderTodoPanel(todos []types.TodoItem, theme Theme) string {
+func renderTodoPanel(todos []types.TodoItem, width int, theme Theme) string {
+	done := 0
+	for _, t := range todos {
+		if t.Status == types.TodoCompleted {
+			done++
+		}
+	}
 	var sb strings.Builder
-	sb.WriteString(mutedStyle(theme).Bold(true).Render("Todos"))
+	sb.WriteString(mutedStyle(theme).Bold(true).Render(fmt.Sprintf("Todos (%d/%d)", done, len(todos))))
 	sb.WriteString("\n")
 	for _, t := range todos {
-		marker := "[ ]"
+		content := truncateWidth(t.Content, width-6)
 		switch t.Status {
 		case types.TodoCompleted:
-			marker = "[x]"
+			sb.WriteString(successStyle(theme).Render("  ✔ ") + mutedStyle(theme).Strikethrough(true).Render(content))
 		case types.TodoInProgress:
-			marker = "[>]"
+			sb.WriteString(accentStyle(theme).Bold(true).Render("  ◼ " + content))
+		default:
+			sb.WriteString(mutedStyle(theme).Render("  ☐ " + content))
 		}
-		sb.WriteString(mutedStyle(theme).Render("  " + marker + " " + t.Content))
 		sb.WriteString("\n")
 	}
 	return sb.String()
@@ -258,9 +336,12 @@ func renderTodoPanel(todos []types.TodoItem, theme Theme) string {
 // engine history or tool schemas (cache-first gate).
 func (m AppModel) renderConfigDialog() string {
 	st := m.appState.GetState()
-	themeName := "light"
-	if m.darkMode {
-		themeName = "dark"
+	themeName := m.theme.Name
+	if themeName == "" {
+		themeName = "light"
+		if m.darkMode {
+			themeName = "dark"
+		}
 	}
 	vim := "off"
 	if m.input.vimEnabled {
@@ -274,7 +355,7 @@ func (m AppModel) renderConfigDialog() string {
 	sb.WriteString(warningStyle(m.theme).Bold(true).Render("Configuration"))
 	sb.WriteString("\n")
 	line := func(k, v string) {
-		sb.WriteString(mutedStyle(m.theme).Render(fmt.Sprintf("  %-12s %s", k, v)))
+		sb.WriteString(mutedStyle(m.theme).Render(fmt.Sprintf("  %-12s ", k)) + v)
 		sb.WriteString("\n")
 	}
 	line("Model", st.MainLoopModel.ModelID)
@@ -285,20 +366,20 @@ func (m AppModel) renderConfigDialog() string {
 	if m.sessionID != "" {
 		line("Session", m.sessionID)
 	}
+	sb.WriteString("\n")
 	sb.WriteString(mutedStyle(m.theme).Render("Change: /model /theme /vim /effort · persistent: ~/.glaude/settings.json"))
 	sb.WriteString("\n")
-	sb.WriteString(mutedStyle(m.theme).Render("(Esc to close)"))
-	return sb.String()
+	sb.WriteString(mutedStyle(m.theme).Render("Esc to close"))
+	return dialogBox(sb.String(), m.dialogWidth(), m.theme)
 }
 
-// renderConfirmDialog renders a minimal yes/no confirmation dialog.
+// renderConfirmDialog renders a bordered yes/no confirmation dialog.
 func renderConfirmDialog(title, body string, width int, theme Theme) string {
 	var sb strings.Builder
 	sb.WriteString(warningStyle(theme).Bold(true).Render(title))
 	sb.WriteString("\n")
-	sb.WriteString(mutedStyle(theme).Render(body))
+	sb.WriteString(body)
 	sb.WriteString("\n")
-	sb.WriteString(mutedStyle(theme).Render("(y/n)"))
-	_ = width
-	return sb.String()
+	sb.WriteString(mutedStyle(theme).Render("y confirm · n / Esc cancel"))
+	return dialogBox(sb.String(), width, theme)
 }
