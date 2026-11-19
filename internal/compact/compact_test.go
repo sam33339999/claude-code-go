@@ -65,12 +65,12 @@ func TestSnipCompactIfNeeded_NoSnipNeeded(t *testing.T) {
 		textMsg(types.RoleUser, "hello"),
 		textMsg(types.RoleAssistant, "world"),
 	}
-	result := SnipCompactIfNeeded(msgs)
+	result := SnipCompactIfNeeded(msgs, snipTrigger(), snipTarget)
 	if result.TokensFreed != 0 {
 		t.Errorf("expected 0 tokens freed, got %d", result.TokensFreed)
 	}
-	if result.BoundaryMessage != nil {
-		t.Error("expected no boundary message")
+	if result.Snipped {
+		t.Error("expected no snip")
 	}
 	if len(result.Messages) != len(msgs) {
 		t.Errorf("expected same message count, got %d vs %d", len(result.Messages), len(msgs))
@@ -87,13 +87,13 @@ func TestSnipCompactIfNeeded_SnipsEarlyToolCalls(t *testing.T) {
 	}
 	// 14 messages — should trigger.
 
-	result := SnipCompactIfNeeded(msgs)
+	result := SnipCompactIfNeeded(msgs, snipTrigger(), snipTarget)
 
 	if result.TokensFreed <= 0 {
 		t.Errorf("expected tokens freed > 0, got %d", result.TokensFreed)
 	}
-	if result.BoundaryMessage == nil {
-		t.Error("expected boundary message")
+	if !result.Snipped {
+		t.Error("expected Snipped")
 	}
 	if len(result.Messages) != len(msgs) {
 		t.Errorf("message count changed: want %d, got %d", len(msgs), len(result.Messages))
@@ -118,8 +118,8 @@ func TestSnipCompactIfNeeded_SnipsEarlyToolCalls(t *testing.T) {
 					t.Errorf("msg %d: expected 1 placeholder content block", i)
 					continue
 				}
-				if blk.Content[0].Text == nil || *blk.Content[0].Text != "[snipped]" {
-					t.Errorf("msg %d: expected [snipped], got %v", i, blk.Content[0].Text)
+				if blk.Content[0].Text == nil || *blk.Content[0].Text != snipPlaceholder {
+					t.Errorf("msg %d: expected placeholder, got %v", i, blk.Content[0].Text)
 				}
 			}
 		}
@@ -132,7 +132,7 @@ func TestSnipCompactIfNeeded_ToolUseInputCleared(t *testing.T) {
 		msgs = append(msgs, toolUseMsg("id1", "Read", map[string]any{"path": "/file.txt"}))
 		msgs = append(msgs, toolResultMsg("id1", "output"))
 	}
-	result := SnipCompactIfNeeded(msgs)
+	result := SnipCompactIfNeeded(msgs, snipTrigger(), snipTarget)
 
 	protectedFrom := len(msgs) - snipKeepRecentTurns*2
 	for i := 0; i < protectedFrom; i++ {

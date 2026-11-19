@@ -97,11 +97,9 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 		// ── Compaction pipeline ─────────────────────────────────────────────
 		// Step 1: Snip compaction — remove old tool result content locally
 		// (no LLM call) to stay within the context budget.
-		snipResult := compact.SnipCompactIfNeeded(messages)
+		tgt := compact.Target{Client: e.client, Model: e.model, MaxOutputTokens: e.maxTokens}
+		snipResult := compact.SnipCompactIfNeeded(messages, compact.EstimateTokens(messages), tgt)
 		messages = snipResult.Messages
-		if snipResult.BoundaryMessage != nil {
-			messages = append(messages, *snipResult.BoundaryMessage)
-		}
 
 		// Step 2: Micro compaction — truncate any single oversized tool result.
 		if e.microCompactor != nil {
@@ -122,8 +120,7 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 		// Step 3: Auto compaction — LLM-based summarisation when context is
 		// near the model's context window limit.
 		if e.autoCompactor != nil {
-			tgt := compact.Target{Client: e.client, Model: e.model, MaxOutputTokens: e.maxTokens}
-			if e.autoCompactor.ShouldCompact(compact.EstimateTokens(messages)-snipResult.TokensFreed, tgt, e.mainTracker) {
+			if e.autoCompactor.ShouldCompact(compact.EstimateTokens(messages), tgt, e.mainTracker) {
 				compactParams := compact.CompactionParams{
 					SystemPromptParts: systemPromptParts(params),
 					UserContext:       params.UserContext,
