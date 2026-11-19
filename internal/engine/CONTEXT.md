@@ -2,7 +2,7 @@
 package: engine
 import_path: internal/engine
 layer: core
-generated_at: 2026-11-19T18:19:04Z
+generated_at: 2026-11-19T18:29:52Z
 source_files: [budget.go, cache_params.go, compaction.go, engine.go, forked_agent.go, msg.go, orchestration.go, query.go, stop_hooks.go]
 ---
 
@@ -36,7 +36,7 @@ type QueryEngine interface {
 - **MainTarget** — 5 fields: Client, ProviderID, Model, ContextWindow, MaxTokens
 - **Msg** — 21 fields: Type, TextDelta, ToolUseID, ToolName, InputDelta, ToolInput, ToolResult, AssistantMsg, ...
 - **PermissionRequestMsg** — 6 fields: RequestID, ToolUseID, ToolName, Message, Input, RespFn
-- **QueryParams** — 18 fields: Messages, SystemPrompt, UserContext, SystemContext, ToolUseContext, QuerySource, MaxOutputTokensOverride, MaxTurns, ...
+- **QueryParams** — 21 fields: Messages, SystemPrompt, UserContext, SystemContext, ToolUseContext, QuerySource, MaxOutputTokensOverride, MaxTurns, ...
 - **StopHookContext** — 6 fields: Messages, ToolUseContext, QuerySource, IsBareMode, Engine, CacheParams
 - **StopHookRegistry** — 2 fields
 - **SystemPrompt** — 1 fields: Parts
@@ -94,17 +94,17 @@ type QueryEngine interface {
 - `stubQueryEngine` in `internal/bootstrap/wire_fork_test.go`
 
 **Exported type references (files that use types from this package):**
-- `CacheSafeParams` → `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/memdir/dream.go`, `internal/tui/cmds.go`
+- `CacheSafeParams` → `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/memdir/dream.go`, `internal/tui/btw.go` + 2 more
 - `Config` → `internal/bootstrap/wire.go`
 - `ForkedAgentConfig` → `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/session_memory.go`
-- `MainTarget` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/modelswitch_test.go` (test), `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 1 more
-- `Msg` → `internal/bootstrap/run.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/bootstrap/wire_result_test.go` (test) + 4 more
+- `MainTarget` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/modelswitch_test.go` (test), `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 5 more
+- `Msg` → `internal/bootstrap/run.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/bootstrap/wire_result_test.go` (test) + 7 more
 - `QueryEngine` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/tui/cmds.go`, `internal/tui/init.go` + 1 more
-- `QueryParams` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/cmds.go`, `internal/tui/tui_test.go` (test)
+- `QueryParams` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/btw.go`, `internal/tui/btw_test.go` (test) + 2 more
 - `StopHookContext` → `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/extract_test.go` (test), `internal/memdir/session_memory.go`
 - `StopHookRegistry` → `internal/bootstrap/wire.go`
-- `SystemPrompt` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/cmds.go`
-- `SystemPromptPart` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/cmds.go`
+- `SystemPrompt` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/btw.go`, `internal/tui/btw_test.go` (test) + 1 more
+- `SystemPromptPart` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/btw_test.go` (test), `internal/tui/cmds.go`
 - `ToolResultMsg` → `internal/tui/tui_test.go` (test)
 
 ## Dependencies
@@ -129,3 +129,4 @@ type QueryEngine interface {
   - C8：門檻估算＝最近一次 API 回報的 prompt tokens（input+cache read+cache creation）＋之後新增的訊息；沒有 usage 或歷史被改寫過時，退回 JSON÷4 估算並加上 system prompt 與工具 schema。**主腦也一起改**，所以主腦會比修正前早一點觸發壓縮——負責人認可的修正，是反目標「主腦行為不變」唯一的例外。
   - C5：`SetModel` 加 `modelMu`；摘要模型在呼叫當下解析，`/model` 後立即生效。C6：帶 `Client` 的查詢忽略 `FallbackModel`（它指的是主腦 provider 上的模型）。`[main] context_window` 經 `Config.MainContextWindow` 只套用在跑主腦模型、未帶 Client 的查詢。
 - **2026-11-20 `MainTarget`（/model 切換主腦）**：主腦的 client、ProviderID、model、context window、max_tokens 合成 `MainTarget`，以 `mainMu` 保護；`SetMainTarget` 讓 /model 在會話中換到別的 provider。`runQueryLoop` 開始時取一次快照，整輪不換（切換只影響下一個查詢）。換 provider 時移除歷史中的 thinking 區塊（簽章只對原 provider 有效，切換本來就讓快取失效）；被中斷的查詢稍後寫回時若主腦已換 provider 會再清一次，鎖順序固定為 `e.mu → mainMu`。`CacheSafeParams` 記錄請求的 client、context window、max_tokens，讓 fork 與它的續跑停在原本的 provider。沒有切換時主腦請求位元組不變（golden 測試）。
+- **2026-11-20 /btw 開關與佇列修正**：`QueryParams` +`ToolFilter`（執行時過濾，送出的工具 schema 不變以保住快取）、`NonInteractivePermissions`（只用 `CanUseTool`，Ask 視為 Deny，不跳對話框也不記錄拒絕）、`NoCompaction`。開關經 `UseContext` 的**私有副本**傳到 orchestration（絕不改呼叫端的 UseContext；呼叫端沒給時也會建立，避免失效放行）。修正：只有主腦（`NoWriteBack=false`）會在工具邊界接收主腦佇列訊息，sub-agent、fork、記憶抽取、btw 不再搶走它們。快照除了寫入 `CacheParams`，也寫進 `UseContext.Snapshot`（mutex 保護），讓 TUI 從別的 goroutine 安全讀取。

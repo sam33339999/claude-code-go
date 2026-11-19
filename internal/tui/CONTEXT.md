@@ -2,13 +2,13 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-19T18:19:04Z
-source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, memstat.go, memstat_darwin.go, memstat_linux.go, memstat_other.go, memstat_windows.go, messagelist.go, messages.go, model.go, modelpicker.go, permissions.go, rendercache.go, resumepicker.go, setup_dialog.go, setupwizard.go, setupwizard_view.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, update.go, view.go, welcome.go]
+generated_at: 2026-11-19T18:29:52Z
+source_files: [agentcolors.go, btw.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, memstat.go, memstat_darwin.go, memstat_linux.go, memstat_other.go, memstat_windows.go, messagelist.go, messages.go, model.go, modelpicker.go, permissions.go, rendercache.go, resumepicker.go, setup_dialog.go, setupwizard.go, setupwizard_view.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, update.go, view.go, welcome.go]
 ---
 
 # internal/tui
 
-> Layer: **TUI** · Files: 31 · Interfaces: 0 · Structs: 38 · Functions: 6
+> Layer: **TUI** · Files: 32 · Interfaces: 0 · Structs: 38 · Functions: 6
 
 ## Structs
 
@@ -16,7 +16,7 @@ source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, 
 - **AgentProgressMsg** — 3 fields: TaskID, Activity, Detail
 - **AgentStatusMsg** — 5 fields: TaskID, Status, Description, Result, Summary
 - **AgentTaskState** — 12 fields: ID, Name, AgentType, Description, Status, StartTime, ElapsedMs, OutputTokens, ...
-- **AppModel** — 69 fields
+- **AppModel** — 73 fields
 - **CommandResultMsg** — 2 fields: Text, IsError
 - **CompactDoneMsg** — 1 fields: Summary
 - **CoordinatorPanel** — 3 fields: Tasks, SelectedIndex, TaskOrder
@@ -55,7 +55,7 @@ source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, 
 
 - `IsSlashCommand(text string) bool`
 - `MessageListView(messages []types.Message, width int, darkMode bool, theme Theme, mdRenderer *glamour.TermRenderer, expandedToolResults map[string]bool) string`
-- `New(qe engine.QueryEngine, appStore *state.AppStateStore, vimEnabled bool, dark bool, permAskCh <-chan permissions.AskRequest, permRespCh chan<- permissions.AskResponse, agentCoord tools.AgentCoordinator, agentEventCh <-chan coordinator.Event, mq *msgqueue.MessageQueue, qg *msgqueue.QueryGuard, memoryStore *memdir.MemoryStore, mcpPool commands.MCPServerLister, tiers commands.TierManager, setup commands.SetupBackend, models commands.ModelSwitcher, rec *transcript.Recorder, questionAskCh <-chan types.QuestionRequest, questionRespCh chan<- types.QuestionResponse) tea.Model`
+- `New(qe engine.QueryEngine, appStore *state.AppStateStore, vimEnabled bool, dark bool, permAskCh <-chan permissions.AskRequest, permRespCh chan<- permissions.AskResponse, agentCoord tools.AgentCoordinator, agentEventCh <-chan coordinator.Event, mq *msgqueue.MessageQueue, qg *msgqueue.QueryGuard, memoryStore *memdir.MemoryStore, mcpPool commands.MCPServerLister, tiers commands.TierManager, setup commands.SetupBackend, models commands.ModelSwitcher, btwTarget func(ref string) (engine.MainTarget, error), rec *transcript.Recorder, questionAskCh <-chan types.QuestionRequest, questionRespCh chan<- types.QuestionResponse) tea.Model`
 - `NewAgentColorManager() *AgentColorManager`
 - `NewInput(vimEnabled bool) InputModel`
 - `NewWelcomeHeader(model string, cwd string) WelcomeHeader`
@@ -82,7 +82,7 @@ source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, 
 
 ## Dependencies
 
-**Imports:** `internal/commands`, `internal/compact`, `internal/coordinator`, `internal/engine`, `internal/memdir`, `internal/msgqueue`, `internal/permissions`, `internal/state`, `internal/tools`, `internal/transcript`, `pkg/types`
+**Imports:** `internal/agenttype`, `internal/commands`, `internal/compact`, `internal/coordinator`, `internal/engine`, `internal/memdir`, `internal/msgqueue`, `internal/permissions`, `internal/state`, `internal/tools`, `internal/transcript`, `pkg/types`
 
 **Imported by:** `internal/bootstrap`
 
@@ -111,3 +111,4 @@ source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, 
 - 最終審查後補修：啟動時把 `tiers.Warnings()` 逐則插入成 TUI 本地的 system 訊息（不進 engine 歷史，不影響前綴）。
 - **2026-11-19 /setup 設定引導**：`setupWizard`（`setupwizard.go`）是純狀態機，`handleKey` 回傳動作，網路與寫檔由 `setup_dialog.go` 以 `tea.Cmd` 執行（Update 不做 I/O）。每次發出或放棄請求都會遞增 `gen`，回來的 `setupModelsMsg`/`setupAppliedMsg` gen 不符就丟棄（例如驗證中按了 Esc）。`tea.PasteMsg` 在 `dialogSetup` 時交給 wizard，讓 API key 可以貼上。`tui.New`/`newAppModel` 在 `tiers` 後新增 `setup commands.SetupBackend`；`NeedsSetup()` 為真時啟動訊息提示輸入 /setup（TUI 本地訊息，不進 engine 歷史）。
 - **2026-11-20 /model 選單**：`modelPicker` 列出 default 與等級（不可用的列顯示原因、游標跳過）；對話已有內容時先開 `dialogModelConfirm` 說明快取失效（≈token 數、窗口不足時警告），y 才 `Apply`。查詢中拒絕切換；確認框開著時不再疊對話框。`ModelSwitcher` 為 nil 時維持舊的 `SetModel` 行為。
+- **2026-11-20 /btw**：`/btw` 在送出時先於「查詢中排隊」被攔下並立即開始（`btw.go`）。主腦在跑時讀 `mainSnap`（engine 寫入的快照），閒置時用 `GetMessages()` 與 `buildMainSystemPrompt`（從 `startQueryCmd` 抽出），讓前綴與主腦一致。btw 的串流以 `listenBTW` 逐段讀進 TUI 本地區塊（`btwMessageID`，不進 engine 歷史與 transcript）。Esc 先停 btw、再按才中斷主腦；ctrl+y 交給主腦：執行中入列（`Origin` 標記），閒置或沒被接走時存為 `btwPending`，附加到下一則使用者訊息。`tui.New`/`newAppModel` 在 `models` 後新增 `btwTarget` 參數。

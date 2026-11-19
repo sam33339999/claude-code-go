@@ -1046,3 +1046,4 @@ FileEdit 要求 `old_string` 在文件中唯一出现一次。实现：
 | v1.6 | 2026-11-18 | 主会话 | BF-12 ToolSearch 实现：NewToolSearchTool(reg) 注册表注入，关键词评分（name×3/hint×2/desc×1，camelCase 拆词），top-10 JSON。BF-11 NotebookEdit 实现：.ipynb loose-JSON round trip（保留未知字段）、replace/insert/delete、source 双格式、markdown 转换清 outputs、原子写。两者 schema 字节不变。 |
 | v1.0 | 2026-04-02 | Agent-Tools | 初稿 |
 | v1.12 | 2026-11-19 | 主會話 | provider 等級：Agent 工具 `model` 參數 description 改為等級語意（lite/pro/max、完整模型 ID、`providerID:modelID`；舊別名映射）。schema 位元組一次性變更（新會話基線，會話內不變）。 |
+| v1.13 | 2026-11-20 | 主會話 | /btw：`UseContext` +`ExecFilter`、`NonInteractivePermissions`、`TodoAppendOnly`、`Snapshot`（+`SnapshotSlot` 型別）；TodoWrite 附加模式。schema 位元組不變。 |

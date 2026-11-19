@@ -1780,3 +1780,4 @@ type MCPClientInfo struct {
   - `internal/agenttype`：+`ResolveAliasForProvider`；explore `Model` 改 `"lite"`。
   - Cache-first 三問：**前綴**——主腦與 fork 不帶 Client，主腦請求位元組由 golden 測試釘住；Agent 工具 `model` description 文字一次性變更（新會話基線）。snip 改為門檻觸發一次剪一批，修正每輪改寫前綴中段的問題；主腦因 C8 估算更準而提早壓縮（負責人認可）。**窗口**——否。**呼叫**——否（摘要改打等級 client，次數不變）。
 - **2026-11-20 /model 切換主腦**：`engine` +`MainTarget`、`MainProviderID`；`QueryEngine` 介面 +`MainTarget()`、`SetMainTarget()`；`CacheSafeParams` +`Client`、`ContextWindow`、`MaxTokens`。每輪查詢取一次目標快照；換 provider 時清除歷史中的 thinking 區塊。Cache-first：只有使用者確認切換時前綴才失效；不切換時主腦請求位元組不變。
+- **2026-11-20 /btw**：`QueryParams` +`ToolFilter`、`NonInteractivePermissions`、`NoCompaction`；只有主腦會在工具邊界接收主腦佇列（修正 NoWriteBack 查詢搶走訊息）；快照同時寫進 `UseContext.Snapshot`。Cache-first：btw 的工具 schema、system、歷史前綴與主腦一致，問題只接在尾端；主腦前綴不受影響。

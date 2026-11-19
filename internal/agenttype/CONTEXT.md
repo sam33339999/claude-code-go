@@ -2,7 +2,7 @@
 package: agenttype
 import_path: internal/agenttype
 layer: infra
-generated_at: 2026-11-19T13:49:59Z
+generated_at: 2026-11-19T18:29:52Z
 source_files: [agenttype.go, builtins.go, loader.go, prompts.go, registry.go, tasktype.go]
 ---
 
@@ -60,7 +60,7 @@ source_files: [agenttype.go, builtins.go, loader.go, prompts.go, registry.go, ta
 
 **Imports:** *(none — zero-dependency)*
 
-**Imported by:** `internal/bootstrap`, `internal/tools/tasks`
+**Imported by:** `internal/bootstrap`, `internal/tools/tasks`, `internal/tui`
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->

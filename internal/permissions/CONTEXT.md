@@ -2,7 +2,7 @@
 package: permissions
 import_path: internal/permissions
 layer: services
-generated_at: 2026-11-18T08:28:02Z
+generated_at: 2026-11-19T18:29:52Z
 source_files: [ask.go, checker.go, denial.go, filesystem.go, persist.go]
 ---
 
@@ -51,7 +51,7 @@ type Checker interface {
 - `AskResponse` → `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`, `internal/tui/permission_codemode_test.go` (test)
 - `Checker` → `internal/bootstrap/wire.go`, `internal/engine/engine.go`, `internal/engine/orchestration.go`, `internal/tools/codemode/tool.go`, `internal/tools/codemode/tool_test.go` (test) + 1 more
 - `CheckerConfig` → `internal/bootstrap/wire.go`
-- `PermissionRequest` → `internal/engine/orchestration.go`, `internal/tools/codemode/bridge.go`, `internal/tools/codemode/tool_test.go` (test), `internal/tools/codemode/tool_v3_test.go` (test)
+- `PermissionRequest` → `internal/engine/btw_test.go` (test), `internal/engine/orchestration.go`, `internal/tools/codemode/bridge.go`, `internal/tools/codemode/tool_test.go` (test), `internal/tools/codemode/tool_v3_test.go` (test)
 - `PersistConfig` → `internal/bootstrap/wire.go`
 
 ## Dependencies

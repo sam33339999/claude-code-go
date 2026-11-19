@@ -2,13 +2,13 @@
 package: tools
 import_path: internal/tools
 layer: tools
-generated_at: 2026-11-19T18:19:04Z
+generated_at: 2026-11-19T18:29:52Z
 source_files: [base.go, registry.go, tool.go]
 ---
 
 # internal/tools
 
-> Layer: **Tools** · Files: 3 · Interfaces: 6 · Structs: 10 · Functions: 3
+> Layer: **Tools** · Files: 3 · Interfaces: 6 · Structs: 11 · Functions: 3
 
 ## Interfaces
 
@@ -102,7 +102,8 @@ type Tool interface {
 - **Registry** — 4 fields
 - **Result** — 3 fields: Content, IsError, ContextModifier
 - **SearchOrReadResult** — 3 fields: IsSearch, IsRead, Path
-- **UseContext** — 8 fields: Ctx, AbortCh, PermCtx, Coordinator, AgentID, MemoryStore, CacheParams, WorkingDir
+- **SnapshotSlot** — 2 fields
+- **UseContext** — 12 fields: Ctx, AbortCh, PermCtx, Coordinator, AgentID, ExecFilter, NonInteractivePermissions, TodoAppendOnly, ...
 - **ValidationResult** — 2 fields: OK, Reason
 
 ## Function Types
@@ -140,14 +141,15 @@ type Tool interface {
 - `InputSchema` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test) + 21 more
 - `MCPInfo` → `internal/mcp/adapter.go`
 - `MCPToolInfo` → `internal/mcp/adapter.go`, `internal/tools/mcp/mcp_test.go` (test)
-- `OnProgressFn` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test) + 21 more
+- `OnProgressFn` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/btw_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go` + 22 more
 - `PathTool` → `internal/permissions/persist.go`, `internal/tools/fileops/fileedit.go`, `internal/tools/fileops/fileread.go`, `internal/tools/fileops/filewrite.go`, `internal/tools/fileops/notebookedit.go`
 - `PermissionContext` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/compaction.go`, `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go` + 22 more
-- `PermissionResult` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/ask.go`, `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test) + 11 more
+- `PermissionResult` → `internal/engine/btw_test.go` (test), `internal/engine/orchestration.go`, `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/ask.go` + 13 more
 - `Registry` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/tools.go`, `internal/bootstrap/wire.go`, `internal/codemode/catalog.go` + 7 more
-- `Result` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test) + 23 more
-- `Tool` → `internal/bootstrap/wire_fork_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test) + 37 more
-- `UseContext` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 56 more
+- `Result` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/btw_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go` + 24 more
+- `SnapshotSlot` → `internal/engine/btw_test.go` (test), `internal/tui/btw_test.go` (test), `internal/tui/cmds.go`, `internal/tui/model.go`
+- `Tool` → `internal/bootstrap/wire_fork_test.go` (test), `internal/engine/btw_test.go` (test), `internal/engine/engine.go`, `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go` + 40 more
+- `UseContext` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 60 more
 - `ValidationResult` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/fileops/fileread.go`, `internal/tools/fileops/glob.go` + 5 more
 
 ## Dependencies
@@ -165,3 +167,4 @@ type Tool interface {
 - **2026-11-18 CM-03**：PermissionResult +AlwaysInCodeMode bool（CodeMode-scoped 持久批准标记；非项目规则）。 additive 字段，既有构造点零影响。
 - **2026-11-18 UseContext.CacheParams（feat/coordinator-fork-cache）**：+CacheParams any（具體型別 *engine.CacheSafeParams；tools 層零依賴故用 any，wire 層 cast）。engine 於 turn 邊界寫入、工具 call 期間讀取（寫入先於 runTools 的 goroutine 啟動，happens-before 成立）。Agent tool 轉發至 AgentSpawnRequest.CacheParams，fork 據此繼承父前綴。
 - **2026-11-18 UseContext.WorkingDir（feat/agent-cwd）**：+WorkingDir string——per-call 會話工作目錄。工具相對路徑解析與 Bash cmd.Dir 改用它（空值 fallback process CWD，向後兼容）。此前 Bash 不設 cmd.Dir、fileops/glob/grep 用 os.Getwd()，EnterWorktree 只改 AppState.WorkingDir 不 chdir——主會話進 worktree 後工具仍在舊目錄、委派 agent 也無目錄繼承。現 TUI/headless/sub-agent 三條接線皆從 AppStateStore live 讀 WorkingDir 注入 uctx；buildRunAgentFn 改收 *state.AppStateStore（model 也改 live 讀，/model 切換後 spawn 生效）。per-agent 獨立 worktree isolation 仍為 Phase 2。
+- **2026-11-20 /btw**：`UseContext` +`ExecFilter`、`NonInteractivePermissions`、`TodoAppendOnly`、`Snapshot *SnapshotSlot`。`SnapshotSlot` 以指標持有，複製 UseContext 時共用同一份。
