@@ -105,6 +105,8 @@ type AppContainer struct {
 	Tiers *modeltier.Store
 	// Setup serves the /setup wizard (never nil).
 	Setup commands.SetupBackend
+	// ModelSwitcher serves /model (never nil).
+	ModelSwitcher commands.ModelSwitcher
 }
 
 // defaultModel is used when no model override is provided for Anthropic
@@ -283,6 +285,7 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 		MemoryStore:      memoryStore,
 		Tiers:            router.store,
 		Setup:            newSetupBackend(opts.HomeDir, settings, apiKey == "", hasOAuthToken()),
+		ModelSwitcher:    newModelSwitcher(eng, router, store, eng.MainTarget(), mainWireFormat(settings)),
 	}, nil
 }
 
@@ -431,6 +434,7 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 		MemoryStore:      testMemoryStore,
 		Tiers:            router.store,
 		Setup:            newSetupBackend(opts.HomeDir, settings, false, false),
+		ModelSwitcher:    newModelSwitcher(eng, router, store, eng.MainTarget(), mainWireFormat(settings)),
 	}, nil
 }
 

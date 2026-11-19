@@ -37,8 +37,11 @@ type Result struct {
 	NewSessionID string
 	// NewTheme is set by /theme to change the active theme.
 	NewTheme string
-	// NewModel is set by /model.
+	// NewModel switches only the model name (legacy path; see ModelRef).
 	NewModel string
+	// ModelRef is set by "/model <ref>": the TUI resolves it with the
+	// ModelSwitcher (confirming first when the conversation has content).
+	ModelRef string
 	// NewEffort is set by /effort to change the effort level.
 	// Valid values: "low", "medium", "high"
 	NewEffort string

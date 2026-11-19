@@ -125,20 +125,12 @@ func cmdTheme() *Command {
 func cmdModel() *Command {
 	return &Command{
 		Name:        "model",
-		Description: "Show or set the active model (e.g. /model claude-opus-4-5)",
-		Execute: func(ctx CommandContext, args string) Result {
-			name := strings.TrimSpace(args)
-			if name == "" {
-				return Result{
-					Text:    fmt.Sprintf("Current model: %s", ctx.Model),
-					Display: DisplayMessage,
-				}
+		Description: "Switch the main model for this session (menu, or /model <tier|provider:model|model-id>)",
+		Execute: func(_ CommandContext, args string) Result {
+			if ref := strings.TrimSpace(args); ref != "" {
+				return Result{ModelRef: ref, Display: DisplayNone}
 			}
-			return Result{
-				Text:     fmt.Sprintf("Model set to %q.", name),
-				Display:  DisplayMessage,
-				NewModel: name,
-			}
+			return Result{OpenDialog: "model", Display: DisplayNone}
 		},
 	}
 }
