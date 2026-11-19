@@ -25,6 +25,10 @@ func (m AppModel) handleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case 'd':
 			return m, tea.Quit
+		case 'y':
+			if m.btw != nil && m.btw.status == btwDone {
+				return m.sendBTW(), nil
+			}
 		case 'o':
 			// Toggle all tool results expansion
 			return m.toggleAllToolResults()
@@ -259,6 +263,10 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		if m.isLoading {
 			return m.doAbort()
+		}
+		if m.btwPending != "" {
+			m.btwPending = ""
+			return m, nil
 		}
 		return m.updateInput(key)
 

@@ -184,6 +184,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			_ = m.queryGuard.End(m.queryGen)
 		}
 
+		// A /btw note the main loop did not reach must not start a new turn.
+		m = m.reclaimBTWNotes()
+
 		// BF-18: persist the completed turn off the Update loop.
 		cmds := []tea.Cmd{persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages())}
 

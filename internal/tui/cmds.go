@@ -62,6 +62,9 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 	m.abortFn = cancel
 	m.queryGen = gen
 
+	// Attach a pending /btw note (ctrl+y while the main loop was idle).
+	userText = m.takeBTWPending(userText)
+
 	// Build user message for the engine.
 	userMsg := types.Message{
 		Role: types.RoleUser,

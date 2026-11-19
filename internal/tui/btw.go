@@ -11,6 +11,7 @@ import (
 	"github.com/tunsuy/glaude/internal/agenttype"
 	"github.com/tunsuy/glaude/internal/compact"
 	"github.com/tunsuy/glaude/internal/engine"
+	"github.com/tunsuy/glaude/internal/msgqueue"
 	"github.com/tunsuy/glaude/internal/tools"
 	"github.com/tunsuy/glaude/pkg/types"
 )
@@ -280,4 +281,75 @@ func splitSlash(text string) (string, string) {
 	}
 	name, args, _ := strings.Cut(strings.TrimPrefix(strings.TrimSpace(text), "/"), " ")
 	return name, strings.TrimSpace(args)
+}
+
+// btwHandoff is the text handed to the main loop for a finished /btw.
+func (b *btwSession) handoff() string {
+	return fmt.Sprintf("[btw] Q: %s\nA: %s", b.question, strings.TrimSpace(b.text.String()))
+}
+
+// sendBTW (ctrl+y) hands a finished /btw to the main loop: queued for the
+// next tool boundary while the main loop runs, otherwise held and attached
+// to the next user message. It works once per side question.
+func (m AppModel) sendBTW() AppModel {
+	b := m.btw
+	if b == nil || b.status != btwDone || b.sent {
+		return m
+	}
+	b.sent = true
+	if m.isLoading && m.msgQueue != nil {
+		cmd := msgqueue.NewCommand(b.handoff(), msgqueue.ModePrompt, msgqueue.PriorityNext)
+		cmd.Origin = msgqueue.OriginBTW
+		m.msgQueue.Enqueue(cmd)
+	} else {
+		m.btwPending = joinNotes(m.btwPending, b.handoff())
+	}
+	m.refreshBTWBlock()
+	return m
+}
+
+// reclaimBTWNotes moves btw notes the main loop did not pick up (its turn
+// ended without another tool boundary) out of the queue into the pending
+// note, so they never start a new turn on their own.
+func (m AppModel) reclaimBTWNotes() AppModel {
+	if m.msgQueue == nil {
+		return m
+	}
+	var ids []string
+	for _, c := range m.msgQueue.Snapshot() {
+		if c.Origin == msgqueue.OriginBTW {
+			ids = append(ids, c.ID)
+			m.btwPending = joinNotes(m.btwPending, c.Value)
+		}
+	}
+	if len(ids) > 0 {
+		m.msgQueue.RemoveByIDs(ids)
+	}
+	return m
+}
+
+// takeBTWPending returns userText with any pending btw note prepended, and
+// clears the note.
+func (m *AppModel) takeBTWPending(userText string) string {
+	if m.btwPending == "" {
+		return userText
+	}
+	out := m.btwPending + "\n\n" + userText
+	m.btwPending = ""
+	return out
+}
+
+func joinNotes(a, b string) string {
+	if a == "" {
+		return b
+	}
+	return a + "\n\n" + b
+}
+
+// btwPendingHint is shown above the input while a note waits to be attached.
+func (m AppModel) btwPendingHint() string {
+	if m.btwPending == "" {
+		return ""
+	}
+	return mutedStyle(m.theme).Render("1 btw note will be attached to your next message · Esc to discard")
 }

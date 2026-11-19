@@ -46,6 +46,9 @@ func (m AppModel) layout() screenLayout {
 		l.bottom = dialog
 	} else {
 		l.bottom = m.input.View(m.theme)
+		if hint := m.btwPendingHint(); hint != "" {
+			l.bottom = hint + "\n" + l.bottom
+		}
 		if popup := renderCompletion(m.completion, m.termWidth, m.theme); popup != "" {
 			l.bottom += "\n" + popup
 		}
