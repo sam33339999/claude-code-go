@@ -13,8 +13,10 @@ require (
 	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.1.1
 	charm.land/lipgloss/v2 v2.1.1
+	github.com/BurntSushi/toml v1.6.0
 	github.com/MoeForge/moejs v0.1.1
 	github.com/charmbracelet/glamour v1.0.0
+	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/gorilla/websocket v1.5.3
 	github.com/spf13/cobra v1.8.1
 )
@@ -28,7 +30,6 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 // indirect
-	github.com/charmbracelet/x/ansi v0.11.9 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20250327172914-2fdc97757edf // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect

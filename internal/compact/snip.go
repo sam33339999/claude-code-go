@@ -6,41 +6,52 @@ import (
 
 // SnipResult is the output of a SnipCompactIfNeeded call.
 type SnipResult struct {
-	// Messages is the pruned message list.
+	// Messages is the (possibly) pruned message list.
 	Messages []types.Message
 	// TokensFreed is the estimated number of tokens removed.
 	TokensFreed int
-	// BoundaryMessage is an optional marker message to insert at the snip point.
-	BoundaryMessage *types.Message
+	// Snipped reports whether this call rewrote history (TokensFreed > 0).
+	// A snip moves the prompt prefix, so callers must treat it like a
+	// compaction (e.g. discard API-reported prompt usage).
+	Snipped bool
 }
 
 // snipKeepRecentTurns is the number of most-recent assistant/user turn pairs
 // that are never pruned by the snip strategy.
 const snipKeepRecentTurns = 5
 
-// SnipCompactIfNeeded removes old tool_use/tool_result pairs from the message
-// history when the list is long enough to benefit from pruning.
+// SnipTriggerFraction is the fraction of the auto-compact threshold at which
+// snip fires. Snipping rewrites the cached prompt prefix (a cache write costs
+// far more than the cache reads it saves), so it only runs when the context is
+// genuinely close to the limit, and then snips everything at once.
+const SnipTriggerFraction = 0.8
+
+// snipPlaceholder replaces snipped tool_result content. It also tells the
+// model why the content is gone (there is no separate boundary message).
+const snipPlaceholder = "[snipped: earlier tool output removed to reduce context length]"
+
+// SnipCompactIfNeeded clears old tool_use inputs and tool_result contents
+// when estTokens reaches SnipTriggerFraction × AutoCompactThreshold(t).
 //
-// Strategy:
-//   - Identify the earliest snip-eligible pair: a tool_use assistant block
-//     followed by the corresponding tool_result user block.
-//   - Remove the tool_use input and the tool_result content, replacing them
-//     with brief placeholder text.
-//   - Preserve all assistant text blocks and the most-recent snipKeepRecentTurns
-//     full turn pairs.
+// Strategy (Cache-first: a snip is a prefix reset, like a compaction):
+//   - Below the trigger, history is returned untouched — the prefix is stable.
+//   - At the trigger, every message before the protected tail (the most recent
+//     snipKeepRecentTurns pairs) is snipped in one batch.
+//   - At most one snip per compaction epoch: once history holds snipped
+//     blocks, staying above the trigger hands over to auto-compaction instead
+//     of snipping the next pair every turn (which would move the prefix again).
 //
 // The operation is purely local (no LLM call required).
-func SnipCompactIfNeeded(messages []types.Message) SnipResult {
-	if !needsSnip(messages) {
+func SnipCompactIfNeeded(messages []types.Message, estTokens int, t Target) SnipResult {
+	trigger := int(SnipTriggerFraction * float64(AutoCompactThreshold(t)))
+	if !needsSnip(messages) || estTokens < trigger || hasSnipped(messages) {
 		return SnipResult{Messages: messages}
 	}
-
-	snipped, freed, boundary := snipMessages(messages)
-	return SnipResult{
-		Messages:        snipped,
-		TokensFreed:     freed,
-		BoundaryMessage: boundary,
+	snipped, freed := snipMessages(messages)
+	if freed == 0 {
+		return SnipResult{Messages: messages}
 	}
+	return SnipResult{Messages: snipped, TokensFreed: freed, Snipped: true}
 }
 
 // needsSnip returns true when the message list is long enough to be worth snipping.
@@ -49,73 +60,58 @@ func needsSnip(messages []types.Message) bool {
 	return len(messages) > snipKeepRecentTurns*2+2
 }
 
-// snipMessages iterates through the message list and removes tool_use inputs
-// and tool_result contents from early turns, returning the modified list,
-// the estimated tokens freed, and an optional boundary marker message.
-func snipMessages(messages []types.Message) ([]types.Message, int, *types.Message) {
-	if len(messages) == 0 {
-		return messages, 0, nil
-	}
-
-	// Determine how many messages to protect from the tail.
-	protectedFromIdx := len(messages) - snipKeepRecentTurns*2
-	if protectedFromIdx < 0 {
-		protectedFromIdx = 0
-	}
-
+// snipMessages removes tool_use inputs and tool_result contents from every
+// message before the protected tail, returning the modified list and the
+// estimated tokens freed. Input messages are not mutated.
+func snipMessages(messages []types.Message) ([]types.Message, int) {
+	protectedFromIdx := max(len(messages)-snipKeepRecentTurns*2, 0)
 	result := make([]types.Message, len(messages))
+	copy(result, messages)
 	freed := 0
-
-	for i, msg := range messages {
-		if i >= protectedFromIdx {
-			result[i] = msg
-			continue
-		}
+	for i := range protectedFromIdx {
+		msg := messages[i]
 		newContent := make([]types.ContentBlock, len(msg.Content))
 		for j, blk := range msg.Content {
 			switch blk.Type {
 			case types.ContentTypeToolUse:
-				// Remove input from tool_use blocks.
 				if blk.Input != nil {
-					freedBytes := estimateMapBytes(blk.Input)
-					freed += freedBytes / 4 // chars → tokens estimate
+					freed += estimateMapBytes(blk.Input) / 4 // chars → tokens estimate
 					blk.Input = nil
 				}
-				newContent[j] = blk
 			case types.ContentTypeToolResult:
-				// Remove content from tool_result blocks.
+				if isSnipped(blk) {
+					break
+				}
 				for _, c := range blk.Content {
 					if c.Text != nil {
 						freed += len(*c.Text) / 4
 					}
 				}
-				placeholder := "[snipped]"
-				blk.Content = []types.ContentBlock{
-					{Type: types.ContentTypeText, Text: &placeholder},
-				}
-				newContent[j] = blk
-			default:
-				newContent[j] = blk
+				placeholder := snipPlaceholder
+				blk.Content = []types.ContentBlock{{Type: types.ContentTypeText, Text: &placeholder}}
 			}
+			newContent[j] = blk
 		}
 		msg.Content = newContent
 		result[i] = msg
 	}
+	return result, freed
+}
 
-	// Build a boundary marker message if any tokens were freed.
-	var boundary *types.Message
-	if freed > 0 && protectedFromIdx > 0 {
-		notice := "[Earlier tool call inputs and outputs have been removed to reduce context length.]"
-		m := types.Message{
-			Role: types.RoleUser,
-			Content: []types.ContentBlock{
-				{Type: types.ContentTypeText, Text: &notice},
-			},
+// hasSnipped reports whether any tool_result in messages was already snipped.
+func hasSnipped(messages []types.Message) bool {
+	for _, m := range messages {
+		for _, blk := range m.Content {
+			if blk.Type == types.ContentTypeToolResult && isSnipped(blk) {
+				return true
+			}
 		}
-		boundary = &m
 	}
+	return false
+}
 
-	return result, freed, boundary
+func isSnipped(blk types.ContentBlock) bool {
+	return len(blk.Content) == 1 && blk.Content[0].Text != nil && *blk.Content[0].Text == snipPlaceholder
 }
 
 // estimateMapBytes returns a rough byte estimate for a map[string]any by

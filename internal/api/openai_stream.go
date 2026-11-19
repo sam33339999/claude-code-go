@@ -132,7 +132,7 @@ func (r *openaiSSEReader) Next() (*StreamEvent, error) {
 		// re-emit a message_delta carrying the final counts; the accumulator
 		// overwrites the earlier zero-usage snapshot.
 		if chunk.Usage != nil {
-			r.inputUsage = chunk.Usage.PromptTokens
+			r.inputUsage = chunk.Usage.uncachedInputTokens()
 			r.cachedUsage = chunk.Usage.cachedTokens()
 			r.outputUsage = chunk.Usage.CompletionTokens
 			if r.started {

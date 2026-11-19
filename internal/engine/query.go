@@ -11,9 +11,7 @@ import (
 	"strings"
 
 	"github.com/tunsuy/glaude/internal/api"
-	"github.com/tunsuy/glaude/internal/compact"
 	"github.com/tunsuy/glaude/internal/msgqueue"
-	"github.com/tunsuy/glaude/internal/tools"
 	"github.com/tunsuy/glaude/pkg/types"
 )
 
@@ -78,6 +76,7 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 
 	maxTurns := params.MaxTurns
 	turns := 0
+	var lastUsage promptUsage
 
 	for {
 		// Check context cancellation.
@@ -94,48 +93,12 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 		}
 		turns++
 
-		// ── Compaction pipeline ─────────────────────────────────────────────
-		// Step 1: Snip compaction — remove old tool result content locally
-		// (no LLM call) to stay within the context budget.
-		snipResult := compact.SnipCompactIfNeeded(messages)
-		messages = snipResult.Messages
-		if snipResult.BoundaryMessage != nil {
-			messages = append(messages, *snipResult.BoundaryMessage)
+		// Compaction pipeline (snip → micro → auto); see compaction.go.
+		var rewritten bool
+		messages, rewritten = e.runCompaction(ctx, params, messages, lastUsage)
+		if rewritten {
+			lastUsage = promptUsage{}
 		}
-
-		// Step 2: Micro compaction — truncate any single oversized tool result.
-		if e.microCompactor != nil {
-			extra := compact.CompactionExtra{SnipTokensFreed: snipResult.TokensFreed}
-			if e.microCompactor.NeedsCompaction(messages, e.model, extra) {
-				compactParams := compact.CompactionParams{
-					SystemPromptParts: systemPromptParts(params),
-					UserContext:       params.UserContext,
-					SystemContext:     params.SystemContext,
-					QuerySource:       params.QuerySource,
-				}
-				if result, err := e.microCompactor.Compact(ctx, messages, compactParams); err == nil {
-					messages = result.SummaryMessages
-				}
-			}
-		}
-
-		// Step 3: Auto compaction — LLM-based summarisation when context is
-		// near the model's context window limit.
-		if e.autoCompactor != nil {
-			extra := compact.CompactionExtra{SnipTokensFreed: snipResult.TokensFreed}
-			if e.autoCompactor.NeedsCompaction(messages, e.model, extra) {
-				compactParams := compact.CompactionParams{
-					SystemPromptParts: systemPromptParts(params),
-					UserContext:       params.UserContext,
-					SystemContext:     params.SystemContext,
-					QuerySource:       params.QuerySource,
-				}
-				if result, err := e.autoCompactor.Compact(ctx, messages, compactParams); err == nil {
-					messages = result.SummaryMessages
-				}
-			}
-		}
-		// ────────────────────────────────────────────────────────────────────
 
 		// Drain coordinator inbox messages (sub-agent follow-ups) at the turn
 		// boundary so they append to the tail without disturbing the prefix.
@@ -143,10 +106,8 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 
 		// Build the API request using the primary model.
 		// params.Model overrides the engine default for per-agent model selection.
-		activeModel := e.model
-		if params.Model != "" {
-			activeModel = params.Model
-		}
+		activeModel := e.activeModelFor(params)
+		client := e.clientFor(params)
 
 		// Snapshot the cache-safe prefix for forked agents (Agent tool).
 		// Taken after compaction and inbox drain so it matches the request
@@ -171,12 +132,15 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 		}
 
 		// Stream the LLM response.
-		assistantMsg, toolCalls, stopReason, usage, streamErr := e.streamResponse(ctx, req, msgCh)
+		reqMsgCount := len(messages)
+		assistantMsg, toolCalls, stopReason, usage, streamErr := e.streamResponse(ctx, client, req, msgCh)
 		if streamErr != nil {
 			// If a context-window overflow error occurred and a fallback model is set,
 			// retry the same turn with the fallback model.
 			var apiErr *api.APIError
-			if params.FallbackModel != "" && errors.As(streamErr, &apiErr) && apiErr.Kind == api.ErrKindContextWindow {
+			// Tier-routed queries never fall back: FallbackModel names a model
+			// on the main provider, which the tier client does not serve.
+			if params.FallbackModel != "" && params.Client == nil && errors.As(streamErr, &apiErr) && apiErr.Kind == api.ErrKindContextWindow {
 				fallbackReq, fbErr := e.buildRequestWithModel(params, messages, params.FallbackModel)
 				if fbErr != nil {
 					sendError(ctx, msgCh, fmt.Errorf("engine: build fallback request: %w", fbErr))
@@ -187,13 +151,15 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 				case <-ctx.Done():
 					return
 				}
-				assistantMsg, toolCalls, stopReason, usage, streamErr = e.streamResponse(ctx, fallbackReq, msgCh)
+				assistantMsg, toolCalls, stopReason, usage, streamErr = e.streamResponse(ctx, client, fallbackReq, msgCh)
 			}
 			if streamErr != nil {
 				sendError(ctx, msgCh, streamErr)
 				return
 			}
 		}
+
+		lastUsage = usageFrom(usage, reqMsgCount)
 
 		// Append the assistant message to the conversation.
 		messages = append(messages, assistantMsg)
@@ -282,11 +248,12 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 // It returns the assistant message, parsed tool calls, and the final stop reason.
 func (e *engineImpl) streamResponse(
 	ctx context.Context,
+	client api.Client,
 	req *api.MessageRequest,
 	msgCh chan<- Msg,
 ) (types.Message, []toolCall, string, api.Usage, error) {
 	reader, err := api.WithRetry(ctx, func(ctx context.Context, _ int) (api.StreamReader, error) {
-		return e.client.Stream(ctx, req)
+		return client.Stream(ctx, req)
 	}, api.RetryOptions{
 		Model:       req.Model,
 		QuerySource: req.QuerySource,
@@ -505,26 +472,9 @@ func (e *engineImpl) buildRequestWithModel(params QueryParams, messages []types.
 	}
 
 	// Build tool schemas, excluding any tools listed in ExcludeTools.
-	allTools := e.registry.All()
-	toolSchemas := make([]api.ToolSchema, 0, len(allTools))
-	for _, t := range allTools {
-		if len(params.ExcludeTools) > 0 && params.ExcludeTools[t.Name()] {
-			continue
-		}
-		schema := t.InputSchema()
-		schemaRaw, err := json.Marshal(schema)
-		if err != nil {
-			return nil, fmt.Errorf("marshal tool schema for %s: %w", t.Name(), err)
-		}
-		var permCtx tools.PermissionContext
-		if params.ToolUseContext != nil {
-			permCtx = params.ToolUseContext.PermCtx
-		}
-		toolSchemas = append(toolSchemas, api.ToolSchema{
-			Name:        t.Name(),
-			Description: t.Description(nil, permCtx),
-			InputSchema: schemaRaw,
-		})
+	toolSchemas, err := e.toolSchemas(params)
+	if err != nil {
+		return nil, err
 	}
 	if !params.SkipCacheWrite && len(toolSchemas) > 0 {
 		toolSchemas[len(toolSchemas)-1].CacheControl = api.EphemeralCache

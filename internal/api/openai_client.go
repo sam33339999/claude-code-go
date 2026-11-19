@@ -375,7 +375,7 @@ func (c *openaiClient) convertToMessageResponse(resp *openaiChatCompletionRespon
 		Role:  "assistant",
 		Model: resp.Model,
 		Usage: Usage{
-			InputTokens:          resp.Usage.PromptTokens,
+			InputTokens:          resp.Usage.uncachedInputTokens(),
 			OutputTokens:         resp.Usage.CompletionTokens,
 			CacheReadInputTokens: resp.Usage.cachedTokens(),
 		},

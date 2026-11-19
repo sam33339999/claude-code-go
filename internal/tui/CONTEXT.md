@@ -2,7 +2,7 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-19T08:08:11Z
+generated_at: 2026-11-19T14:01:30Z
 source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, memstat.go, memstat_darwin.go, memstat_linux.go, memstat_other.go, memstat_windows.go, messagelist.go, messages.go, model.go, permissions.go, rendercache.go, resumepicker.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, update.go, view.go, welcome.go]
 ---
 
@@ -16,7 +16,7 @@ source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, 
 - **AgentProgressMsg** — 3 fields: TaskID, Activity, Detail
 - **AgentStatusMsg** — 5 fields: TaskID, Status, Description, Result, Summary
 - **AgentTaskState** — 12 fields: ID, Name, AgentType, Description, Status, StartTime, ElapsedMs, OutputTokens, ...
-- **AppModel** — 62 fields
+- **AppModel** — 63 fields
 - **CommandResultMsg** — 2 fields: Text, IsError
 - **CompactDoneMsg** — 1 fields: Summary
 - **CoordinatorPanel** — 3 fields: Tasks, SelectedIndex, TaskOrder
@@ -55,7 +55,7 @@ source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, 
 
 - `IsSlashCommand(text string) bool`
 - `MessageListView(messages []types.Message, width int, darkMode bool, theme Theme, mdRenderer *glamour.TermRenderer, expandedToolResults map[string]bool) string`
-- `New(qe engine.QueryEngine, appStore *state.AppStateStore, vimEnabled bool, dark bool, permAskCh <-chan permissions.AskRequest, permRespCh chan<- permissions.AskResponse, agentCoord tools.AgentCoordinator, agentEventCh <-chan coordinator.Event, mq *msgqueue.MessageQueue, qg *msgqueue.QueryGuard, memoryStore *memdir.MemoryStore, mcpPool commands.MCPServerLister, rec *transcript.Recorder, questionAskCh <-chan types.QuestionRequest, questionRespCh chan<- types.QuestionResponse) tea.Model`
+- `New(qe engine.QueryEngine, appStore *state.AppStateStore, vimEnabled bool, dark bool, permAskCh <-chan permissions.AskRequest, permRespCh chan<- permissions.AskResponse, agentCoord tools.AgentCoordinator, agentEventCh <-chan coordinator.Event, mq *msgqueue.MessageQueue, qg *msgqueue.QueryGuard, memoryStore *memdir.MemoryStore, mcpPool commands.MCPServerLister, tiers commands.TierManager, rec *transcript.Recorder, questionAskCh <-chan types.QuestionRequest, questionRespCh chan<- types.QuestionResponse) tea.Model`
 - `NewAgentColorManager() *AgentColorManager`
 - `NewInput(vimEnabled bool) InputModel`
 - `NewWelcomeHeader(model string, cwd string) WelcomeHeader`
@@ -107,3 +107,5 @@ source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, 
 - **2026-11-18 WorkingDir 注入（feat/agent-cwd）**：startQueryCmd uctx.WorkingDir = appState.GetState().WorkingDir（live）——主會話工具（含 EnterWorktree 後）在會話目錄執行。守護測試 TestStartQueryCmd_WorkingDirFromAppState。
 - **2026-11-19 協調者完成唤醒＋面板高度約束（feat/coordinator-completion-wake）**：(1) AgentStatusMsg completed/failed 時注入 coordinator.FormatTaskNotification 至 msgQueue（ModeExternalPrompt，复用 EV-01 唤醒路徑）——idle 立即 processQueueCmd 起 query；running 則排队待 StreamDone between-turn drain（不中斷 in-flight turn，同步 agent 经 WaitForAgent 取結果故不需 wake）。修「背景 agent 完成後協調者不繼續跑／派 2+ agent 後停擺」。AgentStatusMsg +Result/Summary；init.go +coordinatorStatus 反向映射。(2) CoordinatorPanel.View 上限 maxPanelTaskRows=5（running 優先排序＋"+N more"），View viewport 下限 minViewportLines=5——修「subagent 面板擠掉輸出」。守護測試 coordinator_wake_test.go×5。
 - **2026-11-19 View 高度保證_fit（fix/subagent-result-layout）**：重寫高度分配防底部遮罩——topAvailable=termHeight-reservedLines-todoLines-dialogLines；coordPanel  truncateToLines(panelBudget=topAvailable-minViewportLines)；vpHeight=topAvailable-panelLines（≥1）。todo 亦可截斷（todoBudget=termHeight-reservedLines-dialogLines-1，display-only 譲位 interactive dialog）。優先序：dialog＞todo＞viewport(軟底5)＞panel（最先截）。修此前 minViewportLines 硬底反而總高溢出遮底部。守護測試 coordinator_layout_test.go×2（24/12/10 行總高≤termHeight；viewport 与 panel 共存）＋既有 dialog_visibility 全綠。
+- **2026-11-19 等級注入**：`New`/`newAppModel` 在 `mcpPool` 後新增 `tiers commands.TierManager`；建 `CommandContext` 時帶入。狀態列的上下文長度改用 `compact.ResolveContextWindow(model, [main] context_window)`，啟動與 `/model` 切換都一樣。
+- 最終審查後補修：啟動時把 `tiers.Warnings()` 逐則插入成 TUI 本地的 system 訊息（不進 engine 歷史，不影響前綴）。

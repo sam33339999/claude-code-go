@@ -75,6 +75,19 @@ type QueryParams struct {
 	// boundary and appended as user messages, preserving the cached prefix.
 	// Nil disables inbox draining.
 	InboxCh <-chan string
+	// Client overrides the engine's default client for this query (tier
+	// routing for sub-agents). Nil uses the engine default. The main loop and
+	// forked agents never set it, so their provider and prompt prefix are
+	// unchanged.
+	Client api.Client
+	// ContextWindow is the configured context window of this query's model
+	// (tier binding or provider model table). 0 resolves via the built-in
+	// table, or Config.MainContextWindow when the query runs on the main model.
+	ContextWindow int
+	// CompactTracker holds this agent's auto-compact state. Nil uses the main
+	// loop's session-long tracker; every sub-agent should carry its own so its
+	// failures cannot trip the main loop's circuit breaker.
+	CompactTracker *compact.Tracker
 }
 
 // TaskBudget defines an optional task-level output token budget.
@@ -96,10 +109,16 @@ type SystemPromptPart struct {
 
 // engineImpl is the concrete QueryEngine implementation.
 type engineImpl struct {
-	client    api.Client
-	registry  *tools.Registry
+	client   api.Client
+	registry *tools.Registry
+	// modelMu guards model, which SetModel changes while queries run.
+	modelMu   sync.RWMutex
 	model     string
 	maxTokens int
+	// mainContextWindow is [main] context_window from config.toml (0 = unset).
+	mainContextWindow int
+	// debugLogf is an optional debug logger (nil = disabled).
+	debugLogf func(format string, args ...any)
 
 	// mu protects messages against concurrent access between runQueryLoop
 	// (goroutine) and GetMessages/SetMessages (caller goroutine).
@@ -118,6 +137,8 @@ type engineImpl struct {
 	microCompactor *compact.MicroCompactor
 	// autoCompactor performs LLM-based summarisation when context is near the limit.
 	autoCompactor *compact.AutoCompactor
+	// mainTracker is the main loop's session-long auto-compact state.
+	mainTracker *compact.Tracker
 
 	// permChecker is the permission checker for HIL (Human-in-the-Loop) support.
 	// If nil, all tools are allowed without asking.
@@ -151,6 +172,11 @@ type Config struct {
 	// MsgQueue is the optional unified command queue for mid-session message
 	// processing. If nil, mid-turn drain is disabled (backward compatible).
 	MsgQueue *msgqueue.MessageQueue
+	// MainContextWindow is [main] context_window from ~/.glaude/config.toml;
+	// it applies to queries running on the main model. 0 = unset.
+	MainContextWindow int
+	// DebugLogf is an optional debug logger (nil = disabled).
+	DebugLogf func(format string, args ...any)
 }
 
 // Compile-time interface assertion: engineImpl must satisfy QueryEngine.
@@ -169,10 +195,14 @@ func New(cfg Config) QueryEngine {
 		maxTokens:      maxTokens,
 		abortCh:        make(chan struct{}),
 		microCompactor: compact.NewMicroCompactor(),
-		autoCompactor:  compact.NewAutoCompactor(cfg.Client, cfg.Model, maxTokens),
+		autoCompactor:  compact.NewAutoCompactor(),
+		mainTracker:    compact.NewTracker(),
 		permChecker:    cfg.PermissionChecker,
 		stopHooks:      cfg.StopHooks,
 		msgQueue:       cfg.MsgQueue,
+
+		mainContextWindow: cfg.MainContextWindow,
+		debugLogf:         cfg.DebugLogf,
 	}
 }
 
@@ -205,5 +235,14 @@ func (e *engineImpl) Interrupt(_ context.Context) {
 
 // SetModel changes the active model for subsequent Query calls.
 func (e *engineImpl) SetModel(model string) {
+	e.modelMu.Lock()
+	defer e.modelMu.Unlock()
 	e.model = model
+}
+
+// currentModel returns the main loop's model under modelMu.
+func (e *engineImpl) currentModel() string {
+	e.modelMu.RLock()
+	defer e.modelMu.RUnlock()
+	return e.model
 }

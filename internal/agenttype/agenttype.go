@@ -78,7 +78,10 @@ type AgentProfile struct {
 	// ToolFilter defines the tool access policy.
 	ToolFilter ToolFilter `json:"tools" yaml:"tools"`
 	// Model overrides the default model; empty means inherit parent.
-	// Supported values: "", "inherit", "haiku", "sonnet", "opus", or a full model ID.
+	// Supported values: "", "inherit", a tier name (lite / pro / max, or a
+	// custom tier from ~/.glaude/config.toml), a legacy alias (haiku / sonnet /
+	// opus, mapped to lite / pro / max), a full model ID, or
+	// "providerID:modelID" for a provider registered in config.toml.
 	Model string `json:"model" yaml:"model"`
 	// MaxTurns default; 0 means use coordinator default (30).
 	MaxTurns int `json:"max_turns" yaml:"max_turns"`
@@ -151,6 +154,15 @@ func resolveModelAliasForProvider(openai bool, parentModel, model string) string
 		}
 	}
 	return model
+}
+
+// ResolveAliasForProvider resolves a single model value (alias or full ID)
+// for provider, with the same alias rules as ResolveModelForProvider but
+// without consulting CLAUDE_CODE_SUBAGENT_MODEL. Used by tier routing to
+// fall back to legacy aliases for unbound tiers.
+func ResolveAliasForProvider(provider, parentModel, model string) string {
+	openai := strings.EqualFold(strings.TrimSpace(provider), "openai")
+	return resolveModelAliasForProvider(openai, parentModel, model)
 }
 
 func resolveModelAlias(parentModel, model string) string {

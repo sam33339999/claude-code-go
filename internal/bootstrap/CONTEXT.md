@@ -2,18 +2,18 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-19T06:00:32Z
-source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, update_cmd.go, wire.go]
+generated_at: 2026-11-19T13:49:59Z
+source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tiers.go, tools.go, update_cmd.go, wire.go]
 ---
 
 # internal/bootstrap
 
-> Layer: **CLI** · Files: 26 · Interfaces: 0 · Structs: 2 · Functions: 8
+> Layer: **CLI** · Files: 27 · Interfaces: 0 · Structs: 2 · Functions: 8
 
 ## Structs
 
-- **AppContainer** — 16 fields: QueryEngine, AppStateStore, ToolRegistry, MCPPool, Settings, PermAskCh, PermRespCh, QuestionAskCh, ...
-- **ContainerOptions** — 7 fields: HomeDir, WorkingDir, ModelOverride, Verbose, Debug, DebugFile, Headless
+- **AppContainer** — 17 fields: QueryEngine, AppStateStore, ToolRegistry, MCPPool, Settings, PermAskCh, PermRespCh, QuestionAskCh, ...
+- **ContainerOptions** — 8 fields: HomeDir, WorkingDir, ModelOverride, Verbose, Debug, DebugFile, Headless, ProviderClientFactory
 
 ## Functions
 
@@ -28,7 +28,7 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 
 ## Dependencies
 
-**Imports:** `internal/agentctx`, `internal/agenttype`, `internal/api`, `internal/codemode`, `internal/config`, `internal/coordinator`, `internal/engine`, `internal/hooks`, `internal/mcp`, `internal/memdir`, `internal/msgqueue`, `internal/oauth`, `internal/permissions`, `internal/session`, `internal/state`, `internal/tools`, `internal/tools/agent`, `internal/tools/codemode`, `internal/tools/fileops`, `internal/tools/interact`, `internal/tools/mcp`, `internal/tools/memory`, `internal/tools/misc`, `internal/tools/shell`, `internal/tools/tasks`, `internal/tools/web`, `internal/transcript`, `internal/tui`, `pkg/types`, `pkg/utils/fs`
+**Imports:** `internal/agentctx`, `internal/agenttype`, `internal/api`, `internal/codemode`, `internal/commands`, `internal/compact`, `internal/config`, `internal/coordinator`, `internal/engine`, `internal/hooks`, `internal/mcp`, `internal/memdir`, `internal/modeltier`, `internal/msgqueue`, `internal/oauth`, `internal/permissions`, `internal/session`, `internal/state`, `internal/tools`, `internal/tools/agent`, `internal/tools/codemode`, `internal/tools/fileops`, `internal/tools/interact`, `internal/tools/mcp`, `internal/tools/memory`, `internal/tools/misc`, `internal/tools/shell`, `internal/tools/tasks`, `internal/tools/web`, `internal/transcript`, `internal/tui`, `pkg/types`, `pkg/utils/fs`
 
 **Imported by:** `cmd/glaude`
 
@@ -107,3 +107,9 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 - **2026-11-19 sub-agent model alias 修正接線（fix/subagent-model-alias）**：buildSubAgentQuery +provider 參數，call site 傳 st.Settings.Provider（live）；explore 的 haiku alias 在 openai provider 不再直送（404 根因）。fork 路徑不受影響（本就繼承父 model）。
 - **2026-11-19 完成事件接線（feat/coordinator-completion-wake）**：buildOnStatusChangeFn 适配 OnStatusChangeFn 新簽名（+result/summary），填入 Event.Result/Summary 供 TUI 建唤醒通知。
 - **2026-11-19 sub-agent result 空值修復（fix/subagent-result-layout）**：collectSubAgentRun 原僅累加 MsgTypeStreamText 為 result——tool-only 結尾/max_turns 截斷/stream delta 缺失時 result 空→DefaultSummaryGenerator(空)→summary 也空（使用者見双空）。現追踪 lastAssistantText（最近帶 text 的 assistant message，權威最終報告），result=lastAssistantText 非空否則 fallback streamText。副效：result 改取「最後一個 text assistant message」而非全 turn stream 累加（更贴近 final report，不含中間 narration）。+subAgentResult/assistantTextOf helper。守護測試 wire_result_test.go×3。
+- **2026-11-19 sub-agent 等級路由（`tiers.go`）**：兩條建構路徑都經 `wireTiers` 載入 config.toml、為每個 provider 建 client（不連網），`main` 鍵放主腦 client；`ContainerOptions.ProviderClientFactory` 供測試注入。`AppContainer.Tiers` 交給 TUI 的 `/tier`。
+  - `resolveSubAgentTarget` 候選順序不變（env > Agent 工具 model > profile > 繼承）。命中已綁定等級 → 帶 `Client`/`Model`/`ContextWindow`/`MaxOutputTokensOverride`；未綁定的 lite/pro/max → 轉回舊別名走原本規則（openai 下 explore 照舊繼承，`TestBuildSubAgentQuery_OpenAIExploreAliasFallback` 不變）；未綁定自訂等級 → 繼承；其他 → 原本的 `ResolveModelForProvider`。
+  - provider 的金鑰環境變數沒設：派工直接失敗並點名變數，**不**退回主腦（反目標：請求默默走錯 provider）。
+  - 續跑沿用 `runStates` 裡派工當下的 `Client`/`Model`/`CompactTracker`（快取連續性），不受之後 `/tier` 影響。fork 永遠不帶 `Client`。每個 sub-agent 都有自己的 `compact.Tracker`。
+  - config.toml 警告一律印到 stderr（不只 `--debug`），因為設定錯誤需要使用者看到。
+  - 段落審查後補修：`/tier` 重新讀檔後，可能綁到啟動後才加入的 provider（沒有 client）；派工時直接報錯要求重啟，絕不退回主腦 client。
