@@ -99,6 +99,9 @@ func resolveSubAgentTarget(r *tierRouter, provider, parentModel, toolModel, prof
 	case modeltier.Bound:
 		t := subAgentTarget{Model: b.Model, ContextWindow: b.ContextWindow, MaxTokens: b.MaxTokens}
 		if b.Provider == modeltier.MainProviderID {
+			// main: always means the startup (settings.json) client, even
+			// after /model moved the main loop elsewhere.
+			t.Client = r.clients[modeltier.MainProviderID]
 			return t, nil
 		}
 		if err := r.keyErr[b.Provider]; err != nil {

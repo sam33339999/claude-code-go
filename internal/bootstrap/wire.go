@@ -551,7 +551,13 @@ func buildRunAgentFn(
 			}
 		}
 
-		params, seed, err := buildSubAgentQuery(req, reg, agentProfiles, parentModel, st.Settings.Provider, inboxCh, &runStates, agentID, router)
+		// Alias rules follow the live main loop's wire format (/model may have
+		// moved it to another provider); fall back to settings for older states.
+		provider := st.MainLoopModel.Provider
+		if provider == "" {
+			provider = st.Settings.Provider
+		}
+		params, seed, err := buildSubAgentQuery(req, reg, agentProfiles, parentModel, provider, inboxCh, &runStates, agentID, router, eng.MainTarget())
 		if err != nil {
 			return "", fmt.Errorf("sub-agent dispatch: %w", err)
 		}
@@ -613,6 +619,7 @@ func buildSubAgentQuery(
 	runStates *sync.Map,
 	agentID coordinator.AgentID,
 	router *tierRouter,
+	main engine.MainTarget,
 ) (engine.QueryParams, []types.Message, error) {
 	// Resume: continue the retained conversation with identical prompt/tools/
 	// model (cache continuity). The new trigger message arrives via the inbox
@@ -638,7 +645,7 @@ func buildSubAgentQuery(
 	}
 
 	if req.SubagentType == string(agenttype.AgentTypeFork) {
-		params, seed := buildForkQuery(req, parentModel, inboxCh, maxTurns)
+		params, seed := buildForkQuery(req, main, inboxCh, maxTurns)
 		return params, seed, nil
 	}
 
@@ -671,6 +678,11 @@ func buildSubAgentQuery(
 	target, err := resolveSubAgentTarget(router, provider, parentModel, req.Model, profileModel)
 	if err != nil {
 		return engine.QueryParams{}, nil, err
+	}
+	if target.Model == "" {
+		// Inherit: freeze the main target as it is now, so a later /model
+		// switch never moves an already-dispatched agent (resume included).
+		target = subAgentTarget{Client: main.Client, Model: main.Model, ContextWindow: main.ContextWindow, MaxTokens: main.MaxTokens}
 	}
 
 	// Build the initial user message.
@@ -706,20 +718,25 @@ func buildSubAgentQuery(
 // it degrades to a fresh one-shot agent with the boilerplate as system prompt.
 func buildForkQuery(
 	req coordinator.SpawnRequest,
-	parentModel string,
+	main engine.MainTarget,
 	inboxCh <-chan string,
 	maxTurns int,
 ) (engine.QueryParams, []types.Message) {
 	systemPrompt := engine.SystemPrompt{
 		Parts: []engine.SystemPromptPart{{Text: agenttype.ForkBoilerplate}},
 	}
-	model := parentModel
+	// The fork runs on exactly the client and model of the parent request it
+	// copies (cache identity); without a snapshot, on the main target now.
+	model, client := main.Model, main.Client
 	var prefix []types.Message
 	if cache, ok := req.CacheParams.(*engine.CacheSafeParams); ok && cache != nil {
 		systemPrompt = cache.SystemPrompt
 		prefix = cache.ContextMessages
 		if cache.Model != "" {
 			model = cache.Model
+		}
+		if cache.Client != nil {
+			client = cache.Client
 		}
 	}
 
@@ -739,6 +756,7 @@ func buildForkQuery(
 		QuerySource:  "background",
 		MaxTurns:     maxTurns,
 		Model:        model,
+		Client:       client,
 		NoWriteBack:  true,
 		InboxCh:      inboxCh,
 		// ExcludeTools intentionally nil: full parent tool list (cache identity).

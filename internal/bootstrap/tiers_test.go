@@ -13,6 +13,7 @@ import (
 	"github.com/tunsuy/glaude/internal/coordinator"
 	"github.com/tunsuy/glaude/internal/engine"
 	"github.com/tunsuy/glaude/internal/modeltier"
+	"github.com/tunsuy/glaude/internal/state"
 	"github.com/tunsuy/glaude/internal/tools"
 	"github.com/tunsuy/glaude/pkg/types"
 )
@@ -107,8 +108,8 @@ func TestResolveSubAgentTarget_MainProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Model != "claude-haiku-5-5" || got.Client != nil {
-		t.Errorf("target = %+v, want model claude-haiku-5-5 with nil (engine default) client", got)
+	if got.Model != "claude-haiku-5-5" || got.Client != mainTestClient {
+		t.Errorf("target = %+v, want model claude-haiku-5-5 on the startup client", got)
 	}
 }
 
@@ -246,15 +247,16 @@ func TestBuildRunAgentFn_DispatchErrorOnMissingKey(t *testing.T) {
 	}
 }
 
-func TestBuildForkQuery_NeverSetsClient(t *testing.T) {
+func TestBuildForkQuery_ClientIsMainTarget(t *testing.T) {
 	r := newTestRouter(t, tierTestConfig)
 	req := coordinator.SpawnRequest{SubagentType: "fork", Prompt: "p", Model: "lite", MaxTurns: coordinator.DefaultMaxTurns}
-	params, _, err := buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "claude-parent", "", nil, &sync.Map{}, "a-f1", r)
+	main := engine.MainTarget{Client: mainTestClient, ProviderID: "main", Model: "claude-parent"}
+	params, _, err := buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "claude-parent", "", nil, &sync.Map{}, "a-f1", r, main)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if params.Client != nil || params.ContextWindow != 0 || params.Model != "claude-parent" {
-		t.Errorf("fork params = client %v window %d model %q", params.Client, params.ContextWindow, params.Model)
+	if params.Client != mainTestClient || params.ContextWindow != 0 || params.Model != "claude-parent" {
+		t.Errorf("fork params = client %s window %d model %q (must be the main target, never a tier client)", clientID(params.Client), params.ContextWindow, params.Model)
 	}
 }
 
@@ -281,5 +283,86 @@ func TestResolveSubAgentTarget_ProviderAddedAfterStartup(t *testing.T) {
 	}
 	if got.Client != nil || got.Model != "" {
 		t.Errorf("target = %+v, want empty", got)
+	}
+}
+
+func workerReq() coordinator.SpawnRequest {
+	return coordinator.SpawnRequest{SubagentType: "worker", Prompt: "x", MaxTurns: coordinator.DefaultMaxTurns}
+}
+
+func TestBuildRunAgentFn_InheritUsesCurrentMainTarget(t *testing.T) {
+	eng := exploreEngine()
+	z := &providerClient{id: "zai"}
+	eng.main = engine.MainTarget{Client: z, ProviderID: "zai", Model: "glm", ContextWindow: 131072, MaxTokens: 8192}
+	fn := buildRunAgentFn(eng, tools.NewRegistry(), forkTestState(), nil, forkTestProfiles(), nil)
+	if _, err := fn(context.Background(), "a-w1", workerReq(), nil); err != nil {
+		t.Fatal(err)
+	}
+	p := eng.calls[0]
+	if p.Client != z || p.Model != "glm" || p.ContextWindow != 131072 || p.MaxOutputTokensOverride != 8192 {
+		t.Errorf("inherit params = client %s model %q window %d max %d", clientID(p.Client), p.Model, p.ContextWindow, p.MaxOutputTokensOverride)
+	}
+}
+
+func TestBuildRunAgentFn_InheritResumeFrozen(t *testing.T) {
+	eng := exploreEngine()
+	z, o := &providerClient{id: "zai"}, &providerClient{id: "openrouter"}
+	eng.main = engine.MainTarget{Client: z, ProviderID: "zai", Model: "glm"}
+	fn := buildRunAgentFn(eng, tools.NewRegistry(), forkTestState(), nil, forkTestProfiles(), nil)
+	if _, err := fn(context.Background(), "a-w2", workerReq(), nil); err != nil {
+		t.Fatal(err)
+	}
+	eng.main = engine.MainTarget{Client: o, ProviderID: "openrouter", Model: "q"}
+	if _, err := fn(context.Background(), "a-w2", workerReq(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if p := eng.calls[1]; p.Client != z || p.Model != "glm" {
+		t.Errorf("resume moved to the new main target: client %s model %q", clientID(p.Client), p.Model)
+	}
+}
+
+func TestResolveSubAgentTarget_MainBindingUsesStartupClient(t *testing.T) {
+	r := newTestRouter(t, tierTestConfig+"\n[tiers.max]\nprovider = \"main\"\nmodel = \"claude-haiku-5-5\"\n")
+	got, err := resolveSubAgentTarget(r, "direct", "claude-parent", "max", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Client != mainTestClient || got.Model != "claude-haiku-5-5" {
+		t.Errorf("main binding client = %s, want the startup client", clientID(got.Client))
+	}
+}
+
+func TestBuildForkQuery_UsesSnapshotClient(t *testing.T) {
+	x, cur := &providerClient{id: "x"}, &providerClient{id: "cur"}
+	main := engine.MainTarget{Client: cur, ProviderID: "main", Model: "cur-model"}
+	req := coordinator.SpawnRequest{SubagentType: "fork", Prompt: "p", MaxTurns: coordinator.DefaultMaxTurns,
+		CacheParams: &engine.CacheSafeParams{Model: "m1", Client: x}}
+	params, _, err := buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "cur-model", "", nil, &sync.Map{}, "a-f2", nil, main)
+	if err != nil || params.Client != x || params.Model != "m1" {
+		t.Errorf("fork with snapshot = client %s model %q err %v", clientID(params.Client), params.Model, err)
+	}
+	req.CacheParams = nil
+	params, _, _ = buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "cur-model", "", nil, &sync.Map{}, "a-f3", nil, main)
+	if params.Client != cur || params.Model != "cur-model" {
+		t.Errorf("fork without snapshot = client %s model %q", clientID(params.Client), params.Model)
+	}
+}
+
+func TestBuildRunAgentFn_AliasUsesMainLoopProvider(t *testing.T) {
+	st := forkTestState()
+	st.SetState(func(s state.AppState) state.AppState {
+		s.MainLoopModel = state.ModelSetting{ModelID: "glm", Provider: "openai"}
+		s.Settings.Provider = "direct"
+		return s
+	})
+	eng := exploreEngine()
+	eng.main = engine.MainTarget{Client: &providerClient{id: "zai"}, ProviderID: "zai", Model: "glm"}
+	r := newTestRouter(t, "")
+	fn := buildRunAgentFn(eng, tools.NewRegistry(), st, nil, forkTestProfiles(), r)
+	if _, err := fn(context.Background(), "a-ex9", coordinator.SpawnRequest{SubagentType: "explore", Prompt: "x", MaxTurns: coordinator.DefaultMaxTurns}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := eng.calls[0].Model; got != "glm" {
+		t.Errorf("explore on openai-format main = %q, want inherit (glm), not haiku", got)
 	}
 }
