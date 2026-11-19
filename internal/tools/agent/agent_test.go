@@ -20,6 +20,7 @@ type mockCoordinator struct {
 	resultFn  func(ctx context.Context, agentID string) (string, string, error)
 	listFn    func() map[string]string
 	waitFn    func(ctx context.Context, agentID string) (string, error)
+	resolveFn func(ctx context.Context, target string) (string, error)
 }
 
 func (m *mockCoordinator) SpawnAgent(ctx context.Context, req tools.AgentSpawnRequest) (string, error) {
@@ -71,7 +72,10 @@ func (m *mockCoordinator) WaitForAgent(ctx context.Context, agentID string) (str
 	return "done", nil
 }
 
-func (m *mockCoordinator) ResolveAgent(_ context.Context, target string) (string, error) {
+func (m *mockCoordinator) ResolveAgent(ctx context.Context, target string) (string, error) {
+	if m.resolveFn != nil {
+		return m.resolveFn(ctx, target)
+	}
 	return target, nil
 }
 

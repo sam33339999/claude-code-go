@@ -38,6 +38,8 @@ func (t *getAgentStatusTool) Description(_ tools.Input, _ tools.PermissionContex
 	return `Returns the current status and result of a sub-agent.
 
 Use this to poll background agents spawned with background: true.
+The agent_id field accepts the agent ID (returned by the Agent tool) or the
+human-readable agent_name you assigned — names are resolved automatically.
 Status values: running, completed, failed, killed.`
 }
 
@@ -46,7 +48,7 @@ func (t *getAgentStatusTool) InputSchema() tools.InputSchema {
 		map[string]json.RawMessage{
 			"agent_id": tools.PropSchema(map[string]any{
 				"type":        "string",
-				"description": "The agent ID to check (returned by Agent tool in background mode)",
+				"description": "The agent ID or agent_name to check (names are resolved automatically)",
 			}),
 		},
 		[]string{"agent_id"},
@@ -86,7 +88,18 @@ func (t *getAgentStatusTool) Call(input tools.Input, ctx *tools.UseContext, _ to
 		}, nil
 	}
 
-	result, status, err := ctx.Coordinator.GetAgentResult(ctx.Ctx, in.AgentID)
+	// Resolve name → ID (parity with SendMessage): the coordinator's result
+	// map is keyed by generated AgentID, so a human-readable agent_name must
+	// be resolved first or the lookup fails with "unknown agent".
+	resolvedID, err := ctx.Coordinator.ResolveAgent(ctx.Ctx, in.AgentID)
+	if err != nil {
+		return &tools.Result{
+			IsError: true,
+			Content: fmt.Sprintf("agent not found: %v", err),
+		}, nil
+	}
+
+	result, status, err := ctx.Coordinator.GetAgentResult(ctx.Ctx, resolvedID)
 	if err != nil {
 		return &tools.Result{
 			IsError: true,
@@ -95,7 +108,7 @@ func (t *getAgentStatusTool) Call(input tools.Input, ctx *tools.UseContext, _ to
 	}
 
 	out := GetAgentStatusOutput{
-		AgentID: in.AgentID,
+		AgentID: resolvedID,
 		Status:  status,
 	}
 	// Only include result when the agent has finished.
