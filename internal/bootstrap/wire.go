@@ -9,25 +9,25 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tunsuy/claude-code-go/internal/agentctx"
-	"github.com/tunsuy/claude-code-go/internal/agenttype"
-	"github.com/tunsuy/claude-code-go/internal/api"
-	cmengine "github.com/tunsuy/claude-code-go/internal/codemode"
-	"github.com/tunsuy/claude-code-go/internal/config"
-	"github.com/tunsuy/claude-code-go/internal/coordinator"
-	"github.com/tunsuy/claude-code-go/internal/engine"
-	"github.com/tunsuy/claude-code-go/internal/hooks"
-	"github.com/tunsuy/claude-code-go/internal/mcp"
-	"github.com/tunsuy/claude-code-go/internal/memdir"
-	"github.com/tunsuy/claude-code-go/internal/msgqueue"
-	"github.com/tunsuy/claude-code-go/internal/oauth"
-	"github.com/tunsuy/claude-code-go/internal/permissions"
-	"github.com/tunsuy/claude-code-go/internal/state"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	cmtool "github.com/tunsuy/claude-code-go/internal/tools/codemode"
-	"github.com/tunsuy/claude-code-go/internal/tools/interact"
-	"github.com/tunsuy/claude-code-go/internal/tools/misc"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/agentctx"
+	"github.com/tunsuy/glaude/internal/agenttype"
+	"github.com/tunsuy/glaude/internal/api"
+	cmengine "github.com/tunsuy/glaude/internal/codemode"
+	"github.com/tunsuy/glaude/internal/config"
+	"github.com/tunsuy/glaude/internal/coordinator"
+	"github.com/tunsuy/glaude/internal/engine"
+	"github.com/tunsuy/glaude/internal/hooks"
+	"github.com/tunsuy/glaude/internal/mcp"
+	"github.com/tunsuy/glaude/internal/memdir"
+	"github.com/tunsuy/glaude/internal/msgqueue"
+	"github.com/tunsuy/glaude/internal/oauth"
+	"github.com/tunsuy/glaude/internal/permissions"
+	"github.com/tunsuy/glaude/internal/state"
+	"github.com/tunsuy/glaude/internal/tools"
+	cmtool "github.com/tunsuy/glaude/internal/tools/codemode"
+	"github.com/tunsuy/glaude/internal/tools/interact"
+	"github.com/tunsuy/glaude/internal/tools/misc"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // P1-F: Compile-time interface assertions for AppContainer field types.
@@ -169,8 +169,8 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	// BF-13: Skill searches project (live cwd) then user skill directories.
 	reg.Register(misc.NewSkillTool(func() []string {
 		return []string{
-			filepath.Join(store.GetState().WorkingDir, ".claude", "skills"),
-			filepath.Join(opts.HomeDir, ".claude", "skills"),
+			filepath.Join(store.GetState().WorkingDir, ".glaude", "skills"),
+			filepath.Join(opts.HomeDir, ".glaude", "skills"),
 		}
 	}))
 
@@ -205,7 +205,7 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	})
 	// CM-01: CodeMode sandbox tool — every inner call goes through permChecker.
 	// CM-02: dataDir roots history/spill/controlled-import modules.
-	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime(), filepath.Join(opts.HomeDir, ".claude", "codemode")))
+	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime(), filepath.Join(opts.HomeDir, ".glaude", "codemode")))
 
 	// ── Phase 7.5: StopHook registry (memory extraction) ────────────────────
 	stopHooks := engine.NewStopHookRegistry()
@@ -320,8 +320,8 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	// BF-13: Skill searches project (live cwd) then user skill directories.
 	reg.Register(misc.NewSkillTool(func() []string {
 		return []string{
-			filepath.Join(store.GetState().WorkingDir, ".claude", "skills"),
-			filepath.Join(opts.HomeDir, ".claude", "skills"),
+			filepath.Join(store.GetState().WorkingDir, ".glaude", "skills"),
+			filepath.Join(opts.HomeDir, ".glaude", "skills"),
 		}
 	}))
 
@@ -352,7 +352,7 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	})
 	// CM-01: CodeMode sandbox tool — every inner call goes through permChecker.
 	// CM-02: dataDir roots history/spill/controlled-import modules.
-	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime(), filepath.Join(opts.HomeDir, ".claude", "codemode")))
+	reg.Register(cmtool.NewCodeModeTool(reg, permChecker, cmengine.NewMoejsRuntime(), filepath.Join(opts.HomeDir, ".glaude", "codemode")))
 
 	// ── Phase 7.5: StopHook registry ─────────────────────────────────────────
 	stopHooksTest := engine.NewStopHookRegistry()
@@ -868,8 +868,8 @@ func toSet(ss []string) map[string]bool {
 // agents second, so project definitions can override user defaults.
 func loadCustomAgentProfiles(reg *agenttype.Registry, homeDir, workingDir string) {
 	for _, dir := range []string{
-		filepath.Join(homeDir, ".claude", "agents"),
-		filepath.Join(workingDir, ".claude", "agents"),
+		filepath.Join(homeDir, ".glaude", "agents"),
+		filepath.Join(workingDir, ".glaude", "agents"),
 	} {
 		customs, err := agenttype.LoadCustomAgents(dir)
 		if err != nil {

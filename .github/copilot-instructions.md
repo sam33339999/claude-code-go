@@ -1,4 +1,4 @@
-# Claude Code Go — GitHub Copilot Instructions
+# Glaude — GitHub Copilot Instructions
 
 ## 🤖 你的身份
 
@@ -14,12 +14,12 @@ docs/project/agents/pm-agent.md
 
 ## 项目简介
 
-Claude Code Go 是 Claude Code（TypeScript）的完整 Go 重写版本。这是一个终端 AI 编码助手，采用六层架构，由多个 AI Agent 协作构建。
+Glaude 是 Claude Code（TypeScript）的完整 Go 重写版本。这是一个终端 AI 编码助手，采用六层架构，由多个 AI Agent 协作构建。
 
 ## 架构概览
 
 ```
-入口层 CLI (cmd/claude)         → Cobra 入口, bootstrap
+入口层 CLI (cmd/glaude)         → Cobra 入口, bootstrap
 TUI 层 (internal/tui)           → Bubble Tea MVU 界面
 工具层 (internal/tools)         → 文件、Shell、搜索、MCP 工具
 核心层 (internal/engine)        → LLM 查询循环、工具分发

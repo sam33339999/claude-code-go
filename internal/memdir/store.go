@@ -13,7 +13,7 @@ import (
 )
 
 // DefaultMemoryBase is the default base directory for memory storage.
-const DefaultMemoryBase = ".claude"
+const DefaultMemoryBase = ".glaude"
 
 // MemoryFileName is the memory index file name.
 const MemoryFileName = "MEMORY.md"
@@ -37,7 +37,7 @@ type MemoryPathOptions struct {
 }
 
 // NewMemoryStore creates a MemoryStore for the given project directory.
-// It computes the memory path as ~/.claude/projects/<slug>/memory/ unless overridden.
+// It computes the memory path as ~/.glaude/projects/<slug>/memory/ unless overridden.
 func NewMemoryStore(projectDir string) (*MemoryStore, error) {
 	return NewMemoryStoreWithOptions(projectDir, MemoryPathOptions{})
 }
@@ -215,7 +215,7 @@ func (ms *MemoryStore) LoadMemoryIndex() (string, error) {
 }
 
 // autoMemoryPath computes the project's auto memory directory:
-// ~/.claude/projects/<slug>/memory/ unless overridden.
+// ~/.glaude/projects/<slug>/memory/ unless overridden.
 func autoMemoryPath(projectDir string, opts MemoryPathOptions) (string, error) {
 	if override := strings.TrimSpace(os.Getenv("CLAUDE_COWORK_MEMORY_PATH_OVERRIDE")); override != "" {
 		return filepath.Clean(override), nil

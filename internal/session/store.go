@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tunsuy/claude-code-go/pkg/types"
-	utilfs "github.com/tunsuy/claude-code-go/pkg/utils/fs"
-	"github.com/tunsuy/claude-code-go/pkg/utils/ids"
+	"github.com/tunsuy/glaude/pkg/types"
+	utilfs "github.com/tunsuy/glaude/pkg/utils/fs"
+	"github.com/tunsuy/glaude/pkg/utils/ids"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -180,14 +180,14 @@ func (m *SessionManager) Close() error {
 // ---------------------------------------------------------------------------
 
 // sessionPath returns the JSONL file path for the given project + session.
-// Path: <homeDir?>/.claude/projects/<projectHash>/<sessionId>.jsonl
-// For simplicity, the path is rooted under projectDir/.claude/projects/ here.
+// Path: <homeDir?>/.glaude/projects/<projectHash>/<sessionId>.jsonl
+// For simplicity, the path is rooted under projectDir/.glaude/projects/ here.
 // The canonical global path (under ~/ ) is constructed in bootstrap.
 func sessionPath(projectDir string, sid types.SessionId) (string, error) {
 	hash, err := utilfs.ProjectHash(projectDir)
 	if err != nil {
 		return "", fmt.Errorf("session: project hash: %w", err)
 	}
-	dir := filepath.Join(projectDir, ".claude", "projects", hash)
+	dir := filepath.Join(projectDir, ".glaude", "projects", hash)
 	return filepath.Join(dir, string(sid)+".jsonl"), nil
 }

@@ -11,14 +11,14 @@ import (
 	"time"
 )
 
-// versionRe matches "claude 1.2.3" style version output so two builds with
-// different version numbers can still be compared.
-var versionRe = regexp.MustCompile(`(?m)^(\s*claude\s+)\d+\.\d+\.\d+`)
+// versionRe matches "glaude 1.2.3" (or legacy "claude 1.2.3") style version
+// output so two builds with different version numbers can still be compared.
+var versionRe = regexp.MustCompile(`(?m)^(\s*(?:claude|glaude)\s+)\d+\.\d+\.\d+`)
 
-// oracleVersionRe matches the TS original's version line "2.1.251 (Claude Code)"
-// (no binary-name prefix, trailing product tag) so it normalizes to the same
-// placeholder as the Go side once the Go format is aligned (parity case A1).
-var oracleVersionRe = regexp.MustCompile(`(?m)^(\s*)\d+\.\d+\.\d+\s+\(Claude Code\)`)
+// oracleVersionRe matches a version line with a product tag — the TS original's
+// "2.1.251 (Claude Code)" or the rebranded Go "0.1.0 (Glaude)" — normalizing
+// both to a common placeholder so format parity ignores the brand difference.
+var oracleVersionRe = regexp.MustCompile(`(?m)^(\s*)\d+\.\d+\.\d+\s+\((?:Claude Code|Glaude)\)`)
 
 // absPathRe matches absolute home/tmp paths so machine-specific prefixes do
 // not create false diffs.
@@ -79,14 +79,14 @@ func runBinary(t *testing.T, binary string, args ...string) runResult {
 // oraclePath returns the configured original-binary path, or "" when absent.
 func oraclePath() string { return strings.TrimSpace(os.Getenv("CCG_PARITY_ORACLE")) }
 
-// targetPath returns the Go build path, defaulting to bin/claude at the repo
+// targetPath returns the Go build path, defaulting to bin/glaude at the repo
 // root (two levels up from this package directory).
 func targetPath() string {
 	if p := strings.TrimSpace(os.Getenv("CCG_PARITY_TARGET")); p != "" {
 		return p
 	}
 	_, thisFile, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(thisFile), "..", "..", "bin", "claude")
+	return filepath.Join(filepath.Dir(thisFile), "..", "..", "bin", "glaude")
 }
 
 // requireBoth skips the test unless both binaries are available. Skipping
@@ -131,11 +131,11 @@ func requireTarget(t *testing.T) string {
 }
 
 // normalizeVersion replaces concrete version numbers with a placeholder so
-// "claude 1.2.3" and "claude 0.1.0" compare equal, and normalizes the
-// oracle-style "2.1.251 (Claude Code)" to the same placeholder.
+// "glaude 1.2.3" and "glaude 0.1.0" compare equal, and normalizes the product
+// tag ("(Claude Code)" oracle / "(Glaude)" rebranded) to a common placeholder.
 func normalizeVersion(line string) string {
 	line = versionRe.ReplaceAllString(line, "${1}<version>")
-	return oracleVersionRe.ReplaceAllString(line, "${1}<version> (Claude Code)")
+	return oracleVersionRe.ReplaceAllString(line, "${1}<version> (<product>)")
 }
 
 // normalizePath replaces absolute paths with a placeholder.

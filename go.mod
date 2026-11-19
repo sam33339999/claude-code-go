@@ -1,4 +1,4 @@
-module github.com/tunsuy/claude-code-go
+module github.com/tunsuy/glaude
 
 go 1.26.0
 

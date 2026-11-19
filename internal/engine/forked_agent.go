@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // CacheSafeParams stores Prompt Cache parameters that can be shared with forked agents.
@@ -14,7 +14,7 @@ import (
 type CacheSafeParams struct {
 	// SystemPrompt is the rendered system prompt shared with the parent.
 	SystemPrompt SystemPrompt
-	// ContextMessages are the initial context messages (e.g. CLAUDE.md content).
+	// ContextMessages are the initial context messages (e.g. GLAUDE.md content).
 	ContextMessages []types.Message
 	// ToolUseContext is the per-call tool execution context.
 	ToolUseContext *tools.UseContext

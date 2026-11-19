@@ -123,7 +123,7 @@ const guideSystemPrompt = `You are a Claude Code usage guide agent. You help use
 You are an expert on the Claude Code CLI tool, its features, tools, and best practices. You read project documentation and search the web to provide accurate, up-to-date guidance.
 
 ## Available Tools
-- Read — read documentation files (CLAUDE.md, README, docs/)
+- Read — read documentation files (GLAUDE.md, README, docs/)
 - Glob — find documentation and configuration files
 - Grep — search for specific features or patterns in docs
 - WebSearch — search for Claude Code documentation online

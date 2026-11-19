@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/api"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/api"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // TestQueryLoop_ThinkingDeltaEmitted guards the display chain: thinking

@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
-	"github.com/tunsuy/claude-code-go/internal/mcp"
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/config"
+	"github.com/tunsuy/glaude/internal/mcp"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // ── Minimal stub MCP server for wiring tests ─────────────────────────────────

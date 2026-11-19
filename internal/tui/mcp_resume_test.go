@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/tunsuy/claude-code-go/internal/mcp"
-	"github.com/tunsuy/claude-code-go/internal/session"
-	"github.com/tunsuy/claude-code-go/internal/state"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/mcp"
+	"github.com/tunsuy/glaude/internal/session"
+	"github.com/tunsuy/glaude/internal/state"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // ---------------------------------------------------------------------------

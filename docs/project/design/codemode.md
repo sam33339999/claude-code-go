@@ -177,4 +177,4 @@ Code Mode＋MCP 通知路由组成零轮询待命：
 |------|------|--------|---------|
 | v1.0 | 2026-11-18 | 主会话 | CM-01 v1 实现：moejs 沙箱＋权限 bridge＋progressive discovery＋32KiB cap＋23 测试 |
 | v3.0 | 2026-11-18 | 主会话 | CM-03 v3（A+B 范围）：replay（input＋沙箱 hook，权限照走）；snippets（save_as/run/snippets，全量 code）；副作用审计（写调用记录＋codemode.audit）；审批持久化（CodeMode-scoped approvals.json，Deny 优先，可撤销）；write 闸门（batch_writes 单次批准覆盖全执行写）。权限链 +FromCodeMode/Note/AlwaysInCodeMode；TUI 对话框 CodeMode 选项。新增测试×22。C（git checkpoint rollback）做完后评估。 |
-| v2.0 | 2026-11-18 | 主会话 | CM-02 v2：TypeScript 输入（CompileTS）；批次批准（Ask→批准→执行内同工具预批准，Deny/直接 Allow 不缓存）；结果 spill（>32KiB→文件＋4KiB preview＋指针）；执行历史（history.jsonl＋codemode.history 复用）；受控 import（host modules 目录、flat 名称、256KiB cap）。新增测试×11（工具端×8＋引擎×3），总 34 测试。dataDir 接线 ~/.claude/codemode。 |
+| v2.0 | 2026-11-18 | 主会话 | CM-02 v2：TypeScript 输入（CompileTS）；批次批准（Ask→批准→执行内同工具预批准，Deny/直接 Allow 不缓存）；结果 spill（>32KiB→文件＋4KiB preview＋指针）；执行历史（history.jsonl＋codemode.history 复用）；受控 import（host modules 目录、flat 名称、256KiB cap）。新增测试×11（工具端×8＋引擎×3），总 34 测试。dataDir 接线 ~/.glaude/codemode。 |

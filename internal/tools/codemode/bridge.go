@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/tunsuy/claude-code-go/internal/codemode"
-	"github.com/tunsuy/claude-code-go/internal/permissions"
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/codemode"
+	"github.com/tunsuy/glaude/internal/permissions"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // bridge builds the CallFunc dispatching one inner tool call through the SAME

@@ -4,16 +4,16 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/tunsuy/claude-code-go/internal/commands"
-	"github.com/tunsuy/claude-code-go/internal/coordinator"
-	"github.com/tunsuy/claude-code-go/internal/engine"
-	"github.com/tunsuy/claude-code-go/internal/memdir"
-	"github.com/tunsuy/claude-code-go/internal/msgqueue"
-	"github.com/tunsuy/claude-code-go/internal/permissions"
-	"github.com/tunsuy/claude-code-go/internal/state"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/internal/transcript"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/commands"
+	"github.com/tunsuy/glaude/internal/coordinator"
+	"github.com/tunsuy/glaude/internal/engine"
+	"github.com/tunsuy/glaude/internal/memdir"
+	"github.com/tunsuy/glaude/internal/msgqueue"
+	"github.com/tunsuy/glaude/internal/permissions"
+	"github.com/tunsuy/glaude/internal/state"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/internal/transcript"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // New creates a fully-initialised AppModel and returns it as a tea.Model.
@@ -53,7 +53,7 @@ func New(
 
 // Init is the BubbleTea Init method. It returns the initial Cmd batch:
 //   - Start the spinner ticker.
-//   - Load CLAUDE.md files from the working directory.
+//   - Load GLAUDE.md files from the working directory.
 //   - Start the permission request listener (if HIL is enabled).
 //   - Start the agent event listener (if coordinator is enabled).
 func (m AppModel) Init() tea.Cmd {

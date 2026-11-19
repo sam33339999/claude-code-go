@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/tunsuy/claude-code-go/internal/permissions"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/permissions"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // DefaultMaxToolUseConcurrency is the maximum number of concurrently-executing

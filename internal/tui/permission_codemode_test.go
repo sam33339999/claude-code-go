@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/permissions"
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/permissions"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // TestPermissionDialog_CodeModeOptionText covers CM-03: CodeMode-originated

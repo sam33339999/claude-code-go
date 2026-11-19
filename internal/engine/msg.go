@@ -3,7 +3,7 @@
 package engine
 
 import (
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // MsgType is the discriminator for Msg events emitted by the engine.

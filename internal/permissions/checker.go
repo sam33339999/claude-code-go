@@ -11,9 +11,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tunsuy/claude-code-go/internal/hooks"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/hooks"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // Checker is the top-level permission pipeline interface.
@@ -88,7 +88,7 @@ type CheckerConfig struct {
 	// If nil, Ask decisions are downgraded to Deny.
 	RespCh <-chan AskResponse
 	// Persist optionally configures always-allow rule persistence to the
-	// project's .claude/settings.json. If nil, persistence is disabled and
+	// project's .glaude/settings.json. If nil, persistence is disabled and
 	// always-allow responses only update the in-memory rules.
 	Persist *PersistConfig
 	// ModeFn optionally supplies the live permission mode (BF-09/BF-21).

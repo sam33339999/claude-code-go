@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/glaude/internal/memdir"
 )
 
 func TestDiscoverAll_AllScopes(t *testing.T) {
@@ -18,18 +18,18 @@ func TestDiscoverAll_AllScopes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create Project scope: CLAUDE.md
-	projectClaude := filepath.Join(root, "CLAUDE.md")
+	// Create Project scope: GLAUDE.md
+	projectClaude := filepath.Join(root, "GLAUDE.md")
 	if err := os.WriteFile(projectClaude, []byte("# Project"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create Project scope: .claude/CLAUDE.md
-	dotClaude := filepath.Join(root, ".claude")
+	// Create Project scope: .glaude/GLAUDE.md
+	dotClaude := filepath.Join(root, ".glaude")
 	if err := os.MkdirAll(dotClaude, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	dotClaudeMd := filepath.Join(dotClaude, "CLAUDE.md")
+	dotClaudeMd := filepath.Join(dotClaude, "GLAUDE.md")
 	if err := os.WriteFile(dotClaudeMd, []byte("# Dot Claude"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -69,10 +69,10 @@ func TestDiscoverAll_AllScopes(t *testing.T) {
 		}
 	}
 	if !foundProject {
-		t.Error("expected to find project CLAUDE.md")
+		t.Error("expected to find project GLAUDE.md")
 	}
 	if !foundDotClaude {
-		t.Error("expected to find .claude/CLAUDE.md")
+		t.Error("expected to find .glaude/GLAUDE.md")
 	}
 	if !foundLocal {
 		t.Error("expected to find CLAUDE.local.md")
@@ -103,7 +103,7 @@ func TestDiscoverAll_ProjectOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	projectClaude := filepath.Join(root, "CLAUDE.md")
+	projectClaude := filepath.Join(root, "GLAUDE.md")
 	if err := os.WriteFile(projectClaude, []byte("# Project Only"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestDiscoverAll_ProjectOnly(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("expected to find project CLAUDE.md in results: %v", files)
+		t.Errorf("expected to find project GLAUDE.md in results: %v", files)
 	}
 }
 
@@ -133,7 +133,7 @@ func TestDiscoverAll_RulesDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rulesDir := filepath.Join(root, ".claude", "rules")
+	rulesDir := filepath.Join(root, ".glaude", "rules")
 	if err := os.MkdirAll(rulesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -188,8 +188,8 @@ func TestDiscoverAll_NoGitRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create CLAUDE.md in the starting dir (fallback uses startDir as root).
-	claudePath := filepath.Join(sub, "CLAUDE.md")
+	// Create GLAUDE.md in the starting dir (fallback uses startDir as root).
+	claudePath := filepath.Join(sub, "GLAUDE.md")
 	if err := os.WriteFile(claudePath, []byte("# No Git"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +199,7 @@ func TestDiscoverAll_NoGitRoot(t *testing.T) {
 		t.Fatalf("DiscoverAll returned error: %v", err)
 	}
 
-	// Should still find the CLAUDE.md relative to the fallback directory.
+	// Should still find the GLAUDE.md relative to the fallback directory.
 	found := false
 	for _, f := range files {
 		if f.Path == claudePath {
@@ -226,7 +226,7 @@ func TestFindGitRoot(t *testing.T) {
 	}
 
 	// DiscoverAll should find files relative to the git root, not the sub.
-	projectClaude := filepath.Join(root, "CLAUDE.md")
+	projectClaude := filepath.Join(root, "GLAUDE.md")
 	if err := os.WriteFile(projectClaude, []byte("# Root Project"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +243,7 @@ func TestFindGitRoot(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("expected to find git root CLAUDE.md from subdirectory; got %v", files)
+		t.Errorf("expected to find git root GLAUDE.md from subdirectory; got %v", files)
 	}
 }
 

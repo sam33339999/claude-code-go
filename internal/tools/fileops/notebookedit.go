@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // NotebookEditTool is the exported singleton instance (BF-11: full .ipynb

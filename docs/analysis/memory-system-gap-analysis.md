@@ -14,7 +14,7 @@
 
 原版记忆系统包含 **6 大核心子系统**（Auto Memory、Extract Memories、Auto Dream、Session Memory、
 Team Memory、Relevant Memory Surfacing）和 **完整的 Forked Agent 基础设施**。
-当前 Go 版本仅实现了基础存储层和 CLAUDE.md 加载，高级智能功能几乎全部缺失。
+当前 Go 版本仅实现了基础存储层和 GLAUDE.md 加载，高级智能功能几乎全部缺失。
 
 ---
 
@@ -44,13 +44,13 @@ Team Memory、Relevant Memory Surfacing）和 **完整的 Forked Agent 基础设
 **关键常量与 TS 原版一致**：
 ```go
 // internal/memdir/store.go
-const DefaultMemoryBase = ".claude"
+const DefaultMemoryBase = ".glaude"
 const MemoryFileName    = "MEMORY.md"
 const MaxMemoryIndexLines = 200
 const MaxMemoryIndexBytes = 25_000
 ```
 
-**路径格式**：`~/.claude/projects/<basename>-<sha256_8hex>/memory/`
+**路径格式**：`~/.glaude/projects/<basename>-<sha256_8hex>/memory/`
 
 ### 1.2 记忆类型系统 ✅
 
@@ -67,15 +67,15 @@ const MaxMemoryIndexBytes = 25_000
 - `project` — 项目知识（架构、约定）
 - `reference` — 外部引用（文档、URL）
 
-### 1.3 CLAUDE.md 发现与加载 ✅
+### 1.3 GLAUDE.md 发现与加载 ✅
 
 | 功能 | 状态 | 文件位置 |
 |------|------|----------|
-| 向上遍历发现 CLAUDE.md | ✅ 完成 | `internal/memdir/discover.go` |
+| 向上遍历发现 GLAUDE.md | ✅ 完成 | `internal/memdir/discover.go` |
 | Home 目录去重 | ✅ 完成 | `internal/memdir/discover.go` |
 | 文件内容拼接 (`LoadMemoryPrompt`) | ✅ 完成 | `internal/memdir/loader.go` |
 | UTF-8 安全截断 (`LoadAndTruncate`) | ✅ 完成 | `internal/memdir/loader.go` |
-| CLAUDE.md + MEMORY.md 联合加载 (`LoadAllMemory`) | ✅ 完成 | `internal/memdir/loader.go` |
+| GLAUDE.md + MEMORY.md 联合加载 (`LoadAllMemory`) | ✅ 完成 | `internal/memdir/loader.go` |
 | TUI 异步加载集成 | ✅ 完成 | `internal/tui/init.go`, `update.go`, `cmds.go` |
 
 **TUI 集成流程**：
@@ -104,15 +104,15 @@ Init() → loadMemdirCmd() → MemdirLoadedMsg → update.go 存储到 m.memdirP
 
 ## 二、未实现/不完整功能
 
-### 2.1 ❌ CLAUDE.md 多层作用域（最大架构差距之一）
+### 2.1 ❌ GLAUDE.md 多层作用域（最大架构差距之一）
 
 **原版实现**：
 ```
-1. Managed (最低优先级)  → /etc/claude-code/CLAUDE.md    → 管理员全局指令
-2. User                 → ~/.claude/CLAUDE.md            → 用户全局指令
-3. Project              → {project}/CLAUDE.md            → 项目级指令 (Git 追踪)
-                          {project}/.claude/CLAUDE.md
-                          {project}/.claude/rules/*.md
+1. Managed (最低优先级)  → /etc/claude-code/GLAUDE.md    → 管理员全局指令
+2. User                 → ~/.glaude/GLAUDE.md            → 用户全局指令
+3. Project              → {project}/GLAUDE.md            → 项目级指令 (Git 追踪)
+                          {project}/.glaude/GLAUDE.md
+                          {project}/.glaude/rules/*.md
 4. Local (最高优先级)   → {project}/CLAUDE.local.md      → 个人项目指令 (不入 Git)
 ```
 
@@ -125,16 +125,16 @@ Init() → loadMemdirCmd() → MemdirLoadedMsg → update.go 存储到 m.memdirP
 **当前 Go 实现**：
 ```go
 // internal/memdir/discover.go — DiscoverClaudeMd()
-// 仅遍历 startDir → parents → home，只查找 CLAUDE.md
-p := filepath.Join(d, "CLAUDE.md")
+// 仅遍历 startDir → parents → home，只查找 GLAUDE.md
+p := filepath.Join(d, "GLAUDE.md")
 if isReadableFile(p) { paths = append(paths, p) }
 ```
 
 **差距分析**：
-- ❌ 不支持 `/etc/claude-code/CLAUDE.md`（Managed 层）
+- ❌ 不支持 `/etc/claude-code/GLAUDE.md`（Managed 层）
 - ❌ 不支持 `CLAUDE.local.md`（Local 层）
-- ❌ 不支持 `.claude/CLAUDE.md` 子目录
-- ❌ 不支持 `.claude/rules/*.md` 规则目录
+- ❌ 不支持 `.glaude/GLAUDE.md` 子目录
+- ❌ 不支持 `.glaude/rules/*.md` 规则目录
 - ❌ 不支持 `@include` 指令
 - ❌ 没有层级优先级语义（后加载优先）
 - ❌ 没有 `MemoryType`（User/Project/Local/Managed）分层标识
@@ -232,7 +232,7 @@ await runForkedAgent({
 |------|---------------|-------------|
 | 生命周期 | 当前会话 | 跨会话持久 |
 | 用途 | Compact 后的上下文恢复 | 长期知识积累 |
-| 存储位置 | `~/.claude/session-memory/` | `~/.claude/projects/*/memory/` |
+| 存储位置 | `~/.glaude/session-memory/` | `~/.glaude/projects/*/memory/` |
 
 **当前 Go 实现**：
 - **完全没有实现**
@@ -375,7 +375,7 @@ func (t *agentTool) Call(...) (*tools.Result, error) {
 **原版实现**：
 ```typescript
 type Attachment =
-  | { type: 'nested_memory'; path: string; content: MemoryFileInfo }   // CLAUDE.md 层级
+  | { type: 'nested_memory'; path: string; content: MemoryFileInfo }   // GLAUDE.md 层级
   | { type: 'relevant_memories'; memories: RelevantMemory[] }          // 相关记忆
   | { type: 'current_session_memory'; content: string; path: string }  // 会话记忆
 
@@ -537,11 +537,11 @@ function isAutoMemoryEnabled(): boolean {
 ```
 > /memory
 ┌── Memory ──────────────────────────────┐
-│  📁 CLAUDE.md files                     │
-│    ~/.claude/CLAUDE.md                  │
-│    ./CLAUDE.md                          │
+│  📁 GLAUDE.md files                     │
+│    ~/.glaude/GLAUDE.md                  │
+│    ./GLAUDE.md                          │
 │  📁 Auto-memory files                   │
-│    ~/.claude/projects/.../memory/       │
+│    ~/.glaude/projects/.../memory/       │
 │      MEMORY.md                          │
 │      user_preferences.md                │
 │  Select a file to edit...               │
@@ -554,8 +554,8 @@ function isAutoMemoryEnabled(): boolean {
 // internal/commands/builtins.go:269-299
 // 仅输出固定描述文本
 sb.WriteString("📝 Memory System Status\n\n")
-sb.WriteString("## CLAUDE.md Files\n")
-sb.WriteString("CLAUDE.md files are auto-discovered from the working directory\n")
+sb.WriteString("## GLAUDE.md Files\n")
+sb.WriteString("GLAUDE.md files are auto-discovered from the working directory\n")
 sb.WriteString("up to the filesystem root and the home directory.\n\n")
 ```
 
@@ -663,7 +663,7 @@ func getStore(_ *tools.UseContext) *memdir.MemoryStore {
 |------|----------------|---------|--------|
 | **记忆存储层** | 完整（路径 + 读写 + 索引） | 完整 | ✅ 100% |
 | **记忆类型系统** | 四类型 + 六层作用域 | 四类型（缺作用域分层） | ⚠️ 70% |
-| **CLAUDE.md 加载** | 6 层 + @include + rules/*.md | 仅基础遍历 | ⚠️ 40% |
+| **GLAUDE.md 加载** | 6 层 + @include + rules/*.md | 仅基础遍历 | ⚠️ 40% |
 | **记忆工具（LLM）** | FileWrite/Edit 直接操作 | MemoryRead/Write/Delete | ✅ 90% |
 | **记忆提取（Extract）** | Forked Agent 后台自动提取 | 无 | ❌ 0% |
 | **记忆整合（Dream）** | 多级门控 + 四阶段整合 | 无 | ❌ 0% |
@@ -699,7 +699,7 @@ func getStore(_ *tools.UseContext) *memdir.MemoryStore {
 
 | # | 功能 | 工作量估算 | 前置依赖 |
 |---|------|-----------|----------|
-| 2 | CLAUDE.md 多层作用域 | 1.5 天 | 无 |
+| 2 | GLAUDE.md 多层作用域 | 1.5 天 | 无 |
 | 3 | StopHooks 触发机制 | 1 天 | 无（但完整效果需 P0） |
 | 4 | 记忆提取（Extract Memories） | 3 天 | P0 |
 | 5 | 相关记忆检索（Relevant Memory） | 3 天 | P0 + 附件系统 |
@@ -737,18 +737,18 @@ func getStore(_ *tools.UseContext) *memdir.MemoryStore {
 
 ## 五、实现建议
 
-### 5.1 CLAUDE.md 多层作用域（P1）
+### 5.1 GLAUDE.md 多层作用域（P1）
 
 ```go
 // 建议修改: internal/memdir/discover.go
 
-// MemoryScope 表示 CLAUDE.md 文件的作用域层级
+// MemoryScope 表示 GLAUDE.md 文件的作用域层级
 type MemoryScope int
 
 const (
-    ScopeManaged MemoryScope = iota // /etc/claude-code/CLAUDE.md
-    ScopeUser                       // ~/.claude/CLAUDE.md
-    ScopeProject                    // {project}/CLAUDE.md, .claude/CLAUDE.md, .claude/rules/*.md
+    ScopeManaged MemoryScope = iota // /etc/claude-code/GLAUDE.md
+    ScopeUser                       // ~/.glaude/GLAUDE.md
+    ScopeProject                    // {project}/GLAUDE.md, .glaude/GLAUDE.md, .glaude/rules/*.md
     ScopeLocal                      // {project}/CLAUDE.local.md
 )
 
@@ -758,18 +758,18 @@ type DiscoveredFile struct {
     Scope MemoryScope
 }
 
-// DiscoverClaudeMdScoped 发现所有 CLAUDE.md 文件并标注作用域
+// DiscoverClaudeMdScoped 发现所有 GLAUDE.md 文件并标注作用域
 func DiscoverClaudeMdScoped(startDir string) []DiscoveredFile {
     var files []DiscoveredFile
     
     // 1. Managed 层
-    if isReadableFile("/etc/claude-code/CLAUDE.md") {
-        files = append(files, DiscoveredFile{"/etc/claude-code/CLAUDE.md", ScopeManaged})
+    if isReadableFile("/etc/claude-code/GLAUDE.md") {
+        files = append(files, DiscoveredFile{"/etc/claude-code/GLAUDE.md", ScopeManaged})
     }
     
     // 2. User 层
     home, _ := os.UserHomeDir()
-    userFile := filepath.Join(home, ".claude", "CLAUDE.md")
+    userFile := filepath.Join(home, ".glaude", "GLAUDE.md")
     if isReadableFile(userFile) {
         files = append(files, DiscoveredFile{userFile, ScopeUser})
     }
@@ -777,15 +777,15 @@ func DiscoverClaudeMdScoped(startDir string) []DiscoveredFile {
     // 3. Project 层 — 遍历到 git root
     projectDir := findGitRoot(startDir)
     for _, candidate := range []string{
-        filepath.Join(projectDir, "CLAUDE.md"),
-        filepath.Join(projectDir, ".claude", "CLAUDE.md"),
+        filepath.Join(projectDir, "GLAUDE.md"),
+        filepath.Join(projectDir, ".glaude", "GLAUDE.md"),
     } {
         if isReadableFile(candidate) {
             files = append(files, DiscoveredFile{candidate, ScopeProject})
         }
     }
-    // .claude/rules/*.md
-    rulesDir := filepath.Join(projectDir, ".claude", "rules")
+    // .glaude/rules/*.md
+    rulesDir := filepath.Join(projectDir, ".glaude", "rules")
     if entries, err := os.ReadDir(rulesDir); err == nil {
         for _, e := range entries {
             if strings.HasSuffix(e.Name(), ".md") {
@@ -922,13 +922,13 @@ func getStore(_ *tools.UseContext) *memdir.MemoryStore {
 
 ```go
 // internal/commands/builtins.go:274-285
-sb.WriteString("CLAUDE.md files are auto-discovered from the working directory\n")
+sb.WriteString("GLAUDE.md files are auto-discovered from the working directory\n")
 // ❌ 仅输出固定文本，不展示实际发现的文件路径和记忆列表
 ```
 
 **建议**：接入 `DiscoverClaudeMd` 和 `MemoryStore.ListMemories`，展示实际文件路径和记忆数量。
 
-### 6.3 CLAUDE.md 加载仅在 Init 时执行一次
+### 6.3 GLAUDE.md 加载仅在 Init 时执行一次
 
 ```go
 // internal/tui/update.go:34-37
@@ -947,7 +947,7 @@ case MemdirLoadedMsg:
 TUI Init() → loadMemdirCmd → DiscoverClaudeMd → LoadMemoryPrompt → 注入 SystemPrompt
 ```
 
-**问题**：`LoadMemoryPrompt` 只加载 CLAUDE.md 文件，不加载 MEMORY.md 索引。虽然 `LoadAllMemory` 函数支持联合加载，但 TUI 层并未调用它。
+**问题**：`LoadMemoryPrompt` 只加载 GLAUDE.md 文件，不加载 MEMORY.md 索引。虽然 `LoadAllMemory` 函数支持联合加载，但 TUI 层并未调用它。
 
 **建议**：在 `MemdirLoadedMsg` 处理中改用 `LoadAllMemory`，同时传入 MemoryStore。
 
@@ -973,7 +973,7 @@ TUI Init() → loadMemdirCmd → DiscoverClaudeMd → LoadMemoryPrompt → 注�
 
 **实现顺序建议**：
 1. `P0` Forked Agent 基础设施
-2. `P1` CLAUDE.md 多层作用域（独立，无前置依赖）
+2. `P1` GLAUDE.md 多层作用域（独立，无前置依赖）
 3. `P1` StopHooks 触发框架
 4. `P1` 记忆提取（Extract Memories）
 5. `P2` 附件注入系统
@@ -988,7 +988,7 @@ TUI Init() → loadMemdirCmd → DiscoverClaudeMd → LoadMemoryPrompt → 注�
 
 1. **[Epic] 记忆系统完善** — 跟踪整体进度
 2. **[P0] 实现 Forked Agent 基础设施** — 关键前置依赖
-3. **[P1] 实现 CLAUDE.md 多层作用域** — 核心功能差距
+3. **[P1] 实现 GLAUDE.md 多层作用域** — 核心功能差距
 4. **[P1] 实现 StopHooks 触发框架** — 后台任务入口
 5. **[P1] 实现记忆自动提取（Extract Memories）** — 核心智能功能
 6. **[P1] 实现相关记忆检索（Relevant Memory）** — 记忆利用率

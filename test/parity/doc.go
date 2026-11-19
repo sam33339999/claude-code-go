@@ -7,7 +7,7 @@
 // coverage or self-authored tests.
 //
 // The oracle is injected via the CCG_PARITY_ORACLE environment variable and
-// the Go build via CCG_PARITY_TARGET (default: bin/claude). Without an
+// the Go build via CCG_PARITY_TARGET (default: bin/glaude). Without an
 // oracle every comparison test SKIPs, so ordinary `go test ./...` and CI stay
 // green; `make parity` builds the target and runs the suite.
 //

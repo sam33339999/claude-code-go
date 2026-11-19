@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/glaude/internal/memdir"
 )
 
 // RegisterBuiltins registers all built-in slash commands into r.
@@ -70,7 +70,7 @@ func cmdHelp(r *Registry) *Command {
 func cmdExit() *Command {
 	return &Command{
 		Name:        "exit",
-		Description: "Exit Claude Code",
+		Description: "Exit Glaude",
 		Execute: func(ctx CommandContext, args string) Result {
 			return Result{
 				Text:       "Goodbye!",
@@ -272,7 +272,7 @@ func cmdCompact() *Command {
 func cmdMemory() *Command {
 	return &Command{
 		Name:        "memory",
-		Description: "Show loaded CLAUDE.md memory files and auto-memories",
+		Description: "Show loaded GLAUDE.md memory files and auto-memories",
 		Execute: func(ctx CommandContext, args string) Result {
 			store, _ := memdir.NewMemoryStore(ctx.WorkingDir)
 			text := memdir.FormatMemoryStatus(ctx.WorkingDir, store)
@@ -355,10 +355,10 @@ func cmdDiff() *Command {
 func cmdInit() *Command {
 	return &Command{
 		Name:        "init",
-		Description: "Generate a CLAUDE.md for this project",
+		Description: "Generate a GLAUDE.md for this project",
 		Execute: func(ctx CommandContext, args string) Result {
 			return Result{
-				Text:    "Please generate a CLAUDE.md file for this project.",
+				Text:    "Please generate a GLAUDE.md file for this project.",
 				Display: DisplayNone,
 			}
 		},

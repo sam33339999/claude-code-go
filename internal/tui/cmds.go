@@ -5,13 +5,13 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/tunsuy/claude-code-go/internal/commands"
-	"github.com/tunsuy/claude-code-go/internal/coordinator"
-	"github.com/tunsuy/claude-code-go/internal/engine"
-	"github.com/tunsuy/claude-code-go/internal/memdir"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/internal/transcript"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/commands"
+	"github.com/tunsuy/glaude/internal/coordinator"
+	"github.com/tunsuy/glaude/internal/engine"
+	"github.com/tunsuy/glaude/internal/memdir"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/internal/transcript"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // startQueryCmd builds a tea.Cmd that launches a new query against the engine.
@@ -54,7 +54,7 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 	messages = append(messages, userMsg)
 
 	// F-1 fix: build a complete QueryParams, not just Messages.
-	// Stable system prefix: CLAUDE.md content, then the resident-coordinator
+	// Stable system prefix: GLAUDE.md content, then the resident-coordinator
 	// role prompt when coordinator mode is active. One cache breakpoint at
 	// the end of the stable section; dynamic memory reminders are appended
 	// after it (turn-tail state, never cached into the prefix).

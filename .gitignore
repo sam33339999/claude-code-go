@@ -5,8 +5,8 @@ coverage.html
 .DS_Store
 
 # Local Claude Code settings (machine-specific permissions)
-.claude/settings.local.json
+.glaude/settings.local.json
 
 # Local session data (BF-18 persistence) and CodeMode runtime data (CM-02)
-.claude/projects/
-.claude/codemode/
+.glaude/projects/
+.glaude/codemode/

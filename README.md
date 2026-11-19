@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Claude Code Go Logo" width="200">
+  <img src="assets/logo.png" alt="Glaude Logo" width="200">
 </p>
 
-<h1 align="center">Claude Code Go</h1>
+<h1 align="center">Glaude</h1>
 
 <p align="center">
   <strong>🤖 A Go reimplementation of Claude Code — AI coding assistant in your terminal</strong>
@@ -10,13 +10,13 @@
 
 <p align="center">
   <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version"></a>
-  <a href="https://goreportcard.com/report/github.com/tunsuy/claude-code-go"><img src="https://goreportcard.com/badge/github.com/tunsuy/claude-code-go?style=flat-square" alt="Go Report Card"></a>
-  <a href="https://codecov.io/gh/tunsuy/claude-code-go"><img src="https://codecov.io/gh/tunsuy/claude-code-go/branch/main/graph/badge.svg?style=flat-square" alt="codecov"></a>
-  <a href="https://pkg.go.dev/github.com/tunsuy/claude-code-go"><img src="https://pkg.go.dev/badge/github.com/tunsuy/claude-code-go.svg" alt="Go Reference"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/claude-code-go/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/releases"><img src="https://img.shields.io/github/v/release/tunsuy/claude-code-go?style=flat-square&logo=github" alt="Release"></a>
+  <a href="https://goreportcard.com/report/github.com/tunsuy/glaude"><img src="https://goreportcard.com/badge/github.com/tunsuy/glaude?style=flat-square" alt="Go Report Card"></a>
+  <a href="https://codecov.io/gh/tunsuy/glaude"><img src="https://codecov.io/gh/tunsuy/glaude/branch/main/graph/badge.svg?style=flat-square" alt="codecov"></a>
+  <a href="https://pkg.go.dev/github.com/tunsuy/glaude"><img src="https://pkg.go.dev/badge/github.com/tunsuy/glaude.svg" alt="Go Reference"></a>
+  <a href="https://github.com/tunsuy/glaude/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/glaude/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
+  <a href="https://github.com/tunsuy/glaude/releases"><img src="https://img.shields.io/github/v/release/tunsuy/glaude?style=flat-square&logo=github" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
+  <a href="https://github.com/tunsuy/glaude/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
 </p>
 
 <p align="center">
@@ -32,13 +32,13 @@
 ---
 
 <p align="center">
-  <img src="assets/image.png" alt="Claude Code Go - Interactive Session" width="800">
+  <img src="assets/image.png" alt="Glaude - Interactive Session" width="800">
   <br>
   <em>Interactive TUI with file reading and real-time thinking display</em>
 </p>
 
 <p align="center">
-  <img src="assets/image1.png" alt="Claude Code Go - Project Analysis" width="800">
+  <img src="assets/image1.png" alt="Glaude - Project Analysis" width="800">
   <br>
   <em>Comprehensive project analysis with architecture breakdown</em>
 </p>
@@ -58,7 +58,7 @@ This project is a **complete Go reimplementation of [Claude Code](https://claude
 <table>
   <tr>
     <td width="180"><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075"><img src="assets/sponsors/orcarouter.png" alt="OrcaRouter" width="150"></a></td>
-    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> — one gateway, every model. OrcaRouter routes each request to the best-fit model among 200+ (frontier and open-source) models at provider prices, with failover and request logs. It is OpenAI-compatible and plugs straight into Claude Code Go — see <a href="#api-providers">API Providers</a> for the exact configuration.</td>
+    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> — one gateway, every model. OrcaRouter routes each request to the best-fit model among 200+ (frontier and open-source) models at provider prices, with failover and request logs. It is OpenAI-compatible and plugs straight into Glaude — see <a href="#api-providers">API Providers</a> for the exact configuration.</td>
   </tr>
 </table>
 
@@ -67,24 +67,24 @@ This project is a **complete Go reimplementation of [Claude Code](https://claude
 - **Interactive TUI** — Full-featured terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), with dark/light themes
 - **Agentic tool use** — 35 built-in tools (file, shell, search, web, tasks, sub-agents, …), all mediated through a 9-layer permission pipeline
 - **Code Mode** — The model writes JavaScript/TypeScript that composes many tool calls in ONE sandboxed execution (pure-Go [moejs](https://github.com/MoeForge/moejs) engine): replay, reusable snippets, write auditing, batch approvals — see [Code Mode](#code-mode)
-- **CLI subcommands** — `claude mcp …`, `claude plugin …`, `claude auth …`, `claude doctor`, `claude update`; the `mcp` and `plugin` groups produce byte-for-byte identical output to the TypeScript CLI
-- **Plugin management** — Install/enable/disable plugins from local marketplaces, with full manifest validation (`claude plugin validate`)
+- **CLI subcommands** — `glaude mcp …`, `glaude plugin …`, `glaude auth …`, `glaude doctor`, `glaude update`; the `mcp` and `plugin` groups produce byte-for-byte identical output to the TypeScript CLI
+- **Plugin management** — Install/enable/disable plugins from local marketplaces, with full manifest validation (`glaude plugin validate`)
 - **Multi-agent coordination** — Spawn background sub-agents for parallel tasks
 - **MCP support** — Connect external tools via the [Model Context Protocol](https://modelcontextprotocol.io) (stdio + HTTP + WebSocket transports), importable from Claude Desktop; server push notifications wake the agent event-driven (zero polling)
-- **CLAUDE.md memory** — Auto-loads project context from `CLAUDE.md` files up the directory tree
+- **GLAUDE.md memory** — Auto-loads project context from `GLAUDE.md` files up the directory tree
 - **Session management** — Resume previous conversations; compact long histories automatically
 - **Vim mode** — Optional Vim key bindings in the input area
-- **OAuth + API key auth** — Sign in with Anthropic OAuth (`claude auth login`) or supply an `ANTHROPIC_API_KEY`
+- **OAuth + API key auth** — Sign in with Anthropic OAuth (`glaude auth login`) or supply an `ANTHROPIC_API_KEY`
 - **Built-in slash commands** — `/compact`, `/commit`, `/review`, `/model`, `/theme`, and more (see below)
 - **Streaming responses** — Real-time token streaming with thinking-block display
 
 ## Architecture
 
-Claude Code Go is organized in six layers:
+Glaude is organized in six layers:
 
 ```
 ┌─────────────────────────────────────┐
-│  CLI (cmd/claude)                   │  cobra entry point
+│  CLI (cmd/glaude)                   │  cobra entry point
 ├─────────────────────────────────────┤
 │  TUI (internal/tui)                 │  Bubble Tea v2 MVU interface
 ├─────────────────────────────────────┤
@@ -112,10 +112,10 @@ See [`docs/project/architecture.md`](docs/project/architecture.md) for a detaile
 ### From source
 
 ```bash
-git clone https://github.com/tunsuy/claude-code-go.git
-cd claude-code-go
+git clone https://github.com/tunsuy/glaude.git
+cd glaude
 make build
-# Binary is placed at ./bin/claude
+# Binary is placed at ./bin/glaude
 ```
 
 Add to your `PATH`:
@@ -127,7 +127,7 @@ export PATH="$PATH:$(pwd)/bin"
 ### Using `go install`
 
 ```bash
-go install github.com/tunsuy/claude-code-go/cmd/claude@latest
+go install github.com/tunsuy/glaude/cmd/glaude@latest
 ```
 
 ## Quick Start
@@ -140,10 +140,10 @@ export ANTHROPIC_API_KEY=sk-ant-...
 claude
 
 # Ask a one-shot question and exit
-claude -p "Explain the main entry point of this project"
+glaude -p "Explain the main entry point of this project"
 
 # Resume the most recent session
-claude --resume
+glaude --resume
 ```
 
 ## Authentication
@@ -153,19 +153,19 @@ claude --resume
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 # or store it persistently:
-claude auth login --api-key sk-ant-...
+glaude auth login --api-key sk-ant-...
 ```
 
 **OAuth (recommended for interactive use):**
 
 ```bash
-claude auth login    # opens the OAuth flow in your browser
-claude auth status   # check who you're signed in as
+glaude auth login    # opens the OAuth flow in your browser
+glaude auth status   # check who you're signed in as
 ```
 
 ## API Providers
 
-Claude Code Go supports multiple API providers, allowing you to use not just Anthropic's API, but also OpenAI-compatible APIs.
+Glaude supports multiple API providers, allowing you to use not just Anthropic's API, but also OpenAI-compatible APIs.
 
 ### Supported Providers
 
@@ -278,7 +278,7 @@ export OPENAI_MODEL=orcarouter/auto   # let OrcaRouter pick the model per reques
 ### Interactive mode
 
 ```
-claude [flags]
+glaude [flags]
 ```
 
 | Flag | Description |
@@ -296,17 +296,17 @@ Non-interactive management commands. The `mcp` and `plugin` groups are byte-for-
 
 | Command | Description |
 |---------|-------------|
-| `claude mcp add <name> -- <command> [args…]` | Register a stdio MCP server (`--transport http <name> <url>` for remote, `-e KEY=VAL` for env) |
-| `claude mcp list` / `claude mcp get <name>` | List configured servers / health-check one |
-| `claude mcp add-json <name> <json>` | Register a server from raw JSON |
-| `claude mcp add-from-claude-desktop` | Import servers from Claude Desktop's config |
-| `claude mcp remove <name>` / `reset-project-choices` | Remove a server / reset project-local choices |
-| `claude plugin install <plugin>` | Install a plugin from a configured marketplace |
-| `claude plugin list` / `enable` / `disable` / `uninstall` / `update` | Manage installed plugins |
-| `claude plugin validate <path>` | Validate a plugin or marketplace manifest (`--strict`, `--json`) |
-| `claude plugin marketplace add/list/remove/update` | Manage plugin marketplaces (local paths) |
-| `claude auth login` / `logout` / `status` | OAuth or API-key authentication |
-| `claude doctor` | Environment health check |
+| `glaude mcp add <name> -- <command> [args…]` | Register a stdio MCP server (`--transport http <name> <url>` for remote, `-e KEY=VAL` for env) |
+| `glaude mcp list` / `glaude mcp get <name>` | List configured servers / health-check one |
+| `glaude mcp add-json <name> <json>` | Register a server from raw JSON |
+| `glaude mcp add-from-claude-desktop` | Import servers from Claude Desktop's config |
+| `glaude mcp remove <name>` / `reset-project-choices` | Remove a server / reset project-local choices |
+| `glaude plugin install <plugin>` | Install a plugin from a configured marketplace |
+| `glaude plugin list` / `enable` / `disable` / `uninstall` / `update` | Manage installed plugins |
+| `glaude plugin validate <path>` | Validate a plugin or marketplace manifest (`--strict`, `--json`) |
+| `glaude plugin marketplace add/list/remove/update` | Manage plugin marketplaces (local paths) |
+| `glaude auth login` / `logout` / `status` | OAuth or API-key authentication |
+| `glaude doctor` | Environment health check |
 
 ### Slash commands
 
@@ -325,12 +325,12 @@ Type `/` in the input to see all available commands:
 | `/status` | Show session status |
 | `/cost` | Show token usage for this session |
 | `/session` | Show current session ID |
-| `/memory` | Show loaded CLAUDE.md memory files |
+| `/memory` | Show loaded GLAUDE.md memory files |
 | `/dream` | Manually trigger memory consolidation |
 | `/review` | Review the current git diff with Claude |
 | `/commit` | Ask Claude to write and create a git commit |
 | `/diff` | Show the current git diff |
-| `/init` | Generate a CLAUDE.md for this project |
+| `/init` | Generate a GLAUDE.md for this project |
 
 `/config`, `/mcp`, `/resume`, and `/terminal-setup` are fully implemented (session resume, MCP status, interactive settings, terminal keybinding setup).
 
@@ -376,7 +376,7 @@ Tool input fields: `code`, `typescript` (type-stripping compile), `replay` (re-r
 - **Snippets**: turn successful runs into named, reusable scripts (`save_as` → `codemode.run`). Snippets store the full code; nested runs share the caller's approval scope (recursion depth capped at 3).
 - **Write audit**: every executed write call is recorded (`tool` + input summary) per execution — an honest trail of *what changed*, queryable via `codemode.audit`.
 
-Runtime data lives under `~/.claude/codemode/`: `history.jsonl`, `spill/`, `modules/`, `snippets/`, `approvals.json`.
+Runtime data lives under `~/.glaude/codemode/`: `history.jsonl`, `spill/`, `modules/`, `snippets/`, `approvals.json`.
 
 ### Event-driven standby (zero polling)
 
@@ -440,8 +440,8 @@ make all
 ### Project layout
 
 ```
-claude-code-go/
-├── cmd/claude/          # CLI entry point
+glaude/
+├── cmd/glaude/          # CLI entry point
 ├── internal/
 │   ├── api/             # Anthropic API client & streaming
 │   ├── bootstrap/       # App initialisation
@@ -453,7 +453,7 @@ claude-code-go/
 │   ├── engine/          # Query engine, tool dispatch
 │   ├── hooks/           # Pre/post-tool hooks
 │   ├── mcp/             # MCP server management
-│   ├── memdir/          # CLAUDE.md loader
+│   ├── memdir/          # GLAUDE.md loader
 │   ├── oauth/           # OAuth2 flow
 │   ├── permissions/     # Tool permission layer
 │   ├── plugin/          # Plugin system

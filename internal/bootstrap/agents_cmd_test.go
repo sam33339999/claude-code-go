@@ -22,10 +22,10 @@ func writeAgentDef(t *testing.T, dir, name, model string) {
 func TestFormatAgentsList_ShadowingAndGroups(t *testing.T) {
 	home := t.TempDir()
 	cwd := t.TempDir()
-	writeAgentDef(t, filepath.Join(home, ".claude", "agents"), "alpha", "sonnet")
-	writeAgentDef(t, filepath.Join(home, ".claude", "agents"), "beta", "")
-	writeAgentDef(t, filepath.Join(cwd, ".claude", "agents"), "alpha", "opus")
-	writeAgentDef(t, filepath.Join(cwd, ".claude", "agents"), "gamma", "haiku")
+	writeAgentDef(t, filepath.Join(home, ".glaude", "agents"), "alpha", "sonnet")
+	writeAgentDef(t, filepath.Join(home, ".glaude", "agents"), "beta", "")
+	writeAgentDef(t, filepath.Join(cwd, ".glaude", "agents"), "alpha", "opus")
+	writeAgentDef(t, filepath.Join(cwd, ".glaude", "agents"), "gamma", "haiku")
 
 	out, err := formatAgentsList(home, cwd, "")
 	if err != nil {
@@ -55,8 +55,8 @@ func TestFormatAgentsList_ShadowingAndGroups(t *testing.T) {
 func TestFormatAgentsList_SourcesFilter(t *testing.T) {
 	home := t.TempDir()
 	cwd := t.TempDir()
-	writeAgentDef(t, filepath.Join(home, ".claude", "agents"), "useronly", "")
-	writeAgentDef(t, filepath.Join(cwd, ".claude", "agents"), "projonly", "")
+	writeAgentDef(t, filepath.Join(home, ".glaude", "agents"), "useronly", "")
+	writeAgentDef(t, filepath.Join(cwd, ".glaude", "agents"), "projonly", "")
 
 	out, err := formatAgentsList(home, cwd, "project")
 	if err != nil {

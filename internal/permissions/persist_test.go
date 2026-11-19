@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/config"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
-// readProjectAllowRules reads permissions.allow from dir/.claude/settings.json.
+// readProjectAllowRules reads permissions.allow from dir/.glaude/settings.json.
 func readProjectAllowRules(t *testing.T, dir string) []string {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(dir, config.ClaudeDir, config.SettingsFile))

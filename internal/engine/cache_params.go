@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // cacheParamsFilename is the default filename for persisted cache parameters.
@@ -37,7 +37,7 @@ type cacheParamsJSON struct {
 	Model           string          `json:"model,omitempty"`
 }
 
-// SaveCacheSafeParams persists cache parameters to ~/.claude/cache-params.json.
+// SaveCacheSafeParams persists cache parameters to ~/.glaude/cache-params.json.
 // Only the serializable fields (SystemPrompt, ContextMessages) are written;
 // ToolUseContext must be reconstructed at load time.
 func SaveCacheSafeParams(params *CacheSafeParams) error {
@@ -74,7 +74,7 @@ func SaveCacheSafeParams(params *CacheSafeParams) error {
 	return nil
 }
 
-// LoadCacheSafeParams loads cache parameters from ~/.claude/cache-params.json.
+// LoadCacheSafeParams loads cache parameters from ~/.glaude/cache-params.json.
 // The returned CacheSafeParams will have ToolUseContext set to nil; callers must
 // populate it before passing to RunForkedAgent.
 func LoadCacheSafeParams() (*CacheSafeParams, error) {
@@ -102,13 +102,13 @@ func LoadCacheSafeParams() (*CacheSafeParams, error) {
 	}, nil
 }
 
-// cacheParamsDir returns the directory path for cache parameter storage (~/.claude).
+// cacheParamsDir returns the directory path for cache parameter storage (~/.glaude).
 func cacheParamsDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home dir: %w", err)
 	}
-	return filepath.Join(home, ".claude"), nil
+	return filepath.Join(home, ".glaude"), nil
 }
 
 // SaveCacheSafeParamsTo persists cache parameters to a specified file path.

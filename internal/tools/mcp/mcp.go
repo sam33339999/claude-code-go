@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	agtmcp "github.com/tunsuy/claude-code-go/internal/mcp"
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	agtmcp "github.com/tunsuy/glaude/internal/mcp"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // ── Dynamic per-server tool registration ─────────────────────────────────────

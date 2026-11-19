@@ -1,4 +1,4 @@
-# Contributing to Claude Code Go
+# Contributing to Glaude
 
 Thank you for your interest in contributing! This document explains how to set up your development environment, our coding standards, and the pull request process.
 
@@ -25,12 +25,12 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 1. **Fork** the repository on GitHub.
 2. **Clone** your fork locally:
    ```bash
-   git clone https://github.com/<your-username>/claude-code-go.git
-   cd claude-code-go
+   git clone https://github.com/<your-username>/glaude.git
+   cd glaude
    ```
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/anthropics/claude-code-go.git
+   git remote add upstream https://github.com/anthropics/glaude.git
    ```
 
 ## Development Setup
@@ -49,7 +49,7 @@ make all    # runs build + test + vet
 **Individual targets:**
 
 ```bash
-make build        # compile → bin/claude
+make build        # compile → bin/glaude
 make test         # run all tests with -race
 make test-cover   # run tests and open HTML coverage report
 make vet          # go vet ./...
@@ -187,14 +187,14 @@ CLI  →  TUI  →  Tools  →  Engine  →  Services  →  Infra
 | Engine | `internal/engine` | Streaming query loop, tool dispatch, multi-agent coordinator |
 | Tools | `internal/tools`, `internal/tool`, `internal/permissions` | Built-in tools (file, shell, search), permission gating |
 | TUI | `internal/tui`, `internal/commands` | Bubble Tea UI, slash commands |
-| CLI | `cmd/claude`, `internal/bootstrap` | Cobra entry point, app initialisation |
+| CLI | `cmd/glaude`, `internal/bootstrap` | Cobra entry point, app initialisation |
 
 For a deeper dive see [`docs/project/architecture.md`](docs/project/architecture.md).
 
 ## Reporting Bugs
 
 Please use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) when opening a bug issue. Include:
-- Claude Code Go version (`claude --version`)
+- Glaude version (`glaude --version`)
 - Go version (`go version`)
 - OS and terminal emulator
 - Steps to reproduce
@@ -207,4 +207,4 @@ Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md). D
 
 ## Questions?
 
-Feel free to open a [GitHub Discussion](https://github.com/tunsuy/claude-code-go/discussions) for questions, ideas, or general feedback.
+Feel free to open a [GitHub Discussion](https://github.com/tunsuy/glaude/discussions) for questions, ideas, or general feedback.

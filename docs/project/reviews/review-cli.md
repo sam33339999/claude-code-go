@@ -73,7 +73,7 @@ CLI 设计扎实。6 阶段引导序列、4 种运行模式、Cobra 命令树和
 
 5. **补充 `--session-id` 的 UUID 验证规范** — 引用 `github.com/google/uuid` 并指定接受的版本。
 
-6. **记录 `doctor` 信任范围** — 添加安全注释，明确说明 `doctor` 在无信任确认时启动 MCP 服务器，仅读取用户范围的 MCP 配置（`~/.claude/settings.json`），而非项目范围的 `.claude/settings.json`。
+6. **记录 `doctor` 信任范围** — 添加安全注释，明确说明 `doctor` 在无信任确认时启动 MCP 服务器，仅读取用户范围的 MCP 配置（`~/.glaude/settings.json`），而非项目范围的 `.glaude/settings.json`。
 
 ---
 

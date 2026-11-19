@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // blockedDevicePaths is the list of device files that must never be read.

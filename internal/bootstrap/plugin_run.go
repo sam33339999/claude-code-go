@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
-// RunE bodies for the `claude plugin` subcommands (enable/disable/update and
+// RunE bodies for the `glaude plugin` subcommands (enable/disable/update and
 // list; install/uninstall live in plugin_install.go, marketplace in
 // plugin_marketplace.go, validate in plugin_validate.go, rendering in
 // plugin_render.go).  Each body takes a pluginDeps bundle (writers + store)

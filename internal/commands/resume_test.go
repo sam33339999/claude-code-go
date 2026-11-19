@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/commands"
-	"github.com/tunsuy/claude-code-go/internal/session"
-	"github.com/tunsuy/claude-code-go/pkg/types"
-	utilfs "github.com/tunsuy/claude-code-go/pkg/utils/fs"
+	"github.com/tunsuy/glaude/internal/commands"
+	"github.com/tunsuy/glaude/internal/session"
+	"github.com/tunsuy/glaude/pkg/types"
+	utilfs "github.com/tunsuy/glaude/pkg/utils/fs"
 )
 
 // ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ func sessionFilePath(t *testing.T, cwd, sid string) string {
 	if err != nil {
 		t.Fatalf("ProjectHash: %v", err)
 	}
-	return filepath.Join(cwd, ".claude", "projects", hash, sid+".jsonl")
+	return filepath.Join(cwd, ".glaude", "projects", hash, sid+".jsonl")
 }
 
 // setSessionModTime forces a deterministic modification time on a session file.

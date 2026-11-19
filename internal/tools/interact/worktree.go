@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/state"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
-	"github.com/tunsuy/claude-code-go/pkg/utils/ids"
+	"github.com/tunsuy/glaude/internal/state"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
+	"github.com/tunsuy/glaude/pkg/utils/ids"
 )
 
 // ── EnterPlanMode ─────────────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ type EnterWorktreeInput struct {
 }
 
 // NewEnterWorktreeTool constructs the EnterWorktree tool backed by the app
-// state store (BF-10). It creates a git worktree under .claude/worktrees/
+// state store (BF-10). It creates a git worktree under .glaude/worktrees/
 // with a fresh branch from HEAD and switches the session WorkingDir to it.
 // Git operations are self-contained (os/exec — tools must not import the
 // shell tool). Registered by wire.go after the store exists.
@@ -176,7 +176,7 @@ func (t *enterWorktreeTool) Description(_ tools.Input, _ tools.PermissionContext
 
 Usage notes:
 - Only usable when the user explicitly asks to work in a worktree
-- Creates a new branch based on HEAD inside .claude/worktrees/
+- Creates a new branch based on HEAD inside .glaude/worktrees/
 - Use ExitWorktree to leave the worktree`
 }
 
@@ -231,7 +231,7 @@ func (t *enterWorktreeTool) Call(input tools.Input, _ *tools.UseContext, _ tools
 		return &tools.Result{IsError: true, Content: fmt.Sprintf("EnterWorktree: invalid name %q (use letters, digits, . _ - /)", name)}, nil
 	}
 	branch := "worktree/" + name
-	wtPath := filepath.Join(root, ".claude", "worktrees", name)
+	wtPath := filepath.Join(root, ".glaude", "worktrees", name)
 	if _, err := os.Stat(wtPath); err == nil {
 		return &tools.Result{IsError: true, Content: fmt.Sprintf("EnterWorktree: %s already exists", wtPath)}, nil
 	}

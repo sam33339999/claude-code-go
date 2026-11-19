@@ -1,7 +1,7 @@
 .PHONY: build test test-cover vet lint clean all docs docs-check debt-check parity
 
 build:
-	go build -o bin/claude ./cmd/claude
+	go build -o bin/glaude ./cmd/glaude
 
 test:
 	go test -race ./...
@@ -38,4 +38,4 @@ debt-check:
 # 未设置 CCG_PARITY_ORACLE 时全部 SKIP，不影响常规 CI。
 # 详见 test/parity/README.md（复盘建议 3）
 parity: build
-	CCG_PARITY_TARGET=bin/claude go test ./test/parity/... -v
+	CCG_PARITY_TARGET=bin/glaude go test ./test/parity/... -v

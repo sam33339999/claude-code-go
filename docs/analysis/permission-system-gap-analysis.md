@@ -179,11 +179,11 @@ cmd := exec.CommandContext(timeoutCtx, "bash", "-c", in.Command)  // 直接执�
 export const DANGEROUS_FILES = [
   '.gitconfig', '.gitmodules',
   '.bashrc', '.bash_profile', '.zshrc', '.zprofile', '.profile',
-  '.ripgreprc', '.mcp.json', '.claude.json',
+  '.ripgreprc', '.mcp.json', '.glaude.json',
 ] as const
 
 export const DANGEROUS_DIRECTORIES = [
-  '.git', '.vscode', '.idea', '.claude',
+  '.git', '.vscode', '.idea', '.glaude',
 ] as const
 ```
 
@@ -496,7 +496,7 @@ var DangerousFiles = []string{
     ".profile",
     ".ripgreprc",
     ".mcp.json",
-    ".claude.json",
+    ".glaude.json",
     "settings.json",  // Claude 配置
 }
 
@@ -505,7 +505,7 @@ var DangerousDirectories = []string{
     ".git",
     ".vscode",
     ".idea",
-    ".claude",
+    ".glaude",
     ".ssh",
     ".gnupg",
 }

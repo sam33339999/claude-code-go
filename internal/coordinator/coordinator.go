@@ -1,4 +1,4 @@
-// Package coordinator implements multi-agent coordination for Claude Code Go.
+// Package coordinator implements multi-agent coordination for Glaude.
 //
 // It manages the lifecycle of sub-agents (spawn, message routing, stop, status
 // query) and exposes the Coordinator interface used by the AgentTool,
@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/pkg/utils/ids"
+	"github.com/tunsuy/glaude/pkg/utils/ids"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

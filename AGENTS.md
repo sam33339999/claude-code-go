@@ -1,4 +1,4 @@
-# Claude Code Go — AI Agent Instructions
+# Glaude — AI Agent Instructions
 
 ## 語言偏好（使用者指定）
 
@@ -7,7 +7,7 @@
 
 ## 專案現狀：維護模式（2026-08-29 起）——先讀這段，避免被舊文件誤導
 
-- Module：`github.com/tunsuy/claude-code-go`（**不是** anthropics）；Go 1.26（go.mod `go 1.26.0`）；MIT。
+- Module：`github.com/tunsuy/glaude`（**不是** anthropics）；Go 1.26（go.mod `go 1.26.0`）；MIT。
 - 本專案是 Claude Code（TS）的 Go 重寫，2026-04 由多 Agent 團隊建構，現為**單人維護模式**：gap 分析驅動、feat 分支 + PR。
 - **建構期治理文件已封存，不構成現行流程約束**：`docs/project/agents/`、`docs/project/harness/`、
   `docs/project/harness/tasks/task-registry.yaml`（已封存，勿再寫入）。不要自動扮演 PM Agent 或執行舊 SOP；
@@ -27,7 +27,7 @@ normalizeBaseURL、ReasoningContent）。原 agtkeel 包恢復原始路徑：
 - `pkg/types`（零第三方依賴）、`pkg/utils/{fs,ids}`
 
 本倉產品側不變：
-- `cmd/claude`（Cobra 入口）、`internal/bootstrap`（DI 連線點 `AppContainer`、啟動接線）
+- `cmd/glaude`（Cobra 入口）、`internal/bootstrap`（DI 連線點 `AppContainer`、啟動接線）
 - `internal/tui` + `internal/commands`（Bubble Tea MVU、slash 命令）。
   **TUI 用 charm.land/v2 路徑**：`charm.land/bubbletea/v2`、`charm.land/lipgloss/v2`、`charm.land/bubbles/v2`——
   不是 `github.com/charmbracelet/*` v1（go.mod 頂部註解是舊的，勿信；v1 路徑編譯不會過）。
@@ -43,7 +43,7 @@ normalizeBaseURL、ReasoningContent）。原 agtkeel 包恢復原始路徑：
 ## 命令
 
 ```bash
-make build        # → bin/claude
+make build        # → bin/glaude
 make test         # go test -race ./...（需 CGO + C 編譯器；缺 gcc 時：apt-get install gcc）
 make vet          # go vet ./...
 make lint         # golangci-lint（需另裝）
@@ -79,7 +79,7 @@ make parity       # 先 build 再跑 test/parity；未設 CCG_PARITY_ORACLE 時�
 - **會話內工具集合與 schema 字節釘住**：MCP 重連差異下個會話生效，禁止會話中途重新註冊工具。
 - 壓縮是唯一被認可的前綴重置。
 
-## 編碼規範（摘要；細節見 CLAUDE.md）
+## 編碼規範（摘要；細節見 GLAUDE.md）
 
 - 檔案 ≤800 行；函式 ≤80 行；測試檔 ≤1600 行；測試函式 ≤160 行；巢狀 ≤4 層；行寬 ≤120。
 - 所有 error 必處理，`fmt.Errorf("context: %w", err)` 包裝，盡早 return；一般錯誤禁 panic。
@@ -100,7 +100,7 @@ make parity       # 先 build 再跑 test/parity；未設 CCG_PARITY_ORACLE 時�
   功能在 worktree 開 `feat/<task>` 分支→門控全綠→commit→回主 checkout
   `git merge --no-ff` 進 feat/impl→合併後重跑全量門控→`git push origin feat/impl`→移除 worktree。
   巡檢日誌等純 docs 可直接 commit 在 feat/impl。
-- **git add -A 前看一眼**：`.claude/projects/`、`.claude/codemode/` 是本地運行資料（已 gitignore，勿入库）。
+- **git add -A 前看一眼**：`.glaude/projects/`、`.glaude/codemode/` 是本地運行資料（已 gitignore，勿入库）。
 - 改包前先讀該包 `CONTEXT.md`（導出簽名＋變更影響鏈）；再讀對應 `docs/project/design/<layer>.md`。
 - parity 差距關閉流程：更新 `test/parity/cases.md` 狀態 → 用例從 skip/樁名單移入斷言名單 → 若消樁同步 debt 基線。
 
@@ -108,7 +108,7 @@ make parity       # 先 build 再跑 test/parity；未設 CCG_PARITY_ORACLE 時�
 
 | 問題 | 來源 |
 |------|------|
-| 慣例細節、設計模式、bootstrap 階段 | `CLAUDE.md`（Project Layout 已隨内核搬回更新；本文架構段為準） |
+| 慣例細節、設計模式、bootstrap 階段 | `GLAUDE.md`（Project Layout 已隨内核搬回更新；本文架構段為準） |
 | 貢獻流程、PR 模板 | `CONTRIBUTING.md`（架構表為換庫前舊版，僅流程部分有效） |
 | 某包導出與影響鏈 | 該包 `CONTEXT.md`（生成） |
 | 功能真實狀態 / 與原版差距 | `test/parity/cases.md` + 程式碼 |

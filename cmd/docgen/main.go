@@ -1,6 +1,6 @@
 // Command docgen generates per-package CONTEXT.md files and a global INDEX.md
 // by parsing the Go AST of all packages in the project. The generated documents
-// are consumed by AI coding assistants (via CLAUDE.md references) to reduce
+// are consumed by AI coding assistants (via GLAUDE.md references) to reduce
 // token usage when exploring the codebase.
 //
 // Usage:

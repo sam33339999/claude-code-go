@@ -1,7 +1,7 @@
 package compact
 
 import (
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // SnipResult is the output of a SnipCompactIfNeeded call.

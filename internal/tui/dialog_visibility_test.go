@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/tunsuy/claude-code-go/internal/state"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/state"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // viewLines counts rendered terminal lines of the view content.

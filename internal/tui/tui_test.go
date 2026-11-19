@@ -9,10 +9,10 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/tunsuy/claude-code-go/internal/commands"
-	"github.com/tunsuy/claude-code-go/internal/engine"
-	"github.com/tunsuy/claude-code-go/internal/state"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/commands"
+	"github.com/tunsuy/glaude/internal/engine"
+	"github.com/tunsuy/glaude/internal/state"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // ---------------------------------------------------------------------------
@@ -301,8 +301,8 @@ func TestUpdate_TickMsg_NotLoading(t *testing.T) {
 func TestUpdate_MemdirLoadedMsg(t *testing.T) {
 	m := newTestModel()
 	// Use empty paths list (no real files needed for path storage test).
-	m = applyMsg(m, MemdirLoadedMsg{Paths: []string{"/tmp/CLAUDE.md"}})
-	if len(m.memdirPaths) != 1 || m.memdirPaths[0] != "/tmp/CLAUDE.md" {
+	m = applyMsg(m, MemdirLoadedMsg{Paths: []string{"/tmp/GLAUDE.md"}})
+	if len(m.memdirPaths) != 1 || m.memdirPaths[0] != "/tmp/GLAUDE.md" {
 		t.Errorf("memdirPaths not stored correctly: %v", m.memdirPaths)
 	}
 	// memdirPrompt will be empty because the file doesn't exist, but that's ok.
@@ -1358,7 +1358,7 @@ func TestUpdate_MemdirLoadedMsg_StoresPrompt(t *testing.T) {
 	m := newTestModel()
 	// Use a tempfile with content to verify prompt loading.
 	dir := t.TempDir()
-	f := dir + "/CLAUDE.md"
+	f := dir + "/GLAUDE.md"
 	if err := os.WriteFile(f, []byte("# My Rules\nAlways be helpful."), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -1367,7 +1367,7 @@ func TestUpdate_MemdirLoadedMsg_StoresPrompt(t *testing.T) {
 		t.Error("expected non-empty memdirPrompt after MemdirLoadedMsg with valid file")
 	}
 	if !strings.Contains(m.memdirPrompt, "Always be helpful.") {
-		t.Errorf("expected CLAUDE.md content in memdirPrompt, got: %q", m.memdirPrompt)
+		t.Errorf("expected GLAUDE.md content in memdirPrompt, got: %q", m.memdirPrompt)
 	}
 }
 

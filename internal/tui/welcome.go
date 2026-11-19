@@ -43,10 +43,10 @@ func (w WelcomeHeader) IsShown() bool {
 // View renders the welcome header banner.
 // Format:
 //
-//	Claude Code Go v0.1.0
+//	Glaude v0.1.0
 //	claude-sonnet-4-20250514 · API Usage Billing
 //	~/path/to/cwd
-//	Welcome to Claude Code Go!  /effort to tune speed vs. intelligence
+//	Welcome to Glaude!  /effort to tune speed vs. intelligence
 func (w WelcomeHeader) View(width int, theme Theme) string {
 	if w.shown {
 		return ""
@@ -58,7 +58,7 @@ func (w WelcomeHeader) View(width int, theme Theme) string {
 	logo := renderLogo(theme)
 
 	// Version line
-	versionLine := primaryStyle(theme).Bold(true).Render(fmt.Sprintf("Claude Code Go v%s", w.version))
+	versionLine := primaryStyle(theme).Bold(true).Render(fmt.Sprintf("Glaude v%s", w.version))
 
 	// Model + billing info
 	modelStr := w.model
@@ -78,7 +78,7 @@ func (w WelcomeHeader) View(width int, theme Theme) string {
 	// Welcome message
 	welcomeLine := lipgloss.JoinHorizontal(
 		lipgloss.Left,
-		successStyle(theme).Render("Welcome to Claude Code Go!"),
+		successStyle(theme).Render("Welcome to Glaude!"),
 		mutedStyle(theme).Render("  "),
 		accentStyle(theme).Render("/effort"),
 		mutedStyle(theme).Render(" to tune speed vs. intelligence"),

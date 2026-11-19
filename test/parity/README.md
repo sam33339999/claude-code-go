@@ -12,12 +12,12 @@
 3. **oracle 通过环境变量注入**：`CCG_PARITY_ORACLE` 指向原版可执行文件。
    未设置时测试**跳过（SKIP）而非失败**——CI 无 oracle 也能绿，本地/有 oracle 的
    环境显式开启后执行对比。
-4. **被测方通过 `CCG_PARITY_TARGET` 注入**：默认 `bin/claude`（`make build` 产物）。
+4. **被测方通过 `CCG_PARITY_TARGET` 注入**：默认 `bin/glaude`（`make build` 产物）。
 5. **断言分三档**，从宽到严，避免把骨架变成一上来就全红的负担：
    - `Tier-0 同形`：两版对同一命令的 exit code 一致；
    - `Tier-1 语义`：关键 token（子命令名、flag 名）在两版输出中都出现；
    - `Tier-2 逐字`：输出完全一致（仅对稳定、无版本号路径启用，如 `--version` 的
-     格式 `claude <semver>`——注意版本号本身允许不同）。
+     格式 `glaude <semver>`——注意版本号本身允许不同）。
 6. **差异即文档**：失败的用例不是“待修的测试”，而是**待关闭的行为缺口**——
    修 Go 侧实现去对齐，而不是改断言迁就差异（除非经人工确认原版行为不值得对齐，
    此时在 cases.md 该用例旁标注 `waived: <原因>` 并保留记录）。
@@ -61,14 +61,14 @@ not-yet-implemented 桩只降不升，parity 用例保证**降下来的桩对齐
 - ~~本机未安装 Go 工具链时无法本地验证编译~~ **已解决**（2026-08-30）：
   开发机 Go 在 `/Users/marshal/.local/go/bin/go`（go1.24.4，不在默认 PATH），
   `export PATH="/Users/marshal/.local/go/bin:$PATH"` 后可本地 build + 跑 parity；
-  本机 oracle 为 `~/.local/lib/nodejs/bin/claude`（2.1.251）。首次本地全量
+  本机 oracle 为 `~/.local/lib/nodejs/bin/glaude`（2.1.251）。首次本地全量
   实测：13 个子测试 11 过 2 挂（A1 版本格式、A6 未知子命令语义——均为
   记录在案的行为缺口，见 cases.md），编译与骨架验证通过。
 
 ## 首次实测记录（2026-08-30，oracle 2.1.251）
 
-- 命令：`CCG_PARITY_ORACLE=~/.local/lib/nodejs/bin/claude
-  CCG_PARITY_TARGET=$PWD/bin/claude go test ./test/parity/... -v`
+- 命令：`CCG_PARITY_ORACLE=~/.local/lib/nodejs/bin/glaude
+  CCG_PARITY_TARGET=$PWD/bin/glaude go test ./test/parity/... -v`
 - 结果：**11 PASS / 2 FAIL**（FAIL = cases.md 中 A1、A6 两条已实测差距，
   属预期——「差异即文档」，测试正确地暴露了真实缺口）；
 - 注意：oracle 被测时会继承测试进程的环境变量与凭据——**未知子命令用例

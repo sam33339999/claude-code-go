@@ -15,16 +15,16 @@ import (
 // The plugin CLI state store.  The on-disk layout mirrors the oracle TS CLI
 // (claude v2.1.261) exactly, because the two CLIs share a home directory:
 //
-//	~/.claude/plugins/installed_plugins.json   {version: 2, plugins: {id: [records]}}
-//	~/.claude/plugins/known_marketplaces.json  {name: {source, installLocation, lastUpdated}}
-//	~/.claude/plugins/cache/<mp>/<plugin>/<version>/   installed plugin copies
+//	~/.glaude/plugins/installed_plugins.json   {version: 2, plugins: {id: [records]}}
+//	~/.glaude/plugins/known_marketplaces.json  {name: {source, installLocation, lastUpdated}}
+//	~/.glaude/plugins/cache/<mp>/<plugin>/<version>/   installed plugin copies
 //
 // Marketplace and plugin enablement live in the three-level settings files,
 // under enabledPlugins (id → bool) and extraKnownMarketplaces (name → source):
 //
-//	user    ~/.claude/settings.json
-//	project <cwd>/.claude/settings.json
-//	local   <cwd>/.claude/settings.local.json
+//	user    ~/.glaude/settings.json
+//	project <cwd>/.glaude/settings.json
+//	local   <cwd>/.glaude/settings.local.json
 //
 // All JSON documents round-trip through OrderedMap so insertion order (which
 // `plugin list` renders in) survives load/edit/save cycles.
@@ -70,12 +70,12 @@ func (s *PluginStore) ResolvedProjectDir() (string, error) {
 	return resolved, nil
 }
 
-// PluginsDir returns ~/.claude/plugins.
+// PluginsDir returns ~/.glaude/plugins.
 func (s *PluginStore) PluginsDir() string {
 	return filepath.Join(s.homeDir, ClaudeDir, "plugins")
 }
 
-// CacheDir returns ~/.claude/plugins/cache.
+// CacheDir returns ~/.glaude/plugins/cache.
 func (s *PluginStore) CacheDir() string {
 	return filepath.Join(s.PluginsDir(), "cache")
 }
@@ -91,8 +91,8 @@ func (s *PluginStore) KnownMarketplacesPath() string {
 }
 
 // SettingsPath maps a scope to its settings file.  Note the local scope is
-// <cwd>/.claude/settings.local.json — the oracle's plugin settings file —
-// which differs from the loader's legacy .claude.local path.
+// <cwd>/.glaude/settings.local.json — the oracle's plugin settings file —
+// which differs from the loader's legacy .glaude.local path.
 func (s *PluginStore) SettingsPath(scope string) string {
 	switch scope {
 	case PluginScopeProject:
@@ -252,7 +252,7 @@ func recordToMap(r *InstalledPluginRecord) *OrderedMap {
 type KnownMarketplace struct {
 	SourceType      string // "directory" | "file"
 	SourcePath      string
-	InstallLocation string // marketplace root (the dir containing .claude-plugin/)
+	InstallLocation string // marketplace root (the dir containing .glaude-plugin/)
 	LastUpdated     string
 }
 
@@ -432,7 +432,7 @@ func (s *PluginStore) RemoveExtraMarketplace(scope, name string) error {
 
 // --- manifests ---------------------------------------------------------------
 
-// PluginManifest is the parsed .claude-plugin/plugin.json of a plugin.
+// PluginManifest is the parsed .glaude-plugin/plugin.json of a plugin.
 type PluginManifest struct {
 	Name        string
 	Version     string
@@ -440,10 +440,10 @@ type PluginManifest struct {
 	HasAuthor   bool
 }
 
-// LoadPluginManifest reads dir/.claude-plugin/plugin.json.  A missing file
+// LoadPluginManifest reads dir/.glaude-plugin/plugin.json.  A missing file
 // returns (nil, nil) — callers decide whether that is an error.
 func LoadPluginManifest(dir string) (*PluginManifest, error) {
-	path := filepath.Join(dir, ".claude-plugin", "plugin.json")
+	path := filepath.Join(dir, ".glaude-plugin", "plugin.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -471,30 +471,30 @@ type MarketplaceEntry struct {
 	Description string
 }
 
-// MarketplaceManifest is the parsed .claude-plugin/marketplace.json.
+// MarketplaceManifest is the parsed .glaude-plugin/marketplace.json.
 type MarketplaceManifest struct {
 	Name         string
 	Description  string
 	HasOwner     bool
 	Plugins      []*MarketplaceEntry // file order
-	RootDir      string              // dir containing .claude-plugin/
+	RootDir      string              // dir containing .glaude-plugin/
 	ManifestPath string
 }
 
-// LoadMarketplaceManifest reads rootDir/.claude-plugin/marketplace.json.
+// LoadMarketplaceManifest reads rootDir/.glaude-plugin/marketplace.json.
 // A missing file returns (nil, nil).
 func LoadMarketplaceManifest(rootDir string) (*MarketplaceManifest, error) {
-	return loadMarketplace(filepath.Join(rootDir, ".claude-plugin", "marketplace.json"), rootDir)
+	return loadMarketplace(filepath.Join(rootDir, ".glaude-plugin", "marketplace.json"), rootDir)
 }
 
 // LoadMarketplaceManifestFile reads a marketplace.json by direct file path.
 // The marketplace root — what entry sources resolve against — is the parent
-// of the .claude-plugin dir when the file lives in one, else the file's own
+// of the .glaude-plugin dir when the file lives in one, else the file's own
 // directory (oracle-verified: a bare x.json resolves ./plugins/x against the
 // dir holding x.json).
 func LoadMarketplaceManifestFile(path string) (*MarketplaceManifest, error) {
 	root := filepath.Dir(path)
-	if filepath.Base(root) == ".claude-plugin" {
+	if filepath.Base(root) == ".glaude-plugin" {
 		root = filepath.Dir(root)
 	}
 	return loadMarketplace(path, root)
@@ -540,12 +540,12 @@ func loadMarketplace(path, rootDir string) (*MarketplaceManifest, error) {
 
 // ManifestPathFor returns the marketplace.json path a known marketplace's
 // install resolves through: "file" sources point at the json itself,
-// "directory" sources at <root>/.claude-plugin/marketplace.json.
+// "directory" sources at <root>/.glaude-plugin/marketplace.json.
 func (rec *KnownMarketplace) ManifestPathFor() string {
 	if rec.SourceType == "file" {
 		return rec.SourcePath
 	}
-	return filepath.Join(rec.InstallLocation, ".claude-plugin", "marketplace.json")
+	return filepath.Join(rec.InstallLocation, ".glaude-plugin", "marketplace.json")
 }
 
 // PluginDir resolves an entry's source path against the marketplace root.

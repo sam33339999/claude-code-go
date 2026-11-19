@@ -78,16 +78,16 @@ func expectValidate(t *testing.T, want string, wantFail bool, argv ...string) {
 func TestPluginValidatePluginManifest(t *testing.T) {
 	t.Run("perfect-strict", func(t *testing.T) { // probe D
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/plugin.json": `{"name":"perfect","version":"1.0.0","description":"P","author":{"name":"p"}}`,
+			".glaude-plugin/plugin.json": `{"name":"perfect","version":"1.0.0","description":"P","author":{"name":"p"}}`,
 		})
-		pj := filepath.Join(base, ".claude-plugin", "plugin.json")
+		pj := filepath.Join(base, ".glaude-plugin", "plugin.json")
 		expectValidate(t, "Validating plugin manifest: "+pj+"\n\n✔ Validation passed\n", false, base, "--strict")
 	})
 	t.Run("badplugin-strict", func(t *testing.T) { // probe C
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/plugin.json": `{"name":"badplugin"}`,
+			".glaude-plugin/plugin.json": `{"name":"badplugin"}`,
 		})
-		pj := filepath.Join(base, ".claude-plugin", "plugin.json")
+		pj := filepath.Join(base, ".glaude-plugin", "plugin.json")
 		want := fmt.Sprintf("Validating plugin manifest: %s\n\n"+
 			"⚠ Found 3 warnings:\n\n"+
 			"  ❯ version: %s\n"+
@@ -99,9 +99,9 @@ func TestPluginValidatePluginManifest(t *testing.T) {
 	})
 	t.Run("badplugin-json-strict", func(t *testing.T) { // probe Z
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/plugin.json": `{"name":"badplugin"}`,
+			".glaude-plugin/plugin.json": `{"name":"badplugin"}`,
 		})
-		pj := filepath.Join(base, ".claude-plugin", "plugin.json")
+		pj := filepath.Join(base, ".glaude-plugin", "plugin.json")
 		want := fmt.Sprintf(`{
   "success": false,
   "strict": true,
@@ -136,14 +136,14 @@ func TestPluginValidatePluginManifest(t *testing.T) {
 	})
 	t.Run("extra-positional-ignored", func(t *testing.T) { // probe AA
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/plugin.json": `{"name":"perfect","version":"1.0.0","description":"P","author":{"name":"p"}}`,
+			".glaude-plugin/plugin.json": `{"name":"perfect","version":"1.0.0","description":"P","author":{"name":"p"}}`,
 		})
-		pj := filepath.Join(base, ".claude-plugin", "plugin.json")
+		pj := filepath.Join(base, ".glaude-plugin", "plugin.json")
 		expectValidate(t, "Validating plugin manifest: "+pj+"\n\n✔ Validation passed\n", false, base, "extra-arg")
 	})
 	t.Run("loose-manifest-file-skips-contents", func(t *testing.T) { // probe Y
 		// A bare JSON file target validates alone: the sibling commands/
-		// directory is not scanned (no .claude-plugin/plugin.json layout).
+		// directory is not scanned (no .glaude-plugin/plugin.json layout).
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
 			"bare.json":       `{"name":"b","version":"1.0.0","description":"B","author":{"name":"p"}}`,
 			"commands/bad.md": "no fm here\n",
@@ -208,11 +208,11 @@ func TestPluginValidateFileTargets(t *testing.T) {
 func fullFixture(t *testing.T) (base, pj, cmd, hooks string) {
 	t.Helper()
 	base = writeValidateFiles(t, t.TempDir(), map[string]string{
-		".claude-plugin/plugin.json": `{"name":"full","version":"1.0.0","description":"Full","author":{"name":"p","email":"p@x.test"}}`,
+		".glaude-plugin/plugin.json": `{"name":"full","version":"1.0.0","description":"Full","author":{"name":"p","email":"p@x.test"}}`,
 		"commands/no-fm.md":          "no fm\n",
 		"hooks/hooks.json":           "{}",
 	})
-	return base, filepath.Join(base, ".claude-plugin", "plugin.json"),
+	return base, filepath.Join(base, ".glaude-plugin", "plugin.json"),
 		filepath.Join(base, "commands", "no-fm.md"), filepath.Join(base, "hooks", "hooks.json")
 }
 
@@ -287,7 +287,7 @@ func TestPluginValidateFullContents(t *testing.T) {
 func full2Fixture(t *testing.T) (base string, paths map[string]string) {
 	t.Helper()
 	base = writeValidateFiles(t, t.TempDir(), map[string]string{
-		".claude-plugin/plugin.json": `{"name":"full2","version":"1.0.0","description":"F","author":{"name":"p"}}`,
+		".glaude-plugin/plugin.json": `{"name":"full2","version":"1.0.0","description":"F","author":{"name":"p"}}`,
 		"skills/nofm/SKILL.md":       "skill no fm\n",
 		"agents/noagent.md":          "agent no fm\n",
 		"agents/okagent.md":          "---\nname: ok\n---\nbody\n",
@@ -317,7 +317,7 @@ func TestPluginValidateFull2Text(t *testing.T) { // probe L
 		"Validating command: %s\n\n⚠ Found 1 warning:\n\n  ❯ frontmatter: %s\n\n"+
 		"Validating hooks: %s\n\n✘ Found 1 error:\n\n  ❯ root: %s\n\n"+
 		"✘ Validation failed\n",
-		filepath.Join(base, ".claude-plugin", "plugin.json"),
+		filepath.Join(base, ".glaude-plugin", "plugin.json"),
 		p["skills/nofm/SKILL.md"], pluginVFrontmatter,
 		p["agents/noagent.md"], pluginVFrontmatter,
 		p["agents/okagent.md"],
@@ -381,8 +381,8 @@ func TestPluginValidateFull2JSON(t *testing.T) { // probe L2
   ]
 }
 `,
-		filepath.Join(base, ".claude-plugin", "plugin.json"),
-		filepath.Join(base, ".claude-plugin", "plugin.json"),
+		filepath.Join(base, ".glaude-plugin", "plugin.json"),
+		filepath.Join(base, ".glaude-plugin", "plugin.json"),
 		strings.Join(contents, "\n"),
 		p["hooks/hooks.json"], pluginVHooksRoot)
 	expectValidate(t, want, true, base, "--json")
@@ -391,7 +391,7 @@ func TestPluginValidateFull2JSON(t *testing.T) { // probe L2
 func TestPluginValidateMarkdownFindings(t *testing.T) {
 	t.Run("command-without-description", func(t *testing.T) { // probe Q
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/plugin.json": `{"name":"c","version":"1.0.0","description":"C","author":{"name":"p"}}`,
+			".glaude-plugin/plugin.json": `{"name":"c","version":"1.0.0","description":"C","author":{"name":"p"}}`,
 			"commands/x.md":              "---\nfoo: bar\n---\nbody\n",
 		})
 		cmd := filepath.Join(base, "commands", "x.md")
@@ -399,12 +399,12 @@ func TestPluginValidateMarkdownFindings(t *testing.T) {
 			"Validating command: %s\n\n⚠ Found 1 warning:\n\n"+
 			"  ❯ description: No description in frontmatter. A description helps users and Claude understand when to use this command.\n\n"+
 			"✔ Validation passed with warnings\n",
-			filepath.Join(base, ".claude-plugin", "plugin.json"), cmd)
+			filepath.Join(base, ".glaude-plugin", "plugin.json"), cmd)
 		expectValidate(t, want, false, base)
 	})
 	t.Run("skill-without-description", func(t *testing.T) { // probe R
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/plugin.json": `{"name":"sk","version":"1.0.0","description":"S","author":{"name":"p"}}`,
+			".glaude-plugin/plugin.json": `{"name":"sk","version":"1.0.0","description":"S","author":{"name":"p"}}`,
 			"skills/s/SKILL.md":          "---\nname: s\n---\nbody\n",
 		})
 		skill := filepath.Join(base, "skills", "s", "SKILL.md")
@@ -412,37 +412,37 @@ func TestPluginValidateMarkdownFindings(t *testing.T) {
 			"Validating skill: %s\n\n⚠ Found 1 warning:\n\n"+
 			"  ❯ description: No description in frontmatter. A description helps users and Claude understand when to use this skill.\n\n"+
 			"✔ Validation passed with warnings\n",
-			filepath.Join(base, ".claude-plugin", "plugin.json"), skill)
+			filepath.Join(base, ".glaude-plugin", "plugin.json"), skill)
 		expectValidate(t, want, false, base)
 	})
 	t.Run("skill-without-name-is-clean", func(t *testing.T) { // probe S
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/plugin.json": `{"name":"sk","version":"1.0.0","description":"S","author":{"name":"p"}}`,
+			".glaude-plugin/plugin.json": `{"name":"sk","version":"1.0.0","description":"S","author":{"name":"p"}}`,
 			"skills/s/SKILL.md":          "---\ndescription: d\n---\nbody\n",
 		})
-		pj := filepath.Join(base, ".claude-plugin", "plugin.json")
+		pj := filepath.Join(base, ".glaude-plugin", "plugin.json")
 		expectValidate(t, "Validating plugin manifest: "+pj+"\n\n✔ Validation passed\n", false, base)
 	})
 	t.Run("deep-skill-not-scanned", func(t *testing.T) { // probe AI
 		// Only skills/<name>/SKILL.md counts; a deeper nesting is invisible.
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/plugin.json": `{"name":"ds","version":"1.0.0","description":"D","author":{"name":"p"}}`,
+			".glaude-plugin/plugin.json": `{"name":"ds","version":"1.0.0","description":"D","author":{"name":"p"}}`,
 			"skills/a/b/SKILL.md":        "no fm\n",
 		})
-		pj := filepath.Join(base, ".claude-plugin", "plugin.json")
+		pj := filepath.Join(base, ".glaude-plugin", "plugin.json")
 		expectValidate(t, "Validating plugin manifest: "+pj+"\n\n✔ Validation passed\n", false, base)
 	})
 	t.Run("deep-agent-scanned", func(t *testing.T) { // probe AJ
 		// Agents are walked recursively, unlike skills.
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/plugin.json": `{"name":"da","version":"1.0.0","description":"D","author":{"name":"p"}}`,
+			".glaude-plugin/plugin.json": `{"name":"da","version":"1.0.0","description":"D","author":{"name":"p"}}`,
 			"agents/sub/x.md":            "no fm\n",
 		})
 		agent := filepath.Join(base, "agents", "sub", "x.md")
 		want := fmt.Sprintf("Validating plugin manifest: %s\n\n"+
 			"Validating agent: %s\n\n⚠ Found 1 warning:\n\n  ❯ frontmatter: %s\n\n"+
 			"✔ Validation passed with warnings\n",
-			filepath.Join(base, ".claude-plugin", "plugin.json"), agent, pluginVFrontmatter)
+			filepath.Join(base, ".glaude-plugin", "plugin.json"), agent, pluginVFrontmatter)
 		expectValidate(t, want, false, base)
 	})
 }
@@ -451,10 +451,10 @@ func TestPluginValidateMarkdownFindings(t *testing.T) {
 func hookFixture(t *testing.T, hooksJSON string) (base, pj, hooks string) {
 	t.Helper()
 	base = writeValidateFiles(t, t.TempDir(), map[string]string{
-		".claude-plugin/plugin.json": `{"name":"hm","version":"1.0.0","description":"H","author":{"name":"p"}}`,
+		".glaude-plugin/plugin.json": `{"name":"hm","version":"1.0.0","description":"H","author":{"name":"p"}}`,
 		"hooks/hooks.json":           hooksJSON,
 	})
-	return base, filepath.Join(base, ".claude-plugin", "plugin.json"),
+	return base, filepath.Join(base, ".glaude-plugin", "plugin.json"),
 		filepath.Join(base, "hooks", "hooks.json")
 }
 
@@ -485,10 +485,10 @@ func TestPluginValidateHooks(t *testing.T) {
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
 			// Manifest name deliberately differs from the directory name: the
 			// oracle prefixes the error with the plugin root's directory name.
-			".claude-plugin/plugin.json": `{"name":"hm3","version":"1.0.0","description":"H","author":{"name":"p"}}`,
+			".glaude-plugin/plugin.json": `{"name":"hm3","version":"1.0.0","description":"H","author":{"name":"p"}}`,
 			"hooks/hooks.json":           `{"modules": ["m.js"]}`,
 		})
-		pj := filepath.Join(base, ".claude-plugin", "plugin.json")
+		pj := filepath.Join(base, ".glaude-plugin", "plugin.json")
 		hooks := filepath.Join(base, "hooks", "hooks.json")
 		want := fmt.Sprintf("Validating plugin manifest: %s\n\n"+
 			"Validating hooks: %s\n\n✘ Found 1 error:\n\n"+
@@ -509,13 +509,13 @@ func TestPluginValidateHooks(t *testing.T) {
 func TestPluginValidateMarketplace(t *testing.T) {
 	t.Run("mpw-text", func(t *testing.T) { // probe A
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"mpw","owner":{"name":"p"},"plugins":[` +
+			".glaude-plugin/marketplace.json": `{"name":"mpw","owner":{"name":"p"},"plugins":[` +
 				`{"name":"p1","source":"./plugins/p1","version":"1.0.0","description":"P1"},` +
 				`{"name":"p2","source":"./plugins/p2","version":"1.0.0","description":"P2","author":{"name":"p"}}]}`,
-			"plugins/p1/.claude-plugin/plugin.json": `{"name":"p1","version":"1.0.0","description":"P1"}`,
-			"plugins/p2/.claude-plugin/plugin.json": `{"name":"p2","version":"1.0.0","description":"P2","author":{"name":"p"}}`,
+			"plugins/p1/.glaude-plugin/plugin.json": `{"name":"p1","version":"1.0.0","description":"P1"}`,
+			"plugins/p2/.glaude-plugin/plugin.json": `{"name":"p2","version":"1.0.0","description":"P2","author":{"name":"p"}}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		want := fmt.Sprintf("Validating marketplace manifest: %s\n\n"+
 			"⚠ Found 2 warnings:\n\n"+
 			"  ❯ description: %s\n"+
@@ -525,13 +525,13 @@ func TestPluginValidateMarketplace(t *testing.T) {
 	})
 	t.Run("mpw-json", func(t *testing.T) { // probe B
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"mpw","owner":{"name":"p"},"plugins":[` +
+			".glaude-plugin/marketplace.json": `{"name":"mpw","owner":{"name":"p"},"plugins":[` +
 				`{"name":"p1","source":"./plugins/p1","version":"1.0.0","description":"P1"},` +
 				`{"name":"p2","source":"./plugins/p2","version":"1.0.0","description":"P2","author":{"name":"p"}}]}`,
-			"plugins/p1/.claude-plugin/plugin.json": `{"name":"p1","version":"1.0.0","description":"P1"}`,
-			"plugins/p2/.claude-plugin/plugin.json": `{"name":"p2","version":"1.0.0","description":"P2","author":{"name":"p"}}`,
+			"plugins/p1/.glaude-plugin/plugin.json": `{"name":"p1","version":"1.0.0","description":"P1"}`,
+			"plugins/p2/.glaude-plugin/plugin.json": `{"name":"p2","version":"1.0.0","description":"P2","author":{"name":"p"}}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		want := fmt.Sprintf(`{
   "success": true,
   "strict": false,
@@ -561,20 +561,20 @@ func TestPluginValidateMarketplace(t *testing.T) {
 	})
 	t.Run("mp-file-and-dir-target", func(t *testing.T) { // probes H + AB
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"mp1","owner":{"name":"probe"},"plugins":[` +
+			".glaude-plugin/marketplace.json": `{"name":"mp1","owner":{"name":"probe"},"plugins":[` +
 				`{"name":"myplugin","source":"./plugins/myplugin","description":"A probe plugin","version":"2.0.0"},` +
 				`{"name":"rich","source":"./plugins/rich","description":"Rich plugin","version":"2.0.0","author":{"name":"probe"}}],` +
 				`"description":"Probe marketplace"}`,
-			"plugins/myplugin/.claude-plugin/plugin.json": `{"name":"myplugin","version":"9.9.9","description":"A probe plugin"}`,
-			"plugins/rich/.claude-plugin/plugin.json":     `{"name":"rich","version":"2.0.0","description":"Rich plugin","author":{"name":"probe"}}`,
+			"plugins/myplugin/.glaude-plugin/plugin.json": `{"name":"myplugin","version":"9.9.9","description":"A probe plugin"}`,
+			"plugins/rich/.glaude-plugin/plugin.json":     `{"name":"rich","version":"2.0.0","description":"Rich plugin","author":{"name":"probe"}}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		want := fmt.Sprintf("Validating marketplace manifest: %s\n\n"+
 			"⚠ Found 2 warnings:\n\n"+
 			"  ❯ plugins[0].version: %s\n"+
 			"  ❯ plugins[0] plugin.json → author: %s\n\n"+
 			"✔ Validation passed with warnings\n", mp,
-			pluginVMismatch("2.0.0", "plugins/myplugin/.claude-plugin/plugin.json", "9.9.9"), pluginVNoAuthor)
+			pluginVMismatch("2.0.0", "plugins/myplugin/.glaude-plugin/plugin.json", "9.9.9"), pluginVNoAuthor)
 		expectValidate(t, want, false, mp)
 		expectValidate(t, want, false, base)
 	})
@@ -600,38 +600,38 @@ func TestPluginValidateMarketplaceEntries(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			base := writeValidateFiles(t, t.TempDir(), map[string]string{
-				".claude-plugin/marketplace.json": tc.mpJSON,
+				".glaude-plugin/marketplace.json": tc.mpJSON,
 			})
-			mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+			mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 			want := "Validating marketplace manifest: " + mp + "\n\n✘ Found 1 error:\n\n" + tc.want + "\n✘ Validation failed\n"
 			expectValidate(t, want, tc.fail, base)
 		})
 	}
 	t.Run("entry-without-version-is-clean", func(t *testing.T) { // probe W
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"e4","owner":{"name":"p"},"description":"D","plugins":[` +
+			".glaude-plugin/marketplace.json": `{"name":"e4","owner":{"name":"p"},"description":"D","plugins":[` +
 				`{"name":"p1","source":"./plugins/p1","description":"D"}]}`,
-			"plugins/p1/.claude-plugin/plugin.json": `{"name":"p1","version":"1.0.0","description":"P","author":{"name":"p"}}`,
+			"plugins/p1/.glaude-plugin/plugin.json": `{"name":"p1","version":"1.0.0","description":"P","author":{"name":"p"}}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		expectValidate(t, "Validating marketplace manifest: "+mp+"\n\n✔ Validation passed\n", false, base)
 	})
 	t.Run("entry-without-description-is-clean", func(t *testing.T) { // probe X
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"e5","owner":{"name":"p"},"description":"D","plugins":[` +
+			".glaude-plugin/marketplace.json": `{"name":"e5","owner":{"name":"p"},"description":"D","plugins":[` +
 				`{"name":"p1","source":"./plugins/p1","version":"1.0.0"}]}`,
-			"plugins/p1/.claude-plugin/plugin.json": `{"name":"p1","version":"1.0.0","description":"P","author":{"name":"p"}}`,
+			"plugins/p1/.glaude-plugin/plugin.json": `{"name":"p1","version":"1.0.0","description":"P","author":{"name":"p"}}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		expectValidate(t, "Validating marketplace manifest: "+mp+"\n\n✔ Validation passed\n", false, base)
 	})
 	t.Run("incomplete-plugin-json-three-warnings", func(t *testing.T) { // probe AL
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"bs","owner":{"name":"p"},"description":"D","plugins":[` +
+			".glaude-plugin/marketplace.json": `{"name":"bs","owner":{"name":"p"},"description":"D","plugins":[` +
 				`{"name":"bad","source":"./plugins/bad","version":"1.0.0","description":"B"}]}`,
-			"plugins/bad/.claude-plugin/plugin.json": `{"name":"bad"}`,
+			"plugins/bad/.glaude-plugin/plugin.json": `{"name":"bad"}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		want := fmt.Sprintf("Validating marketplace manifest: %s\n\n"+
 			"⚠ Found 3 warnings:\n\n"+
 			"  ❯ plugins[0] plugin.json → version: %s\n"+
@@ -642,11 +642,11 @@ func TestPluginValidateMarketplaceEntries(t *testing.T) {
 	})
 	t.Run("plugin-json-without-version", func(t *testing.T) { // probe AM
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"nv","owner":{"name":"p"},"description":"D","plugins":[` +
+			".glaude-plugin/marketplace.json": `{"name":"nv","owner":{"name":"p"},"description":"D","plugins":[` +
 				`{"name":"p","source":"./plugins/p","version":"1.0.0","description":"P"}]}`,
-			"plugins/p/.claude-plugin/plugin.json": `{"name":"p","description":"P"}`,
+			"plugins/p/.glaude-plugin/plugin.json": `{"name":"p","description":"P"}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		want := fmt.Sprintf("Validating marketplace manifest: %s\n\n"+
 			"⚠ Found 2 warnings:\n\n"+
 			"  ❯ plugins[0] plugin.json → version: %s\n"+
@@ -659,18 +659,18 @@ func TestPluginValidateMarketplaceEntries(t *testing.T) {
 func TestPluginValidateMarketplaceEdges(t *testing.T) {
 	t.Run("string-owner", func(t *testing.T) { // probe P
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"strowner","owner":"somestring","description":"S","plugins":[]}`,
+			".glaude-plugin/marketplace.json": `{"name":"strowner","owner":"somestring","description":"S","plugins":[]}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		want := "Validating marketplace manifest: " + mp + "\n\n" +
 			"✘ Found 1 error:\n\n  ❯ owner: Invalid input\n\n✘ Validation failed\n"
 		expectValidate(t, want, true, base)
 	})
 	t.Run("string-owner-json", func(t *testing.T) { // probe I
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"strowner","owner":"somestring","description":"S","plugins":[]}`,
+			".glaude-plugin/marketplace.json": `{"name":"strowner","owner":"somestring","description":"S","plugins":[]}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		want := fmt.Sprintf(`{
   "success": false,
   "strict": false,
@@ -695,9 +695,9 @@ func TestPluginValidateMarketplaceEdges(t *testing.T) {
 	})
 	t.Run("missing-plugins-key", func(t *testing.T) { // probe AK
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"noplugins","owner":{"name":"p"}}`,
+			".glaude-plugin/marketplace.json": `{"name":"noplugins","owner":{"name":"p"}}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		want := "Validating marketplace manifest: " + mp + "\n\n" +
 			"✘ Found 1 error:\n\n  ❯ plugins: Invalid input\n\n✘ Validation failed\n"
 		expectValidate(t, want, true, mp)
@@ -705,10 +705,10 @@ func TestPluginValidateMarketplaceEdges(t *testing.T) {
 	t.Run("empty-plugins-list", func(t *testing.T) { // probe AE
 		// A directory with both manifests prefers the marketplace one.
 		base := writeValidateFiles(t, t.TempDir(), map[string]string{
-			".claude-plugin/marketplace.json": `{"name":"bmp","owner":{"name":"p"},"description":"B","plugins":[]}`,
-			".claude-plugin/plugin.json":      `{"name":"bplugin","version":"1.0.0","description":"B","author":{"name":"p"}}`,
+			".glaude-plugin/marketplace.json": `{"name":"bmp","owner":{"name":"p"},"description":"B","plugins":[]}`,
+			".glaude-plugin/plugin.json":      `{"name":"bplugin","version":"1.0.0","description":"B","author":{"name":"p"}}`,
 		})
-		mp := filepath.Join(base, ".claude-plugin", "marketplace.json")
+		mp := filepath.Join(base, ".glaude-plugin", "marketplace.json")
 		want := "Validating marketplace manifest: " + mp + "\n\n" +
 			"⚠ Found 1 warning:\n\n  ❯ plugins: Marketplace has no plugins defined\n\n" +
 			"✔ Validation passed with warnings\n"
@@ -728,15 +728,15 @@ func TestPluginValidateMarketplaceEdges(t *testing.T) {
 	})
 	t.Run("root-derivation-file-and-dir", func(t *testing.T) { // probes AC + AD
 		// A loose marketplace file resolves entries against its own dir; the
-		// in-place one against the parent of .claude-plugin.  Same warnings.
+		// in-place one against the parent of .glaude-plugin.  Same warnings.
 		pj := `{"name":"p","version":"1.0.0","description":"P"}`
 		fileBase := writeValidateFiles(t, t.TempDir(), map[string]string{
-			"plugins/p/.claude-plugin/plugin.json": pj,
+			"plugins/p/.glaude-plugin/plugin.json": pj,
 			"x.json":                               `{"name":"rt","owner":{"name":"p"},"description":"D","plugins":[{"name":"p","source":"./plugins/p","version":"2.0.0","description":"P"}]}`,
 		})
 		dirBase := writeValidateFiles(t, t.TempDir(), map[string]string{
-			"plugins/p/.claude-plugin/plugin.json": pj,
-			".claude-plugin/marketplace.json":      `{"name":"rt2","owner":{"name":"p"},"description":"D","plugins":[{"name":"p","source":"./plugins/p","version":"2.0.0","description":"P"}]}`,
+			"plugins/p/.glaude-plugin/plugin.json": pj,
+			".glaude-plugin/marketplace.json":      `{"name":"rt2","owner":{"name":"p"},"description":"D","plugins":[{"name":"p","source":"./plugins/p","version":"2.0.0","description":"P"}]}`,
 		})
 		wantFor := func(mp string) string {
 			return fmt.Sprintf("Validating marketplace manifest: %s\n\n"+
@@ -744,10 +744,10 @@ func TestPluginValidateMarketplaceEdges(t *testing.T) {
 				"  ❯ plugins[0].version: %s\n"+
 				"  ❯ plugins[0] plugin.json → author: %s\n\n"+
 				"✔ Validation passed with warnings\n", mp,
-				pluginVMismatch("2.0.0", "plugins/p/.claude-plugin/plugin.json", "1.0.0"), pluginVNoAuthor)
+				pluginVMismatch("2.0.0", "plugins/p/.glaude-plugin/plugin.json", "1.0.0"), pluginVNoAuthor)
 		}
 		expectValidate(t, wantFor(filepath.Join(fileBase, "x.json")), false, filepath.Join(fileBase, "x.json"))
-		expectValidate(t, wantFor(filepath.Join(dirBase, ".claude-plugin", "marketplace.json")), false, dirBase)
+		expectValidate(t, wantFor(filepath.Join(dirBase, ".glaude-plugin", "marketplace.json")), false, dirBase)
 	})
 }
 
@@ -764,7 +764,7 @@ func TestPluginValidateMissingTargets(t *testing.T) {
 		empty := t.TempDir()
 		want := "Validating plugin manifest: " + empty + "\n\n" +
 			"✘ Found 1 error:\n\n  ❯ directory: No manifest found in directory. " +
-			"Expected .claude-plugin/marketplace.json or .claude-plugin/plugin.json\n\n✘ Validation failed\n"
+			"Expected .glaude-plugin/marketplace.json or .glaude-plugin/plugin.json\n\n✘ Validation failed\n"
 		expectValidate(t, want, true, empty)
 	})
 }

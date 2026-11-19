@@ -3,7 +3,7 @@ package memdir_test
 import (
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/glaude/internal/memdir"
 )
 
 func TestIsAutoMemoryEnabled(t *testing.T) {

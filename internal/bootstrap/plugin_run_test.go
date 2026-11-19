@@ -17,7 +17,7 @@ func TestPluginListEmpty(t *testing.T) {
 		if err := runPlugin(t, out, errb, "plugin", "list"); err != nil {
 			t.Fatal(err)
 		}
-		want := "No plugins installed. Use `claude plugin install` to install a plugin.\n"
+		want := "No plugins installed. Use `glaude plugin install` to install a plugin.\n"
 		if out.String() != want || errb.Len() != 0 {
 			t.Fatalf("stdout = %q, stderr = %q", out.String(), errb.String())
 		}
@@ -36,7 +36,7 @@ func TestPluginListEmpty(t *testing.T) {
 		if err := runPlugin(t, out, errb, "plugin", "list", "--available"); err != nil {
 			t.Fatal(err)
 		}
-		want := "No plugins installed. Use `claude plugin install` to install a plugin.\n"
+		want := "No plugins installed. Use `glaude plugin install` to install a plugin.\n"
 		if out.String() != want {
 			t.Fatalf("stdout = %q", out.String())
 		}
@@ -332,7 +332,7 @@ func TestPluginUpdate(t *testing.T) {
 		out, errb, store, root := setupInstalledFixture(t)
 		// plugin.json wins over the marketplace entry version, so bumping it
 		// makes 1.1.0 the latest.
-		pj := filepath.Join(root, "plugins", "hello", ".claude-plugin", "plugin.json")
+		pj := filepath.Join(root, "plugins", "hello", ".glaude-plugin", "plugin.json")
 		if err := os.WriteFile(pj, []byte(`{"name":"hello","version":"1.1.0","description":"Hello plugin","author":{"name":"probe"}}`), 0o644); err != nil {
 			t.Fatal(err)
 		}

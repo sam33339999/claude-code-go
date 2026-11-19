@@ -1,6 +1,6 @@
 //go:build integration
 
-// Package integration contains end-to-end tests for the claude-code-go engine.
+// Package integration contains end-to-end tests for the glaude engine.
 // Run with: go test -race -tags=integration ./test/integration/...
 package integration
 
@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/api"
-	"github.com/tunsuy/claude-code-go/internal/engine"
-	"github.com/tunsuy/claude-code-go/internal/session"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/api"
+	"github.com/tunsuy/glaude/internal/engine"
+	"github.com/tunsuy/glaude/internal/session"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1066,7 +1066,7 @@ func TestE2E_Session_CorruptLinesSkipped(t *testing.T) {
 }
 
 // sessionFilePath reconstructs the session file path using the same conventions
-// as the session package (projectDir/.claude/projects/<hash>/<sid>.jsonl).
+// as the session package (projectDir/.glaude/projects/<hash>/<sid>.jsonl).
 // This helper duplicates the logic from session.sessionPath since it's unexported.
 func sessionFilePath(t *testing.T, projectDir string, sid types.SessionId) string {
 	t.Helper()
@@ -1075,7 +1075,7 @@ func sessionFilePath(t *testing.T, projectDir string, sid types.SessionId) strin
 	// Since we can't call the unexported sessionPath, we derive it by running
 	// a New() call and observing the resulting path heuristically.
 	// Instead, we'll just glob for the file.
-	matches, err := filepath.Glob(projectDir + "/.claude/projects/*/" + string(sid) + ".jsonl")
+	matches, err := filepath.Glob(projectDir + "/.glaude/projects/*/" + string(sid) + ".jsonl")
 	if err != nil || len(matches) == 0 {
 		t.Fatalf("could not find session file for %s: %v", sid, err)
 	}

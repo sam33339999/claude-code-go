@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Claude Code Go will be documented in this file.
+All notable changes to Glaude will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- **Maintenance-mode mechanisms (PR #20)**: CI debt red lines (`make debt-check`, `scripts/debt-check.sh`) capping `TODO(dep)` and user-visible `not yet implemented` stubs at monotonically decreasing baselines; sealed CLAUDE.md registry; parity testing skeleton (`test/parity/`) with three-tier oracle comparison.
+- **Maintenance-mode mechanisms (PR #20)**: CI debt red lines (`make debt-check`, `scripts/debt-check.sh`) capping `TODO(dep)` and user-visible `not yet implemented` stubs at monotonically decreasing baselines; sealed GLAUDE.md registry; parity testing skeleton (`test/parity/`) with three-tier oracle comparison.
 - **Behavior parity against the TS original (PR #21)**: `--version` now prints `<semver> (Claude Code)` (parity case A1); unknown-subcommand semantics documented and waived with a Go-side guard test (`TestTargetUnknownSubcommandError`).
 - Subcommand inventory vs oracle 2.1.251 (11 top-level + 9 second-level gaps, `test/parity/cases.md` §B11).
 - Memory system and permission system gap closures (T-060..T-064, PR #19).
@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- **Release binaries now report the real version**: goreleaser ldflags targeted a nonexistent `main.version` variable, so all releases v0.1.0–v0.7.0 printed `claude 0.1.0` from `--version`. Now injects `bootstrap.appVersion` — released binaries print `<semver> (Claude Code)`.
+- **Release binaries now report the real version**: goreleaser ldflags targeted a nonexistent `main.version` variable, so all releases v0.1.0–v0.7.0 printed `glaude 0.1.0` from `--version`. Now injects `bootstrap.appVersion` — released binaries print `<semver> (Claude Code)`.
 - Removed dead homebrew-tap publish config (repository/token never existed).
 
 ### Changed
@@ -47,7 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- Memory system P0+P1 fixes: forked agent extraction, multi-scope CLAUDE.md, lint errors.
+- Memory system P0+P1 fixes: forked agent extraction, multi-scope GLAUDE.md, lint errors.
 
 ## [0.4.0] - 2026-04-23
 
@@ -111,7 +111,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - 18 built-in slash commands (`/help`, `/clear`, `/compact`, `/commit`, `/diff`, `/review`, `/mcp`, `/memory`, `/session`, `/status`, `/cost`, `/model`, `/theme`, `/vim`, `/config`, `/init`, `/resume`, `/terminal-setup`)
 - Multi-agent coordinator for parallel background tasks
 - MCP (Model Context Protocol) server support
-- CLAUDE.md memory file auto-loading from directory tree
+- GLAUDE.md memory file auto-loading from directory tree
 - Session persistence and resumption (`--resume`, `--session`)
 - OAuth2 authentication flow alongside API key auth
 - Permission layer for tool use (allow/deny/always-allow)
@@ -124,14 +124,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GitHub Actions CI workflow (build, test, vet)
 - Open-source documentation (README, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY)
 
-[Unreleased]: https://github.com/tunsuy/claude-code-go/compare/v0.8.0...HEAD
-[0.8.0]: https://github.com/tunsuy/claude-code-go/compare/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/tunsuy/claude-code-go/compare/v0.6.0...v0.7.0
-[0.6.0]: https://github.com/tunsuy/claude-code-go/compare/v0.5.0...v0.6.0
-[0.5.0]: https://github.com/tunsuy/claude-code-go/compare/v0.4.1...v0.5.0
-[0.4.1]: https://github.com/tunsuy/claude-code-go/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/tunsuy/claude-code-go/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/tunsuy/claude-code-go/compare/v0.2.1...v0.3.0
-[0.2.1]: https://github.com/tunsuy/claude-code-go/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/tunsuy/claude-code-go/compare/v0.1.1...v0.2.0
-[0.1.1]: https://github.com/tunsuy/claude-code-go/releases/tag/v0.1.1
+[Unreleased]: https://github.com/tunsuy/glaude/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/tunsuy/glaude/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/tunsuy/glaude/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/tunsuy/glaude/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/tunsuy/glaude/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/tunsuy/glaude/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/tunsuy/glaude/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/tunsuy/glaude/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/tunsuy/glaude/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/tunsuy/glaude/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/tunsuy/glaude/releases/tag/v0.1.1

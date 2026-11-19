@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// LoadMemoryPrompt loads all CLAUDE.md files at the given paths and
+// LoadMemoryPrompt loads all GLAUDE.md files at the given paths and
 // concatenates them with section headers into a single string.
 func LoadMemoryPrompt(paths []string) string {
 	if len(paths) == 0 {
@@ -93,15 +93,15 @@ func scopeHeader(scope MemoryScope) string {
 	}
 }
 
-// LoadAllMemory loads both CLAUDE.md files and auto-memory index for a project.
-// It combines traditional CLAUDE.md discovery with the project's MEMORY.md index.
+// LoadAllMemory loads both GLAUDE.md files and auto-memory index for a project.
+// It combines traditional GLAUDE.md discovery with the project's MEMORY.md index.
 // Only the index is injected into the system prompt; individual memory files
 // are read on demand by the LLM using MemoryRead, consistent with how the
 // original Claude Code (TypeScript) implementation works.
 func LoadAllMemory(claudeMdPaths []string, store *MemoryStore) string {
 	var sb strings.Builder
 
-	// Load CLAUDE.md files first.
+	// Load GLAUDE.md files first.
 	claudePrompt := LoadMemoryPrompt(claudeMdPaths)
 	if claudePrompt != "" {
 		sb.WriteString(claudePrompt)
@@ -112,7 +112,7 @@ func LoadAllMemory(claudeMdPaths []string, store *MemoryStore) string {
 	return strings.TrimSpace(sb.String())
 }
 
-// LoadScopedAllMemory loads scoped CLAUDE.md files (with @include) plus the auto-memory index.
+// LoadScopedAllMemory loads scoped GLAUDE.md files (with @include) plus the auto-memory index.
 func LoadScopedAllMemory(files []DiscoveredFile, store *MemoryStore) string {
 	var sb strings.Builder
 

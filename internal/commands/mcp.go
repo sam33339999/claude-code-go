@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/mcp"
+	"github.com/tunsuy/glaude/internal/mcp"
 )
 
 // MCPServerLister is the read-only view of the MCP connection pool required
@@ -53,7 +53,7 @@ func FormatMCPStatus(ctx context.Context, pool MCPServerLister) string {
 	}
 	conns := pool.GetAll()
 	if len(conns) == 0 {
-		return "No MCP servers configured. Use `claude mcp add` to add a server."
+		return "No MCP servers configured. Use `glaude mcp add` to add a server."
 	}
 
 	// Deterministic order: alphabetical by server name.

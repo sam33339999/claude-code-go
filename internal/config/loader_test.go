@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/config"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // writeJSON writes v as JSON to path, creating parent directories as needed.
@@ -59,17 +59,17 @@ func TestLoad_AllThreeLayers(t *testing.T) {
 
 	// User: model = "user-model"
 	writeJSON(t,
-		filepath.Join(home, ".claude", "settings.json"),
+		filepath.Join(home, ".glaude", "settings.json"),
 		config.SettingsJson{Model: "user-model", DefaultShell: "bash"},
 	)
 	// Project: model = "project-model"
 	writeJSON(t,
-		filepath.Join(project, ".claude", "settings.json"),
+		filepath.Join(project, ".glaude", "settings.json"),
 		config.SettingsJson{Model: "project-model"},
 	)
 	// Local: model = "local-model"
 	writeJSON(t,
-		filepath.Join(project, ".claude.local", "settings.json"),
+		filepath.Join(project, ".glaude.local", "settings.json"),
 		config.SettingsJson{Model: "local-model"},
 	)
 
@@ -96,12 +96,12 @@ func TestLoad_PolicyOverridesLocal(t *testing.T) {
 
 	// Local sets model to "local-model"
 	writeJSON(t,
-		filepath.Join(project, ".claude.local", "settings.json"),
+		filepath.Join(project, ".glaude.local", "settings.json"),
 		config.SettingsJson{Model: "local-model"},
 	)
 	// Policy sets model to "policy-model"
 	writeJSON(t,
-		filepath.Join(home, ".claude", "managed-settings.json"),
+		filepath.Join(home, ".glaude", "managed-settings.json"),
 		config.SettingsJson{Model: "policy-model"},
 	)
 
@@ -122,7 +122,7 @@ func TestLoad_PermissionsUniqueAppend(t *testing.T) {
 	project := t.TempDir()
 
 	writeJSON(t,
-		filepath.Join(home, ".claude", "settings.json"),
+		filepath.Join(home, ".glaude", "settings.json"),
 		config.SettingsJson{
 			Permissions: &config.PermissionsConfig{
 				Allow: []string{"Bash(git:*)", "Read(*)"},
@@ -130,7 +130,7 @@ func TestLoad_PermissionsUniqueAppend(t *testing.T) {
 		},
 	)
 	writeJSON(t,
-		filepath.Join(project, ".claude", "settings.json"),
+		filepath.Join(project, ".glaude", "settings.json"),
 		config.SettingsJson{
 			Permissions: &config.PermissionsConfig{
 				Allow: []string{"Read(*)", "Write(src/*)"},
@@ -166,7 +166,7 @@ func TestLoad_EnvVarOverridesFile(t *testing.T) {
 	project := t.TempDir()
 
 	writeJSON(t,
-		filepath.Join(home, ".claude", "settings.json"),
+		filepath.Join(home, ".glaude", "settings.json"),
 		config.SettingsJson{APIKey: "file-key"},
 	)
 
@@ -188,7 +188,7 @@ func TestLoad_PolicyOverridesEnvVar(t *testing.T) {
 	project := t.TempDir()
 
 	writeJSON(t,
-		filepath.Join(home, ".claude", "managed-settings.json"),
+		filepath.Join(home, ".glaude", "managed-settings.json"),
 		config.SettingsJson{Model: "policy-model"},
 	)
 
@@ -210,7 +210,7 @@ func TestLoad_HooksTyped(t *testing.T) {
 	project := t.TempDir()
 
 	writeJSON(t,
-		filepath.Join(home, ".claude", "settings.json"),
+		filepath.Join(home, ".glaude", "settings.json"),
 		config.SettingsJson{
 			Hooks: map[types.HookType][]types.HookDefinition{
 				types.HookPreToolUse: {{Command: "echo pre", Matcher: "Bash"}},

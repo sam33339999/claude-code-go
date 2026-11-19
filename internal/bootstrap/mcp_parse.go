@@ -8,7 +8,7 @@ import (
 )
 
 // This file re-implements the option-parsing semantics of the upstream TS CLI
-// (commander.js) for the `claude mcp` tree.  Every subcommand disables cobra's
+// (commander.js) for the `glaude mcp` tree.  Every subcommand disables cobra's
 // flag parsing and receives the raw argv tail instead; parseMCPFlags then
 // reproduces commander's behavior byte-for-byte:
 //

@@ -93,7 +93,7 @@ func (c *jsonRPCClient) initialize(ctx context.Context) error {
 	params, _ := json.Marshal(map[string]any{
 		"protocolVersion": "2024-11-05",
 		"clientInfo": map[string]any{
-			"name":    "claude-code-go",
+			"name":    "glaude",
 			"version": "0.1.0",
 		},
 		"capabilities": map[string]any{},

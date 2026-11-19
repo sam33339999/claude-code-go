@@ -123,7 +123,7 @@ Claude Code 的终端恢复系统建立在以下核心设计原则之上：
 │  │down.ts (关闭) │  │.ts (清理注册)    │  │.ts (跨项目恢复)      │   │
 │  └───────────────┘  └──────────────────┘  └──────────────────────┘   │
 │                                                                       │
-│  磁盘: ~/.claude/projects/<project-hash>/<session-id>.jsonl           │
+│  磁盘: ~/.glaude/projects/<project-hash>/<session-id>.jsonl           │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -139,7 +139,7 @@ Claude Code 的终端恢复系统建立在以下核心设计原则之上：
 
 #### 3.1.1 存储格式 — JSONL 追加式日志
 
-会话数据以 **JSONL (JSON Lines)** 格式存储在 `~/.claude/projects/<project-hash>/<session-id>.jsonl` 文件中。每行是一个独立的 JSON 对象（Entry），类型包括：
+会话数据以 **JSONL (JSON Lines)** 格式存储在 `~/.glaude/projects/<project-hash>/<session-id>.jsonl` 文件中。每行是一个独立的 JSON 对象（Entry），类型包括：
 
 | Entry 类型 | 说明 |
 |---|---|
@@ -400,7 +400,7 @@ async function gracefulShutdown(exitCode, reason, options) {
 
   // 3. 【最先执行】恢复终端模式 + 打印恢复提示
   cleanupTerminalModes()   // 退出 alt screen, 禁用鼠标追踪, 显示光标等
-  printResumeHint()        // "Resume this session with: claude --resume ..."
+  printResumeHint()        // "Resume this session with: glaude --resume ..."
 
   // 4. 【最关键】运行清理函数（刷新会话数据到磁盘）
   //    有2秒超时保护，防止 MCP 连接等卡住
@@ -464,7 +464,7 @@ function printResumeHint() {
   const customTitle = getCurrentSessionTitle(sessionId)
   const resumeArg = customTitle ? `"${escaped}"` : sessionId
   
-  writeSync(1, chalk.dim(`\nResume this session with:\nclaude --resume ${resumeArg}\n`))
+  writeSync(1, chalk.dim(`\nResume this session with:\nglaude --resume ${resumeArg}\n`))
   resumeHintPrinted = true
 }
 ```
@@ -751,7 +751,7 @@ export async function fileHistoryTrackEdit(
 }
 ```
 
-**备份存储**: `~/.claude/file-history/<session-id>/<hash>@v<version>`
+**备份存储**: `~/.glaude/file-history/<session-id>/<hash>@v<version>`
 
 每个快照（FileHistorySnapshot）记录：
 - `messageId`: 关联的消息 ID
@@ -925,7 +925,7 @@ SIGHUP → gracefulShutdown(129)
 
 **文件布局**:
 ```
-~/.claude/
+~/.glaude/
 ├── projects/
 │   └── <sanitized-project-path>/
 │       ├── <session-id>.jsonl          # 主对话日志
@@ -1009,7 +1009,7 @@ reAppendSessionMetadata():
     → createBackup(filePath, version=1)
       → 读取原文件内容
       → 计算 SHA-256 哈希
-      → 硬链接/复制到 ~/.claude/file-history/<session>/<hash>@v1
+      → 硬链接/复制到 ~/.glaude/file-history/<session>/<hash>@v1
     → 更新 FileHistoryState.snapshots
 
 每轮对话后:
@@ -1025,7 +1025,7 @@ reAppendSessionMetadata():
 
 ### 6.1 CLI 恢复路径
 
-#### 6.1.1 `claude --continue` (继续最近会话)
+#### 6.1.1 `glaude --continue` (继续最近会话)
 
 ```
 CLI 入口 → loadConversationForResume(undefined, undefined)
@@ -1038,7 +1038,7 @@ CLI 入口 → loadConversationForResume(undefined, undefined)
   → 启动 REPL 渲染
 ```
 
-#### 6.1.2 `claude --resume <id|title|path>` (恢复指定会话)
+#### 6.1.2 `glaude --resume <id|title|path>` (恢复指定会话)
 
 ```
 CLI 入口 → 解析参数类型
@@ -1162,7 +1162,7 @@ export function checkCrossProjectResume(log, showAllProjects, worktreePaths) {
     return { isCrossProject: true, isSameRepoWorktree: true, projectPath }
   } else {
     // 不同仓库 → 生成 cd 命令
-    const command = `cd ${quote([log.projectPath])} && claude --resume ${sessionId}`
+    const command = `cd ${quote([log.projectPath])} && glaude --resume ${sessionId}`
     return { isCrossProject: true, isSameRepoWorktree: false, command, projectPath }
   }
 }
@@ -1261,7 +1261,7 @@ Ctrl+B → useSessionBackgrounding.handleBackgroundSession()
         ├─ setCwd(worktreePath)
         ├─ setOriginalCwd()
         ├─ restoreWorktreeSession()
-        └─ 清除缓存 (CLAUDE.md, 系统提示, 计划目录)
+        └─ 清除缓存 (GLAUDE.md, 系统提示, 计划目录)
 
 /resume 切换到其他会话时:
   exitRestoredWorktree()
@@ -1376,7 +1376,7 @@ setInterval(() => {
 
 文件编辑 ──→ fileHistoryTrackEdit()
                │
-               ├─ createBackup() → ~/.claude/file-history/
+               ├─ createBackup() → ~/.glaude/file-history/
                │
                └─ insertFileHistorySnapshot() → session.jsonl
 
@@ -1397,7 +1397,7 @@ setInterval(() => {
                │   (退出 alt screen, 禁用鼠标/键盘特殊模式, 显示光标)
                │
                ├─ printResumeHint() [同步]
-               │   "Resume this session with: claude --resume ..."
+               │   "Resume this session with: glaude --resume ..."
                │
                ├─ runCleanupFunctions() [2s超时]
                │   │

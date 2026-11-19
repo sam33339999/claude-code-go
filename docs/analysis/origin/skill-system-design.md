@@ -49,8 +49,8 @@ Command（联合类型 — 所有命令的顶层抽象）
   │
   ├─ PromptCommand（type: 'prompt'）  ← 【这就是 Skill】
   │   ├─ Bundled Skills      — 编译时打包（review, init, simplify…）
-  │   ├─ User Skills         — ~/.claude/skills/*/SKILL.md
-  │   ├─ Project Skills      — .claude/skills/*/SKILL.md
+  │   ├─ User Skills         — ~/.glaude/skills/*/SKILL.md
+  │   ├─ Project Skills      — .glaude/skills/*/SKILL.md
   │   ├─ Managed Skills      — Policy 管控的 skills
   │   ├─ Plugin Skills       — 插件导出（source: 'plugin'）
   │   ├─ MCP Skills          — MCP Server 提供（loadedFrom: 'mcp'）
@@ -245,7 +245,7 @@ type Output =
 ### 文件结构
 
 ```
-.claude/skills/
+.glaude/skills/
   └── my-skill/
       └── SKILL.md          ← 唯一入口文件
 ```
@@ -362,22 +362,22 @@ gh pr list --json number,title
 ```
 ┌─────────────────────────────────────────────────────┐
 │  1. Managed Skills     — 策略管控目录                │
-│     路径: $MANAGED_PATH/.claude/skills/              │
+│     路径: $MANAGED_PATH/.glaude/skills/              │
 │     来源: policySettings                             │
 │     控制: CLAUDE_CODE_DISABLE_POLICY_SKILLS 环境变量 │
 ├─────────────────────────────────────────────────────┤
 │  2. User Skills        — 用户全局目录                │
-│     路径: ~/.claude/skills/                          │
+│     路径: ~/.glaude/skills/                          │
 │     来源: userSettings                               │
 │     控制: isSettingSourceEnabled('userSettings')     │
 ├─────────────────────────────────────────────────────┤
 │  3. Project Skills     — 项目目录（向上遍历至 HOME） │
-│     路径: .claude/skills/ (从 cwd 向上到 ~/)         │
+│     路径: .glaude/skills/ (从 cwd 向上到 ~/)         │
 │     来源: projectSettings                            │
 │     控制: isSettingSourceEnabled('projectSettings')  │
 ├─────────────────────────────────────────────────────┤
 │  4. Additional Skills  — --add-dir 指定的附加目录    │
-│     路径: <dir>/.claude/skills/                      │
+│     路径: <dir>/.glaude/skills/                      │
 │     来源: projectSettings                            │
 ├─────────────────────────────────────────────────────┤
 │  5. Legacy Commands    — 废弃的 .commands/ 目录      │
@@ -434,8 +434,8 @@ for (/* each entry */) {
 getSkillDirCommands(cwd)
   │
   ├─ 1. 计算搜索路径
-  │    ├─ managed: getManagedFilePath()/.claude/skills
-  │    ├─ user: ~/.claude/skills
+  │    ├─ managed: getManagedFilePath()/.glaude/skills
+  │    ├─ user: ~/.glaude/skills
   │    ├─ project: getProjectDirsUpToHome('skills', cwd)
   │    └─ additional: getAdditionalDirectoriesForClaudeMd()
   │
@@ -814,7 +814,7 @@ function resolveSkillFilePath(baseDir, relPath) {
 
 ### 动态 Skill 发现
 
-当用户操作文件时（Read/Write/Edit），系统从文件路径**向上遍历**查找 `.claude/skills/` 目录。
+当用户操作文件时（Read/Write/Edit），系统从文件路径**向上遍历**查找 `.glaude/skills/` 目录。
 
 ```
 状态存储：
@@ -833,7 +833,7 @@ discoverSkillDirsForPaths(filePaths, cwd)
   ├─ 对每个 filePath:
   │    ├─ currentDir = dirname(filePath)
   │    ├─ while currentDir.startsWith(cwd + pathSep):  ← 不含 cwd 本身
-  │    │    ├─ skillDir = join(currentDir, '.claude', 'skills')
+  │    │    ├─ skillDir = join(currentDir, '.glaude', 'skills')
   │    │    ├─ dynamicSkillDirs 已包含? → 跳过
   │    │    ├─ 标记为已检查
   │    │    ├─ stat(skillDir) 存在?
@@ -1104,8 +1104,8 @@ registerBundledSkill({
 
 ### 保存位置选项
 
-- **项目级**: `.claude/skills/<name>/SKILL.md` — 项目特定工作流
-- **个人级**: `~/.claude/skills/<name>/SKILL.md` — 跨项目个人工作流
+- **项目级**: `.glaude/skills/<name>/SKILL.md` — 项目特定工作流
+- **个人级**: `~/.glaude/skills/<name>/SKILL.md` — 跨项目个人工作流
 
 ---
 
@@ -1234,7 +1234,7 @@ recordSkillUsage(commandName)
 
   开发者编写 SKILL.md              Bundled Skill 注册
   ──────────────────               ─────────────────
-  .claude/skills/                  registerBundledSkill({
+  .glaude/skills/                  registerBundledSkill({
     my-skill/                        name: 'review',
       SKILL.md                       getPromptForCommand: ...
                                    })
@@ -1278,7 +1278,7 @@ recordSkillUsage(commandName)
   用户编辑 src/deep/file.ts
          ↓
   discoverSkillDirsForPaths()
-  → 沿路径向上查找 .claude/skills/
+  → 沿路径向上查找 .glaude/skills/
   → addSkillDirectories()
   → skillsLoaded.emit()
 
@@ -1346,7 +1346,7 @@ recordSkillUsage(commandName)
 1. 创建目录和文件：
 
 ```bash
-mkdir -p .claude/skills/my-skill
+mkdir -p .glaude/skills/my-skill
 ```
 
 2. 编写 `SKILL.md`：

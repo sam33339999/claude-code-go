@@ -19,7 +19,7 @@ var DANGEROUS_FILES = map[string]struct{}{
 	".profile":      {},
 	".ripgreprc":    {},
 	".mcp.json":     {},
-	".claude.json":  {},
+	".glaude.json":  {},
 }
 
 // DANGEROUS_DIRECTORIES lists directories whose contents must not be modified
@@ -28,7 +28,7 @@ var DANGEROUS_DIRECTORIES = map[string]struct{}{
 	".git":    {},
 	".vscode": {},
 	".idea":   {},
-	".claude": {},
+	".glaude": {},
 }
 
 // DangerousPathResult describes why a path is considered dangerous.
@@ -43,7 +43,7 @@ type DangerousPathResult struct {
 
 // IsDangerousPath reports whether path targets a protected file or directory.
 // Both the final path segment (file name) and every intermediate segment
-// (directory names) are checked, so writes inside .git/ or .claude/ are caught
+// (directory names) are checked, so writes inside .git/ or .glaude/ are caught
 // regardless of depth. The comparison is case-insensitive to handle
 // case-insensitive filesystems (macOS, Windows).
 func IsDangerousPath(path string) bool {

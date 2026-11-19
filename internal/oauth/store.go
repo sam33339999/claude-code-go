@@ -26,7 +26,7 @@ type TokenStore interface {
 func NewTokenStore() TokenStore {
 	if runtime.GOOS == "darwin" {
 		return &KeychainStore{
-			serviceName: "claude-code",
+			serviceName: "glaude",
 			accountName: "oauth-tokens",
 		}
 	}
@@ -34,14 +34,14 @@ func NewTokenStore() TokenStore {
 	return &FileStore{path: path}
 }
 
-// defaultTokenFilePath returns $XDG_CONFIG_HOME/claude-code/tokens.enc
-// (falling back to $HOME/.config/claude-code/tokens.enc).
+// defaultTokenFilePath returns $XDG_CONFIG_HOME/glaude/tokens.enc
+// (falling back to $HOME/.config/glaude/tokens.enc).
 func defaultTokenFilePath() string {
 	base := os.Getenv("XDG_CONFIG_HOME")
 	if base == "" {
 		base = filepath.Join(os.Getenv("HOME"), ".config")
 	}
-	return filepath.Join(base, "claude-code", "tokens.enc")
+	return filepath.Join(base, "glaude", "tokens.enc")
 }
 
 // ─── MemoryStore ──────────────────────────────────────────────────────────────

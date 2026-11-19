@@ -4,12 +4,12 @@ import (
 	"context"
 	"sync"
 
-	"github.com/tunsuy/claude-code-go/internal/api"
-	"github.com/tunsuy/claude-code-go/internal/compact"
-	"github.com/tunsuy/claude-code-go/internal/msgqueue"
-	"github.com/tunsuy/claude-code-go/internal/permissions"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/api"
+	"github.com/tunsuy/glaude/internal/compact"
+	"github.com/tunsuy/glaude/internal/msgqueue"
+	"github.com/tunsuy/glaude/internal/permissions"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // QueryEngine is the top-level interface exposed to the TUI/SDK layer.

@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newInstallCmd creates the `claude install [target]` command (oracle shape:
+// newInstallCmd creates the `glaude install [target]` command (oracle shape:
 // target = stable, latest, or a specific version; --force overrides an
 // existing installation).
 //
@@ -29,7 +29,7 @@ func newInstallCmd() *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "install [target]",
-		Short: "Install Claude Code native build. Use [target] to specify version (stable, latest, or specific version)",
+		Short: "Install Glaude native build. Use [target] to specify version (stable, latest, or specific version)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := "latest"
@@ -72,16 +72,16 @@ type installOptions struct {
 }
 
 // runInstall resolves the requested version, downloads the platform archive,
-// extracts the claude binary and installs it atomically into destDir.
+// extracts the glaude binary and installs it atomically into destDir.
 func runInstall(opts installOptions) error {
 	version, err := resolveInstallVersion(opts.target, opts.apiBase, opts.repo)
 	if err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
 
-	binaryName := "claude"
+	binaryName := "glaude"
 	if opts.goos == "windows" {
-		binaryName = "claude.exe"
+		binaryName = "glaude.exe"
 	}
 	dest := filepath.Join(opts.destDir, binaryName)
 	if _, err := os.Stat(dest); err == nil && !opts.force {
@@ -110,7 +110,7 @@ func runInstall(opts installOptions) error {
 	if err := os.MkdirAll(opts.destDir, 0o755); err != nil {
 		return fmt.Errorf("install: create %s: %w", opts.destDir, err)
 	}
-	tmpBin, err := os.CreateTemp(opts.destDir, ".claude-install-*")
+	tmpBin, err := os.CreateTemp(opts.destDir, ".glaude-install-*")
 	if err != nil {
 		return fmt.Errorf("install: temp file: %w", err)
 	}
@@ -130,7 +130,7 @@ func runInstall(opts installOptions) error {
 		return fmt.Errorf("install: rename to %s: %w", dest, err)
 	}
 
-	fmt.Fprintf(opts.out, "Installed claude %s to %s\n", version, dest)
+	fmt.Fprintf(opts.out, "Installed glaude %s to %s\n", version, dest)
 	if !pathContains(opts.destDir) {
 		fmt.Fprintf(opts.out, "Note: %s is not in your PATH; add it to use `claude` directly.\n", opts.destDir)
 	}
@@ -173,7 +173,7 @@ func releaseAssetName(version, goos, goarch string) string {
 	if goos == "windows" {
 		ext = ".zip"
 	}
-	return fmt.Sprintf("claude_%s_%s_%s%s", version, goos, arch, ext)
+	return fmt.Sprintf("glaude_%s_%s_%s%s", version, goos, arch, ext)
 }
 
 // downloadToTemp fetches url into a temporary file and returns its path.
@@ -187,7 +187,7 @@ func downloadToTemp(url string) (string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("download %s: status %d", url, resp.StatusCode)
 	}
-	f, err := os.CreateTemp("", "claude-asset-*")
+	f, err := os.CreateTemp("", "glaude-asset-*")
 	if err != nil {
 		return "", fmt.Errorf("temp file: %w", err)
 	}

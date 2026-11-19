@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // ── Input / Output types ──────────────────────────────────────────────────────

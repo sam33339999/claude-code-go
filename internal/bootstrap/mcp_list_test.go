@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
 // Entry builders over raw ordered maps, mirroring what the storage layer
@@ -218,7 +218,7 @@ func TestRunMCPList(t *testing.T) {
 		if err := runMCPList(d, nil); err != nil {
 			t.Fatal(err)
 		}
-		want := "No MCP servers configured. Use `claude mcp add` to add a server.\n"
+		want := "No MCP servers configured. Use `glaude mcp add` to add a server.\n"
 		if out.String() != want {
 			t.Fatalf("stdout = %q, want %q", out.String(), want)
 		}
@@ -231,7 +231,7 @@ func TestRunMCPList(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := out.String()
-		if !strings.HasPrefix(got, "No MCP servers configured. Use `claude mcp add` to add a server.\n") {
+		if !strings.HasPrefix(got, "No MCP servers configured. Use `glaude mcp add` to add a server.\n") {
 			t.Fatalf("stdout = %q", got)
 		}
 		if !strings.Contains(got, "[Contains warnings] Local config (private to you in this project)\n") {
@@ -275,13 +275,13 @@ func TestRunMCPList(t *testing.T) {
 		}
 		got := out.String()
 		want := "\nMCP config diagnostics ⚠\n\n" +
-			"For help configuring MCP servers, see: https://code.claude.com/docs/en/mcp\n\n" +
+			"For help configuring MCP servers, see: https://code.glaude.com/docs/en/mcp\n\n" +
 			"[Conflicting scopes]\n" +
 			"├ Server \"multi\" is defined in multiple scopes with different endpoints: " +
 			"user (echo3), project (echo2). OAuth tokens are stored per endpoint, " +
 			"so authenticating in one context will not carry over.\n" +
 			"└ Keep the correct endpoint and remove the others: " +
-			"`claude mcp remove multi -s user` or `claude mcp remove multi -s project`\n\n"
+			"`glaude mcp remove multi -s user` or `glaude mcp remove multi -s project`\n\n"
 		if !strings.HasSuffix(got, want) {
 			t.Fatalf("stdout tail =\n%q\nwant\n%q", got, want)
 		}

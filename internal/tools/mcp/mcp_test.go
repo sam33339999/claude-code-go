@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	agtmcp "github.com/tunsuy/claude-code-go/internal/mcp"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/internal/tools/mcp"
+	agtmcp "github.com/tunsuy/glaude/internal/mcp"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools/mcp"
 )
 
 // ── Stub MCP server (Streamable HTTP transport) ──────────────────────────────

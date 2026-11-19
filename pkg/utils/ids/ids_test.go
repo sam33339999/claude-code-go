@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/pkg/types"
-	"github.com/tunsuy/claude-code-go/pkg/utils/ids"
+	"github.com/tunsuy/glaude/pkg/types"
+	"github.com/tunsuy/glaude/pkg/utils/ids"
 )
 
 // TestNewSessionId verifies that generated session IDs are unique and

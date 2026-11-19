@@ -9,10 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tunsuy/claude-code-go/internal/oauth"
+	"github.com/tunsuy/glaude/internal/oauth"
 )
 
-// newAuthCmd creates the `claude auth` subcommand with login/logout/status children.
+// newAuthCmd creates the `glaude auth` subcommand with login/logout/status children.
 func newAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
@@ -20,9 +20,9 @@ func newAuthCmd() *cobra.Command {
 		Long: longDesc(`
 Manage your Anthropic API authentication.
 
-Use 'claude auth login' to authenticate via OAuth or API key,
-'claude auth logout' to remove stored credentials, and
-'claude auth status' to check the current authentication state.
+Use 'glaude auth login' to authenticate via OAuth or API key,
+'glaude auth logout' to remove stored credentials, and
+'glaude auth status' to check the current authentication state.
 `),
 		SilenceUsage: true,
 	}
@@ -35,7 +35,7 @@ Use 'claude auth login' to authenticate via OAuth or API key,
 	return cmd
 }
 
-// newAuthLoginCmd implements `claude auth login`.
+// newAuthLoginCmd implements `glaude auth login`.
 func newAuthLoginCmd() *cobra.Command {
 	var (
 		apiKey      string
@@ -55,7 +55,7 @@ func newAuthLoginCmd() *cobra.Command {
 	return cmd
 }
 
-// newAuthLogoutCmd implements `claude auth logout`.
+// newAuthLogoutCmd implements `glaude auth logout`.
 func newAuthLogoutCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
@@ -66,7 +66,7 @@ func newAuthLogoutCmd() *cobra.Command {
 	}
 }
 
-// newAuthStatusCmd implements `claude auth status`.
+// newAuthStatusCmd implements `glaude auth status`.
 func newAuthStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
@@ -159,7 +159,7 @@ func runAuthStatus() error {
 			fmt.Println("Authenticated via ANTHROPIC_API_KEY environment variable.")
 			return nil
 		}
-		fmt.Fprintln(os.Stderr, "Not authenticated. Run 'claude auth login'.")
+		fmt.Fprintln(os.Stderr, "Not authenticated. Run 'glaude auth login'.")
 		return fmt.Errorf("not authenticated")
 	}
 	fmt.Println("Authenticated.")

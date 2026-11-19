@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/tunsuy/claude-code-go/internal/agenttype"
+	"github.com/tunsuy/glaude/internal/agenttype"
 )
 
-// newAgentsCmd creates the `claude agents` command.
+// newAgentsCmd creates the `glaude agents` command.
 //
 // Shape aligned with the oracle (TS main.tsx): a single listing command with
 // --setting-sources, NOT list/add/remove subcommands (the previous Go stub
@@ -90,14 +90,14 @@ func formatAgentsList(homeDir, cwd, sources string) (string, error) {
 
 	var userEntries, projectEntries []agentEntry
 	if loadUser {
-		profiles, err := agenttype.LoadCustomAgents(filepath.Join(homeDir, ".claude", "agents"))
+		profiles, err := agenttype.LoadCustomAgents(filepath.Join(homeDir, ".glaude", "agents"))
 		if err != nil {
 			return "", fmt.Errorf("agents: load user agents: %w", err)
 		}
 		userEntries = entriesFromProfiles(profiles)
 	}
 	if loadProject {
-		profiles, err := agenttype.LoadCustomAgents(filepath.Join(cwd, ".claude", "agents"))
+		profiles, err := agenttype.LoadCustomAgents(filepath.Join(cwd, ".glaude", "agents"))
 		if err != nil {
 			return "", fmt.Errorf("agents: load project agents: %w", err)
 		}

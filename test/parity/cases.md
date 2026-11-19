@@ -14,7 +14,7 @@
 
 | # | 用例 | oracle 行为 | Go 现状 | 状态 |
 |---|------|------------|---------|------|
-| A1 | `--version` / `-v` | 打印 `<semver> (Claude Code)`，exit 0 | 打印 `<semver> (Claude Code)`（2026-08-30 已对齐，原为 `claude 0.1.0`） | ✅ Tier-2 |
+| A1 | `--version` / `-v` | 打印 `<semver> (Claude Code)`，exit 0 | 打印 `<semver> (Claude Code)`（2026-08-30 已对齐，原为 `glaude 0.1.0`） | ✅ Tier-2 |
 | A2 | `--help` / `-h` | 列出 flags，exit 0 | 有帮助文本 | ✅ Tier-0 |
 | A3 | `--help` 关键 flags（`-p`、`--model`、`--output-format`、`--resume`、`--dangerously-skip-permissions`） | 均出现 | 均出现 | ✅ Tier-1 |
 | A4 | help 文本完整逐字对比 | — | 差异较大（flag 集合本身不全） | ✅ 已盘点（见 §A4，2026-09-05） |
@@ -26,7 +26,7 @@
 oracle（TS 版）对**未知词**的处理不是"报错退出"，而是**当作 prompt** 走 LLM：
 
 ```
-$ claude definitely-not-a-command
+$ glaude definitely-not-a-command
 (模型回答："That's not a command — just text, so nothing ran...")  # exit 0
 ```
 
@@ -42,7 +42,7 @@ oracle 行为依赖 LLM（每次敲错命令都消耗 token、输出不确定）
   契约**：未知子命令必须 exit ≠ 0 且输出含 unknown 诊断——防止未来
   有人"顺手对齐"把 waive 决策无声推翻。
 
-同理 A1 版本格式：oracle 是 `2.1.251 (Claude Code)`，Go 是 `claude 0.1.0`。
+同理 A1 版本格式：oracle 是 `2.1.251 (Claude Code)`，Go 是 `glaude 0.1.0`。
 **已对齐（2026-08-30）**：Go 侧 `--version` 改为 `<semver> (Claude Code)`
 格式（`bootstrap.appVersionString()`），parity Tier-2 恢复通过。
 
@@ -98,12 +98,12 @@ version action）——无分歧，无需对齐。
 | B5 | `plugin list/install/uninstall/enable/disable/update/validate/marketplace` | 真实功能 | 已实现（8 个命令 + marketplace 子树，字节级钉在 `internal/bootstrap/plugin_*_test.go`） | ✅ 2026-09-05 |
 | B6 | `auth login/logout/status` | OAuth 流程 | login/logout/status 已实现 | ⏳ 对比 login 的设备码输出格式 |
 | B7 | `doctor` | 环境体检（逐项检查） | 打印最小报告（Go runtime/version），**无逐项检查** | ⏳ |
-| B8 | `update`（别名 `upgrade`） | 自更新；`update --check` 查版本 | 已实现（BF-06）：GitHub releases 版本检查（endpoint 可注入，semver 比较）；新版提示 `claude install <ver>`。**分歧**：不自安装二进制（oracle 走 npm/native installer；Go 发行走 GitHub release archives，安装见 B10） | ✅ 2026-11-18（分歧已记录） |
-| B9 | `agents [--setting-sources]` | 列出配置的 agents（oracle 形态） | 已实现（BF-06）：**对齐 oracle 单一命令形态**（移除 list/add/remove 三桩子命令）；User/Project/Built-in 分组＋`(shadowed by project)` 遮蔽标记＋active 计数。**分歧**：无 local/managed/plugin/CLI-arg 分组、无 memory 显示；custom agents 文件式管理（~/.claude/agents、.claude/agents） | ✅ 2026-11-18（形态已对齐） |
-| B10 | `install [target]` | 安装 native build（stable/latest/特定版本，--force） | 已实现（BF-06）：GitHub releases 下载当前平台 archive（goreleaser 命名），解压 claude 二进制原子安装到 ~/.local/bin，PATH 提示。**分歧**：无 package-manager 集成 | ✅ 2026-11-18（分歧已记录） |
+| B8 | `update`（别名 `upgrade`） | 自更新；`update --check` 查版本 | 已实现（BF-06）：GitHub releases 版本检查（endpoint 可注入，semver 比较）；新版提示 `glaude install <ver>`。**分歧**：不自安装二进制（oracle 走 npm/native installer；Go 发行走 GitHub release archives，安装见 B10） | ✅ 2026-11-18（分歧已记录） |
+| B9 | `agents [--setting-sources]` | 列出配置的 agents（oracle 形态） | 已实现（BF-06）：**对齐 oracle 单一命令形态**（移除 list/add/remove 三桩子命令）；User/Project/Built-in 分组＋`(shadowed by project)` 遮蔽标记＋active 计数。**分歧**：无 local/managed/plugin/CLI-arg 分组、无 memory 显示；custom agents 文件式管理（~/.glaude/agents、.glaude/agents） | ✅ 2026-11-18（形态已对齐） |
+| B10 | `install [target]` | 安装 native build（stable/latest/特定版本，--force） | 已实现（BF-06）：GitHub releases 下载当前平台 archive（goreleaser 命名），解压 glaude 二进制原子安装到 ~/.local/bin，PATH 提示。**分歧**：无 package-manager 集成 | ✅ 2026-11-18（分歧已记录） |
 | B11 | oracle 有、Go 完全缺失的子命令 | 16 个顶层子命令 | Go 缺 **11 个顶层 + 9 个二级**（明细见 §B11 盘点，2026-08-30，oracle 2.1.251） | ✅ 已盘点 |
 
-## B11. 子命令盘点（2026-08-30，oracle = claude 2.1.251 本机二进制）
+## B11. 子命令盘点（2026-08-30，oracle = glaude 2.1.251 本机二进制）
 
 **oracle 顶层子命令共 16 个**：`agents` `attach` `auth` `auto-mode` `doctor`
 `gateway` `import` `install` `logs` `mcp` `project` `respawn` `rm`

@@ -167,7 +167,7 @@ case msgCh <- Msg{
 - 不存在 panic 或错误静默吞咽。✅
 
 **函数长度：**
-- `executeOneTool` 从约 90 行增至约 107 行，超过 CLAUDE.md 规定的 80 行软限制。但增量（~17 行）是结构完整的 unknown-tool 处理块，逻辑自洽；强制拆分反而降低可读性。建议后续重构时考虑将 unknown-tool 分支提取为 `executeUnknownTool` 辅助函数（P2 建议）。
+- `executeOneTool` 从约 90 行增至约 107 行，超过 GLAUDE.md 规定的 80 行软限制。但增量（~17 行）是结构完整的 unknown-tool 处理块，逻辑自洽；强制拆分反而降低可读性。建议后续重构时考虑将 unknown-tool 分支提取为 `executeUnknownTool` 辅助函数（P2 建议）。
 - 测试文件中 `TestE2E_ToolDispatch` 约 113 行，测试函数软限制 160 行，在限制内。✅
 
 **命名规范：**
@@ -200,7 +200,7 @@ case msgCh <- Msg{
 
 **文件**：`internal/engine/orchestration.go`
 
-修改后函数约 107 行，超过 CLAUDE.md 规定的 80 行软限制（约 34%）。当前结构为"unknown-tool 早返回块 + 校验块 + 执行块 + emit 块"，逻辑自洽但稍显冗长。
+修改后函数约 107 行，超过 GLAUDE.md 规定的 80 行软限制（约 34%）。当前结构为"unknown-tool 早返回块 + 校验块 + 执行块 + emit 块"，逻辑自洽但稍显冗长。
 
 **建议**（非阻塞）：考虑在后续重构 Pass 中将 unknown-tool 路径（第 207–229 行）提取为 `emitUnknownToolError(ctx, tc, msgCh)` 辅助函数，函数逻辑更一目了然。
 

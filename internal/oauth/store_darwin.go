@@ -11,7 +11,7 @@ import (
 
 // KeychainStore uses the macOS system keychain via the `security` CLI tool.
 // This avoids CGo and external library dependencies.
-// Service: "claude-code", Account: "oauth-tokens"
+// Service: "glaude", Account: "oauth-tokens"
 type KeychainStore struct {
 	serviceName string
 	accountName string

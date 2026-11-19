@@ -54,7 +54,7 @@ const appVersion = "0.1.0"
 // buildDefaultHeaders returns the default HTTP headers for Anthropic API requests.
 func buildDefaultHeaders(version string) map[string]string {
 	return map[string]string{
-		"User-Agent": "claude-code-go/" + version,
+		"User-Agent": "glaude/" + version,
 	}
 }
 

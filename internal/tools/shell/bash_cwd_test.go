@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/internal/tools/shell"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools/shell"
 )
 
 // TestBashTool_WorkingDir verifies commands run against the session working

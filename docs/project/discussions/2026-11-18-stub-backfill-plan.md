@@ -63,7 +63,7 @@
 | BF-10 | Enter/ExitWorktree：git worktree 管理器 | agent-tools | 工具间禁止互依赖，git 操作自包含 |
 | BF-11 | NotebookEdit：.ipynb JSON 解析与编辑 | agent-tools | stdlib encoding/json 即可，无需第三方 |
 | BF-12 | ToolSearch：注册表搜索索引 | agent-tools | agtkeel `SearchHint()` 契约已存在，registry 有 Filter/Names |
-| BF-13 | Skill：skill 注册表与加载器 | agent-tools | markdown skill 文件加载（~/.claude/skills + 项目级） |
+| BF-13 | Skill：skill 注册表与加载器 | agent-tools | markdown skill 文件加载（~/.glaude/skills + 项目级） |
 | BF-14 | Brief：摘要工具 | agent-tools | 复用 agtkeel compact 管线 |
 | BF-15 | SyntheticOutput：会话操纵层 | agent-core | 依赖引擎会话接口，契约先行 |
 | BF-16 | MCP WebSocket transport（internal/mcp/transport.go 桩） | agent-services | 内核搬回后为**同仓**；nhooyr.io/websocket 或等价方案由 Tech Lead 定 |
@@ -94,7 +94,7 @@
 | BF-19 | pending（同仓技术债） | 待建 | CR-BF03-2 根因修复：internal/mcp Pool 快照式 GetAll API（现返回共享可变指针）。**已非合并阻塞**——BF-01-F1 消除会话期 pool 写入后回落为潜在隐患＋约束文档化；内核搬回后根治在同仓做。併案 CR-BF01-7（jsonRPC reader 绑定 initialize ctx、HTTP Close 语义）。API 形态由 Tech Lead 裁决。**GitHub issue 草稿已备**：discussions/2026-11-18-bf-19-issue-draft.md（待人类建立后回填编号） |
 | BF-18 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 a75c1c7；internal/transcript Recorder＋TUI turn 边界落盘＋headless 收尾＋/resume 换文件；已合并 feat/impl，合并后全仓 -race 复验绿；正式评审留待人类 PR |
 | BF-05 | completed（已合并，主会话代行核验） | bf-tui-b1 | 提交 e7411d4；/config 只读面板＋/terminal-setup 检测；已合并 feat/impl；正式评审留待人类 PR |
-| BF-06 | completed（已合并） | bf-cli-b2 | 提交 d629d14；agents 对齐 oracle 单一命令形态＋--setting-sources；update＋upgrade 别名（GitHub releases 检查）；install [target] 平台 archive 原子安装；cases.md B8/B9/B10 关闭＋二级缺口剩 1；debt 19→13；全仓 -race 绿；实机 `claude agents` ✓ |
+| BF-06 | completed（已合并） | bf-cli-b2 | 提交 d629d14；agents 对齐 oracle 单一命令形态＋--setting-sources；update＋upgrade 别名（GitHub releases 检查）；install [target] 平台 archive 原子安装；cases.md B8/B9/B10 关闭＋二级缺口剩 1；debt 19→13；全仓 -race 绿；实机 `glaude agents` ✓ |
 | BF-07 | completed（已合并） | bf-todowrite | 提交 b464e1f；NewTodoWriteTool(store)＋AppState.Todos＋TUI 面板；oracle 语义（全 completed 清空、固定文案、整表替换）；debt 13→12、TODO(dep) 44→41；全仓 -race 绿 |
 | BF-08 | completed（已合并） | bf-askuser | 提交 8e52822；HIL channel 对＋TUI 问答对话框（权限管线同构）；headless nil channel 诚实报错；ctx/abort 取消路径；debt 12→11、TODO(dep) 41→38；全仓 -race 绿 |
 | BF-09 | completed（已合并） | bf-planmode-yolo | 提交 f06444c；NewEnter/ExitPlanModeTool(store)＋CheckerConfig.ModeFn live mode；debt 11→9、TODO(dep) 38→32；全仓 -race 绿 |

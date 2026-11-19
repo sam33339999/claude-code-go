@@ -25,7 +25,7 @@ var validPermissionLists = map[string]bool{
 }
 
 // AddPermissionRule appends rule to the given permissions list
-// ("allow"/"deny"/"ask") of the project's .claude/settings.json, creating the
+// ("allow"/"deny"/"ask") of the project's .glaude/settings.json, creating the
 // file if needed. The operation is idempotent — an already-present rule is a
 // no-op. Unknown fields in the file are preserved. The write is atomic
 // (temp file + rename) so a crash mid-write never corrupts the settings file.

@@ -126,9 +126,9 @@ export type PermissionRule = {
 ```typescript
 // src/types/permissions.ts
 export type PermissionRuleSource =
-  | 'userSettings'      // ~/.claude/settings.json (用户全局)
-  | 'projectSettings'   // .claude/settings.json (项目级)
-  | 'localSettings'     // .claude/settings.local.json (本地覆盖)
+  | 'userSettings'      // ~/.glaude/settings.json (用户全局)
+  | 'projectSettings'   // .glaude/settings.json (项目级)
+  | 'localSettings'     // .glaude/settings.local.json (本地覆盖)
   | 'flagSettings'      // 远程 feature flag
   | 'policySettings'    // 企业策略管理
   | 'cliArg'           // CLI 命令行参数
@@ -549,11 +549,11 @@ function toolMatchesRule(tool, rule): boolean {
 export const DANGEROUS_FILES = [
   '.gitconfig', '.gitmodules',
   '.bashrc', '.bash_profile', '.zshrc', '.zprofile', '.profile',
-  '.ripgreprc', '.mcp.json', '.claude.json',
+  '.ripgreprc', '.mcp.json', '.glaude.json',
 ] as const
 
 export const DANGEROUS_DIRECTORIES = [
-  '.git', '.vscode', '.idea', '.claude',
+  '.git', '.vscode', '.idea', '.glaude',
 ] as const
 ```
 
@@ -575,7 +575,7 @@ export const DANGEROUS_DIRECTORIES = [
 3. **PostToolUse Hook**：工具执行后触发，用于日志/审计
 4. **PermissionDenied Hook**：权限被拒绝时触发
 
-Hook 配置在 `.claude/settings.json` 中：
+Hook 配置在 `.glaude/settings.json` 中：
 
 ```json
 {
@@ -637,9 +637,9 @@ export type PermissionUpdate =
 | 目标 | 文件位置 | 说明 |
 |------|----------|------|
 | **session** | 内存中 | 仅当前会话有效，重启后消失 |
-| **localSettings** | `.claude/settings.local.json` | 不进版本控制 |
-| **projectSettings** | `.claude/settings.json` | 可进版本控制 |
-| **userSettings** | `~/.claude/settings.json` | 全局生效 |
+| **localSettings** | `.glaude/settings.local.json` | 不进版本控制 |
+| **projectSettings** | `.glaude/settings.json` | 可进版本控制 |
+| **userSettings** | `~/.glaude/settings.json` | 全局生效 |
 
 ### 10.3 "始终允许" 工作流
 

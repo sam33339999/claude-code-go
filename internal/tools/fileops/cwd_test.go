@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/internal/tools/fileops"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools/fileops"
 )
 
 // TestFileOps_WorkingDir verifies relative paths resolve against the session

@@ -71,8 +71,8 @@ Claude Code 的插件系统遵循以下核心设计理念：
 │  PluginInstallationManager ─── DependencyResolver       │
 ├─────────────────────────────────────────────────────────┤
 │                   Storage Layer                          │
-│  ~/.claude/plugins/cache/   → 版本化插件缓存             │
-│  ~/.claude/settings.json    → 用户设置/启用状态           │
+│  ~/.glaude/plugins/cache/   → 版本化插件缓存             │
+│  ~/.glaude/settings.json    → 用户设置/启用状态           │
 │  installed_plugins.json     → 安装元数据                 │
 │  known_marketplaces.json    → 已注册市场源               │
 └─────────────────────────────────────────────────────────┘
@@ -212,7 +212,7 @@ const PluginManifestSchema = z.object({
 
 ```
 my-plugin/
-├── .claude-plugin/
+├── .glaude-plugin/
 │   └── plugin.json          # 插件清单（可选但推荐）
 ├── commands/                # 斜杠命令（自动发现）
 │   ├── build.md             # → /plugin-name:build 命令
@@ -470,12 +470,12 @@ async function createPluginFromPath(pluginPath, source, enabled, fallbackName, s
 
 ```
 缓存目录结构:
-~/.claude/plugins/
+~/.glaude/plugins/
 ├── cache/
 │   ├── {marketplace}/           # 按 marketplace 分组
 │   │   └── {plugin}/           # 按插件名分组
 │   │       └── {version}/      # 按版本分组
-│   │           ├── .claude-plugin/
+│   │           ├── .glaude-plugin/
 │   │           │   └── plugin.json
 │   │           ├── commands/
 │   │           └── ...
@@ -1261,7 +1261,7 @@ function getErrorGuidance(error: PluginError): string {
            │
            ├── 6. 拷贝到版本化缓存:
            │   └── copyPluginToVersionedCache()
-           │       ~/.claude/plugins/cache/{marketplace}/{plugin}/{version}/
+           │       ~/.glaude/plugins/cache/{marketplace}/{plugin}/{version}/
            │
            ├── 7. 更新 settings.json:
            │   └── enabledPlugins[pluginId] = true

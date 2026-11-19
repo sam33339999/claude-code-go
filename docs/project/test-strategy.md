@@ -113,7 +113,7 @@
 ### 4.1 目录约定
 
 ```
-claude-code-go/
+glaude/
 ├── internal/
 │   └── <package>/
 │       ├── xxx.go              # 实现文件

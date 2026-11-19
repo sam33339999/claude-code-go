@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 func TestCreateCacheSafeParams(t *testing.T) {
@@ -142,7 +142,7 @@ func TestSaveCacheSafeParams_RoundTrip(t *testing.T) {
 	}
 
 	// Verify file exists.
-	expectedPath := filepath.Join(tmpDir, ".claude", cacheParamsFilename)
+	expectedPath := filepath.Join(tmpDir, ".glaude", cacheParamsFilename)
 	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
 		t.Fatalf("expected file at %s", expectedPath)
 	}
@@ -213,7 +213,7 @@ func TestLoadCacheSafeParams_InvalidJSON(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	// Create an invalid JSON file.
-	dir := filepath.Join(tmpDir, ".claude")
+	dir := filepath.Join(tmpDir, ".glaude")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func TestSaveCacheSafeParams_CreatesDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
-	// The .claude directory does not exist yet.
+	// The .glaude directory does not exist yet.
 	params := &CacheSafeParams{
 		SystemPrompt: SystemPrompt{Parts: []SystemPromptPart{{Text: "test"}}},
 	}
@@ -243,7 +243,7 @@ func TestSaveCacheSafeParams_CreatesDirectory(t *testing.T) {
 	}
 
 	// Verify directory was created.
-	dirPath := filepath.Join(tmpDir, ".claude")
+	dirPath := filepath.Join(tmpDir, ".glaude")
 	info, err := os.Stat(dirPath)
 	if err != nil {
 		t.Fatalf("directory should exist: %v", err)

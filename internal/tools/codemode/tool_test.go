@@ -10,10 +10,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/codemode"
-	"github.com/tunsuy/claude-code-go/internal/permissions"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	cmtool "github.com/tunsuy/claude-code-go/internal/tools/codemode"
+	"github.com/tunsuy/glaude/internal/codemode"
+	"github.com/tunsuy/glaude/internal/permissions"
+	"github.com/tunsuy/glaude/internal/tools"
+	cmtool "github.com/tunsuy/glaude/internal/tools/codemode"
 )
 
 // echoTool is a minimal real tool for end-to-end sandbox tests.

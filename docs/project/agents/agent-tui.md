@@ -48,7 +48,7 @@
 | TUI 主界面 | `internal/tui/` | BubbleTea REPL 模型与所有组件 |
 | Slash 命令系统 | `internal/commands/` | 命令注册与执行 |
 | 多 Agent 协调 | `internal/coordinator/` | 协调模式运行时逻辑 |
-| 内存文件加载 | `internal/memdir/` | CLAUDE.md 加载 |
+| 内存文件加载 | `internal/memdir/` | GLAUDE.md 加载 |
 | 测试 | 各模块 `_test.go` | 覆盖率 ≥ 60% |
 
 ---

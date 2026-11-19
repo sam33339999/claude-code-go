@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// The `claude plugin` command tree, built the same way as the `claude mcp`
+// The `glaude plugin` command tree, built the same way as the `glaude mcp`
 // tree (mcp.go): every command disables cobra's flag parsing and receives the
 // raw argv tail, which parseMCPFlags (mcp_parse.go) walks with commander.js
 // semantics.  The dispatch layer prints failures itself and returns ErrSilent
@@ -18,12 +18,12 @@ import (
 // are not implemented; their help rows are dropped and unknown-command
 // suggestions run over the implemented names only (plugin_help.go).
 
-// newPluginCmd creates the `claude plugin` subcommand tree.
+// newPluginCmd creates the `glaude plugin` subcommand tree.
 func newPluginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "plugin",
 		Aliases:            []string{"plugins"},
-		Short:              "Manage Claude Code plugins",
+		Short:              "Manage Glaude plugins",
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -268,7 +268,7 @@ func runPluginHelpArgs(d *pluginDeps, args []string) error {
 func newPluginMarketplaceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "marketplace [options] [command]",
-		Short:              "Manage Claude Code marketplaces",
+		Short:              "Manage Glaude marketplaces",
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		RunE: func(cmd *cobra.Command, args []string) error {

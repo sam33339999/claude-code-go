@@ -3,7 +3,7 @@ package compact
 import (
 	"context"
 
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // MicroCompactionInfo carries metadata about a micro-compact operation.

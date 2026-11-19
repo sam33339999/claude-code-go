@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/tunsuy/claude-code-go/internal/session"
-	"github.com/tunsuy/claude-code-go/internal/transcript"
-	"github.com/tunsuy/claude-code-go/pkg/types"
-	utilfs "github.com/tunsuy/claude-code-go/pkg/utils/fs"
+	"github.com/tunsuy/glaude/internal/session"
+	"github.com/tunsuy/glaude/internal/transcript"
+	"github.com/tunsuy/glaude/pkg/types"
+	utilfs "github.com/tunsuy/glaude/pkg/utils/fs"
 )
 
 // openTranscript initialises session persistence (BF-18). A non-empty sid
@@ -72,7 +72,7 @@ func continueMostRecentSession(cwd string) (string, []types.Message, error) {
 		return "", nil, fmt.Errorf("compute project hash: %w", err)
 	}
 
-	sessDir := filepath.Join(cwd, ".claude", "projects", hash)
+	sessDir := filepath.Join(cwd, ".glaude", "projects", hash)
 	dirEntries, err := os.ReadDir(sessDir)
 	if err != nil {
 		if os.IsNotExist(err) {

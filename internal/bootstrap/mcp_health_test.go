@@ -16,8 +16,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
-	"github.com/tunsuy/claude-code-go/internal/mcp"
+	"github.com/tunsuy/glaude/internal/config"
+	"github.com/tunsuy/glaude/internal/mcp"
 )
 
 // Health-check tests.  Every row of the translation table documented in

@@ -1,4 +1,4 @@
-# Claude Code Go — PM 巡检日志索引
+# Glaude — PM 巡检日志索引
 
 > 维护人：PM Agent
 > 每次巡检独立存档于 `docs/project/logs/` 目录

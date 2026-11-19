@@ -1,4 +1,4 @@
-# Claude Code Go — Project Context
+# Glaude — Project Context
 
 > This file is automatically loaded by Claude Code to provide persistent project context.
 
@@ -14,16 +14,16 @@
 
 ## Project Overview
 
-Claude Code Go is a **full Go rewrite** of Claude Code (originally TypeScript/Bun). It is an agentic AI coding assistant that runs in the terminal. The entire codebase (~7,000 lines of production code + tests) was built using **AI coding tool's multi-agent parallel development mode** — each architectural layer was implemented by a dedicated AI Agent (e.g., Agent-Infra, Agent-Core) on isolated Git Worktree branches, coordinated by PM Agent, reviewed by Tech Lead Agent, and tested by QA Agent. **Zero human-written production code**.
+Glaude is a **full Go rewrite** of Claude Code (originally TypeScript/Bun). It is an agentic AI coding assistant that runs in the terminal. The entire codebase (~7,000 lines of production code + tests) was built using **AI coding tool's multi-agent parallel development mode** — each architectural layer was implemented by a dedicated AI Agent (e.g., Agent-Infra, Agent-Core) on isolated Git Worktree branches, coordinated by PM Agent, reviewed by Tech Lead Agent, and tested by QA Agent. **Zero human-written production code**.
 
-- **Module**: `github.com/tunsuy/claude-code-go`
+- **Module**: `github.com/tunsuy/glaude`
 - **Go version**: 1.25+ (bubbles v2 requirement)
 - **License**: MIT
 
 ## Architecture (Six-Layer)
 
 ```
-CLI (cmd/claude)         → Cobra entry point, bootstrap
+CLI (cmd/glaude)         → Cobra entry point, bootstrap
 TUI (internal/tui)       → Bubble Tea MVU interface
 Tools (internal/tools/*) → File, shell, search, MCP tools（框架：Tool 接口 + Registry + BaseTool 在 internal/tools 根包）
 Engine (internal/engine) → LLM query loop, tool dispatch, coordinator
@@ -49,7 +49,7 @@ Infra (pkg/types, internal/config, internal/session, internal/hooks, internal/st
 ## Build & Test
 
 ```bash
-make build        # → bin/claude
+make build        # → bin/glaude
 make test         # go test -race ./...
 make test-cover   # generates coverage.html
 make vet          # go vet ./...
@@ -93,7 +93,7 @@ import (
 
     "external/third-party/pkg" // Group 2: Third-party packages
 
-    "github.com/tunsuy/claude-code-go/internal/..." // Group 3: Internal packages
+    "github.com/tunsuy/glaude/internal/..." // Group 3: Internal packages
 )
 ```
 
@@ -121,7 +121,7 @@ import (
 ## Project Layout
 
 ```
-cmd/claude/          CLI entry point (main.go)
+cmd/glaude/          CLI entry point (main.go)
 internal/
   api/               Anthropic API client (SSE streaming, retry, usage)
   bootstrap/         App init, dependency injection, Cobra root command
@@ -132,7 +132,7 @@ internal/
   engine/            Core query engine (LLM loop, tool orchestration)
   hooks/             Pre/post tool hooks
   mcp/               MCP protocol client (connection pool, JSON-RPC)
-  memdir/            CLAUDE.md discovery & loading
+  memdir/            GLAUDE.md discovery & loading
   oauth/             OAuth2 auth flow (macOS Keychain support)
   permissions/       Tool permission decision pipeline (9-layer chain)
   plugin/            Plugin system

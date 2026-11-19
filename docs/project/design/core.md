@@ -740,7 +740,7 @@ package engine
 
 import (
     "context"
-    "github.com/your-org/claude-code-go/internal/tool"
+    "github.com/your-org/glaude/internal/tool"
 )
 
 // QueryEngine 是引擎层暴露给 TUI/SDK 层的顶层接口。
@@ -799,7 +799,7 @@ type SystemPromptPart struct {
 
 package engine
 
-import "github.com/your-org/claude-code-go/internal/tool"
+import "github.com/your-org/glaude/internal/tool"
 
 // Msg 是引擎通过 channel 向 TUI 层推送的事件（sum type）。
 // TUI 层通过 switch msg.Type 分发处理。
@@ -1011,7 +1011,7 @@ package permissions
 
 import (
     "context"
-    "github.com/your-org/claude-code-go/internal/tool"
+    "github.com/your-org/glaude/internal/tool"
 )
 
 // Checker 是权限系统的核心接口。
@@ -1149,7 +1149,7 @@ package compact
 
 import (
     "context"
-    "github.com/your-org/claude-code-go/internal/tool"
+    "github.com/your-org/glaude/internal/tool"
 )
 
 // Compressor 是上下文压缩的统一接口。
@@ -1349,7 +1349,7 @@ package hooks
 
 import (
     "context"
-    "github.com/your-org/claude-code-go/internal/tool"
+    "github.com/your-org/glaude/internal/tool"
 )
 
 // Executor 是 Hook 系统的执行接口。
@@ -1514,7 +1514,7 @@ package coordinator
 
 import (
     "context"
-    "github.com/your-org/claude-code-go/internal/tool"
+    "github.com/your-org/glaude/internal/tool"
 )
 
 // Coordinator 管理多 Agent 的生命周期和消息路由。

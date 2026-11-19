@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
 // Rendering for `plugin list` and `plugin marketplace list` — text and JSON,
@@ -61,7 +61,7 @@ func pluginRenderListText(d *pluginDeps) error {
 		return err
 	}
 	if len(entries) == 0 {
-		fmt.Fprint(d.Stdout, "No plugins installed. Use `claude plugin install` to install a plugin.\n")
+		fmt.Fprint(d.Stdout, "No plugins installed. Use `glaude plugin install` to install a plugin.\n")
 		return nil
 	}
 	var b strings.Builder

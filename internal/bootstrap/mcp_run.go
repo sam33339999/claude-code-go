@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
-// RunE bodies for the `claude mcp` subcommands.  Each takes an mcpDeps bundle
+// RunE bodies for the `glaude mcp` subcommands.  Each takes an mcpDeps bundle
 // (writers + store + health checker) and the raw argv tail, so the full
 // command surface is testable without a TTY, network or the real home dir.
 // Every user-visible string here is byte-pinned against the oracle
@@ -442,7 +442,7 @@ func runMCPResetProjectChoices(d *mcpDeps, args []string) error {
 	}
 	fmt.Fprint(d.Stdout, "Project-scoped (.mcp.json) server approvals and rejections stored for this project have been reset.\n")
 	if d.Store.McpJsonHasServers() {
-		fmt.Fprint(d.Stdout, "You will be prompted for approval next time you start Claude Code.\n")
+		fmt.Fprint(d.Stdout, "You will be prompted for approval next time you start Glaude.\n")
 	}
 	return nil
 }
