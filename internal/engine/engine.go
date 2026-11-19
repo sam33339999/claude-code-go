@@ -34,6 +34,13 @@ type QueryEngine interface {
 
 	// SetModel changes the active model used for subsequent requests.
 	SetModel(model string)
+
+	// MainTarget returns what the main loop currently runs on.
+	MainTarget() MainTarget
+
+	// SetMainTarget switches the main loop's client, model and limits for
+	// the rest of the session (queries already running are unaffected).
+	SetMainTarget(t MainTarget)
 }
 
 // QueryParams encapsulates a single Query call's configuration.
@@ -109,14 +116,10 @@ type SystemPromptPart struct {
 
 // engineImpl is the concrete QueryEngine implementation.
 type engineImpl struct {
-	client   api.Client
 	registry *tools.Registry
-	// modelMu guards model, which SetModel changes while queries run.
-	modelMu   sync.RWMutex
-	model     string
-	maxTokens int
-	// mainContextWindow is [main] context_window from config.toml (0 = unset).
-	mainContextWindow int
+	// mainMu guards main, which /model (SetMainTarget) changes while queries run.
+	mainMu sync.RWMutex
+	main   MainTarget
 	// debugLogf is an optional debug logger (nil = disabled).
 	debugLogf func(format string, args ...any)
 
@@ -151,6 +154,22 @@ type engineImpl struct {
 	// msgQueue is the optional unified command queue for mid-session message
 	// processing (mid-turn drain). If nil, mid-turn drain is disabled.
 	msgQueue *msgqueue.MessageQueue
+}
+
+// MainProviderID identifies the startup (settings.json) client in MainTarget.
+const MainProviderID = "main"
+
+// MainTarget is what the main loop — and every query without its own
+// Client/Model — runs on. /model switches it for the rest of the session.
+type MainTarget struct {
+	Client api.Client
+	// ProviderID is MainProviderID for the startup client, else a config.toml provider id.
+	ProviderID string
+	Model      string
+	// ContextWindow is the configured window (0 = built-in table).
+	ContextWindow int
+	// MaxTokens is the request max_tokens (0 → 8192).
+	MaxTokens int
 }
 
 // Config is the constructor parameter bundle for New.
@@ -189,10 +208,14 @@ func New(cfg Config) QueryEngine {
 		maxTokens = 8192
 	}
 	return &engineImpl{
-		client:         cfg.Client,
-		registry:       cfg.Registry,
-		model:          cfg.Model,
-		maxTokens:      maxTokens,
+		registry: cfg.Registry,
+		main: MainTarget{
+			Client:        cfg.Client,
+			ProviderID:    MainProviderID,
+			Model:         cfg.Model,
+			ContextWindow: cfg.MainContextWindow,
+			MaxTokens:     maxTokens,
+		},
 		abortCh:        make(chan struct{}),
 		microCompactor: compact.NewMicroCompactor(),
 		autoCompactor:  compact.NewAutoCompactor(),
@@ -201,8 +224,7 @@ func New(cfg Config) QueryEngine {
 		stopHooks:      cfg.StopHooks,
 		msgQueue:       cfg.MsgQueue,
 
-		mainContextWindow: cfg.MainContextWindow,
-		debugLogf:         cfg.DebugLogf,
+		debugLogf: cfg.DebugLogf,
 	}
 }
 
@@ -235,14 +257,58 @@ func (e *engineImpl) Interrupt(_ context.Context) {
 
 // SetModel changes the active model for subsequent Query calls.
 func (e *engineImpl) SetModel(model string) {
-	e.modelMu.Lock()
-	defer e.modelMu.Unlock()
-	e.model = model
+	e.mainMu.Lock()
+	defer e.mainMu.Unlock()
+	e.main.Model = model
 }
 
-// currentModel returns the main loop's model under modelMu.
+// MainTarget returns a snapshot of what the main loop runs on.
+func (e *engineImpl) MainTarget() MainTarget {
+	e.mainMu.RLock()
+	defer e.mainMu.RUnlock()
+	return e.main
+}
+
+// SetMainTarget retargets the main loop (and every query without its own
+// Client/Model). Queries already running keep the snapshot they started
+// with. When the provider changes, thinking blocks are removed from the
+// history: their signatures are provider-specific, and the switch already
+// invalidates the prompt cache.
+func (e *engineImpl) SetMainTarget(t MainTarget) {
+	if t.MaxTokens <= 0 {
+		t.MaxTokens = 8192
+	}
+	e.mainMu.Lock()
+	providerChanged := t.ProviderID != e.main.ProviderID
+	e.main = t
+	e.mainMu.Unlock()
+	if providerChanged {
+		e.mu.Lock()
+		e.messages = stripThinking(e.messages)
+		e.mu.Unlock()
+	}
+}
+
+// currentModel returns the main loop's model.
 func (e *engineImpl) currentModel() string {
-	e.modelMu.RLock()
-	defer e.modelMu.RUnlock()
-	return e.model
+	return e.MainTarget().Model
+}
+
+// stripThinking removes thinking blocks; assistant messages left empty are dropped.
+func stripThinking(msgs []types.Message) []types.Message {
+	out := make([]types.Message, 0, len(msgs))
+	for _, m := range msgs {
+		kept := make([]types.ContentBlock, 0, len(m.Content))
+		for _, b := range m.Content {
+			if b.Type != types.ContentTypeThinking {
+				kept = append(kept, b)
+			}
+		}
+		if len(kept) == 0 && m.Role == types.RoleAssistant && len(m.Content) > 0 {
+			continue
+		}
+		m.Content = kept
+		out = append(out, m)
+	}
+	return out
 }

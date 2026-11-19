@@ -29,34 +29,34 @@ func usageFrom(u api.Usage, msgCount int) promptUsage {
 
 // clientFor returns the client this query sends to: params.Client when set
 // (tier routing), otherwise the engine default.
-func (e *engineImpl) clientFor(p QueryParams) api.Client {
+func clientFor(p QueryParams, mt MainTarget) api.Client {
 	if p.Client != nil {
 		return p.Client
 	}
-	return e.client
+	return mt.Client
 }
 
 // activeModelFor returns params.Model or the current main-loop model.
-func (e *engineImpl) activeModelFor(p QueryParams) string {
+func activeModelFor(p QueryParams, mt MainTarget) string {
 	if p.Model != "" {
 		return p.Model
 	}
-	return e.currentModel()
+	return mt.Model
 }
 
 // targetFor describes the model this query actually runs on, for compaction
 // thresholds and the summarisation request.
-func (e *engineImpl) targetFor(p QueryParams) compact.Target {
-	model := e.activeModelFor(p)
+func targetFor(p QueryParams, mt MainTarget) compact.Target {
+	model := activeModelFor(p, mt)
 	window := p.ContextWindow
-	if window == 0 && p.Client == nil && model == e.currentModel() {
-		window = e.mainContextWindow
+	if window == 0 && p.Client == nil && model == mt.Model {
+		window = mt.ContextWindow
 	}
 	maxOut := p.MaxOutputTokensOverride
 	if maxOut == 0 {
-		maxOut = e.maxTokens
+		maxOut = mt.MaxTokens
 	}
-	return compact.Target{Client: e.clientFor(p), Model: model, ContextWindow: window, MaxOutputTokens: maxOut}
+	return compact.Target{Client: clientFor(p, mt), Model: model, ContextWindow: window, MaxOutputTokens: maxOut}
 }
 
 // trackerFor returns the query's auto-compact tracker (main loop by default).
@@ -121,8 +121,8 @@ func (e *engineImpl) estimatePrompt(p QueryParams, messages []types.Message, u p
 
 // runCompaction runs snip → micro → auto compaction for one turn. It reports
 // whether history was rewritten (the caller then discards promptUsage).
-func (e *engineImpl) runCompaction(ctx context.Context, params QueryParams, messages []types.Message, u promptUsage) ([]types.Message, bool) {
-	tgt := e.targetFor(params)
+func (e *engineImpl) runCompaction(ctx context.Context, params QueryParams, mt MainTarget, messages []types.Message, u promptUsage) ([]types.Message, bool) {
+	tgt := targetFor(params, mt)
 	rewritten := false
 
 	// Step 1: Snip — clear old tool content locally, only near the threshold.

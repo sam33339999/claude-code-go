@@ -26,6 +26,7 @@ type fakeEngine struct {
 	queryCh     chan engine.Msg
 	queryErr    error
 	lastParams  engine.QueryParams
+	main        engine.MainTarget
 }
 
 func newFakeEngine() *fakeEngine {
@@ -55,6 +56,12 @@ func (f *fakeEngine) Interrupt(_ context.Context)      { f.interrupted = true }
 func (f *fakeEngine) GetMessages() []types.Message     { return f.messages }
 func (f *fakeEngine) SetMessages(msgs []types.Message) { f.messages = msgs }
 func (f *fakeEngine) SetModel(m string)                { f.model = m }
+func (f *fakeEngine) MainTarget() engine.MainTarget {
+	t := f.main
+	t.Model = f.model
+	return t
+}
+func (f *fakeEngine) SetMainTarget(t engine.MainTarget) { f.main = t; f.model = t.Model }
 
 func drainChan(ch chan engine.Msg) []engine.Msg {
 	var out []engine.Msg

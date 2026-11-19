@@ -230,8 +230,8 @@ func TestNew_DefaultMaxTokens(t *testing.T) {
 	reg := tools.NewRegistry()
 	eng := New(Config{Client: client, Registry: reg, Model: "claude-test"})
 	impl := eng.(*engineImpl)
-	if impl.maxTokens != 8192 {
-		t.Errorf("expected default maxTokens=8192, got %d", impl.maxTokens)
+	if impl.MainTarget().MaxTokens != 8192 {
+		t.Errorf("expected default maxTokens=8192, got %d", impl.MainTarget().MaxTokens)
 	}
 }
 
@@ -240,8 +240,8 @@ func TestNew_CustomMaxTokens(t *testing.T) {
 	reg := tools.NewRegistry()
 	eng := New(Config{Client: client, Registry: reg, Model: "claude-test", MaxTokens: 4096})
 	impl := eng.(*engineImpl)
-	if impl.maxTokens != 4096 {
-		t.Errorf("expected maxTokens=4096, got %d", impl.maxTokens)
+	if impl.MainTarget().MaxTokens != 4096 {
+		t.Errorf("expected maxTokens=4096, got %d", impl.MainTarget().MaxTokens)
 	}
 }
 
@@ -251,14 +251,14 @@ func TestNew_FieldsSet(t *testing.T) {
 	eng := New(Config{Client: client, Registry: reg, Model: "claude-opus-4"})
 	impl := eng.(*engineImpl)
 
-	if impl.client != client {
+	if impl.MainTarget().Client != client {
 		t.Error("client not set")
 	}
 	if impl.registry != reg {
 		t.Error("registry not set")
 	}
-	if impl.model != "claude-opus-4" {
-		t.Errorf("model not set, got %q", impl.model)
+	if impl.MainTarget().Model != "claude-opus-4" {
+		t.Errorf("model not set, got %q", impl.MainTarget().Model)
 	}
 	if impl.abortCh == nil {
 		t.Error("abortCh must be initialised")
@@ -379,8 +379,8 @@ func TestSetModel(t *testing.T) {
 	eng := New(Config{Client: &mockClient{}, Registry: tools.NewRegistry(), Model: "old-model"})
 	eng.SetModel("new-model")
 	impl := eng.(*engineImpl)
-	if impl.model != "new-model" {
-		t.Errorf("expected new-model, got %q", impl.model)
+	if impl.MainTarget().Model != "new-model" {
+		t.Errorf("expected new-model, got %q", impl.MainTarget().Model)
 	}
 }
 
@@ -1175,7 +1175,7 @@ func TestStreamResponse_ReadError(t *testing.T) {
 	eng := New(Config{Client: client, Registry: tools.NewRegistry()}).(*engineImpl)
 	req := &api.MessageRequest{Model: "m", MaxTokens: 100}
 	ch := make(chan Msg, 32)
-	_, _, _, _, err := eng.streamResponse(context.Background(), eng.client, req, ch)
+	_, _, _, _, err := eng.streamResponse(context.Background(), eng.MainTarget().Client, req, ch)
 	if err == nil {
 		t.Fatal("expected error from streamResponse")
 	}

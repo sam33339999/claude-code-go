@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/tunsuy/glaude/internal/api"
 	"github.com/tunsuy/glaude/internal/tools"
 	"github.com/tunsuy/glaude/pkg/types"
 )
@@ -22,6 +23,9 @@ type CacheSafeParams struct {
 	// prefix (which is model-scoped server-side) stays cache-compatible.
 	// Empty means the engine default.
 	Model string
+	// Client is the client the parent request was sent with (nil = engine
+	// default). Forks use it so their provider matches the cached prefix.
+	Client api.Client
 }
 
 // ForkedAgentConfig configures a background forked agent.

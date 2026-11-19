@@ -33,7 +33,7 @@ func TestQuery_MainLoopRequestUnchangedWithoutTiers(t *testing.T) {
 		QuerySource:    "foreground",
 		ToolUseContext: &tools.UseContext{Ctx: context.Background()},
 	}
-	req, err := eng.buildRequestWithModel(params, messages, eng.model)
+	req, err := eng.buildRequestWithModel(params, messages, eng.MainTarget().Model)
 	if err != nil {
 		t.Fatalf("buildRequestWithModel: %v", err)
 	}

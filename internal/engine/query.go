@@ -77,6 +77,9 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 	maxTurns := params.MaxTurns
 	turns := 0
 	var lastUsage promptUsage
+	// The main target is fixed for the whole loop: /model switches apply to
+	// the next query, never in the middle of one.
+	mt := e.MainTarget()
 
 	for {
 		// Check context cancellation.
@@ -95,7 +98,7 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 
 		// Compaction pipeline (snip → micro → auto); see compaction.go.
 		var rewritten bool
-		messages, rewritten = e.runCompaction(ctx, params, messages, lastUsage)
+		messages, rewritten = e.runCompaction(ctx, params, mt, messages, lastUsage)
 		if rewritten {
 			lastUsage = promptUsage{}
 		}
@@ -106,8 +109,8 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 
 		// Build the API request using the primary model.
 		// params.Model overrides the engine default for per-agent model selection.
-		activeModel := e.activeModelFor(params)
-		client := e.clientFor(params)
+		activeModel := activeModelFor(params, mt)
+		client := clientFor(params, mt)
 
 		// Snapshot the cache-safe prefix for forked agents (Agent tool).
 		// Taken after compaction and inbox drain so it matches the request
@@ -115,10 +118,11 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 		if params.ToolUseContext != nil {
 			snap := CreateCacheSafeParams(params, messages)
 			snap.Model = activeModel
+			snap.Client = client
 			params.ToolUseContext.CacheParams = snap
 		}
 
-		req, err := e.buildRequestWithModel(params, messages, activeModel)
+		req, err := e.buildRequest(params, messages, activeModel, mt.MaxTokens)
 		if err != nil {
 			sendError(ctx, msgCh, fmt.Errorf("engine: build request: %w", err))
 			return
@@ -141,7 +145,7 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 			// Tier-routed queries never fall back: FallbackModel names a model
 			// on the main provider, which the tier client does not serve.
 			if params.FallbackModel != "" && params.Client == nil && errors.As(streamErr, &apiErr) && apiErr.Kind == api.ErrKindContextWindow {
-				fallbackReq, fbErr := e.buildRequestWithModel(params, messages, params.FallbackModel)
+				fallbackReq, fbErr := e.buildRequest(params, messages, params.FallbackModel, mt.MaxTokens)
 				if fbErr != nil {
 					sendError(ctx, msgCh, fmt.Errorf("engine: build fallback request: %w", fbErr))
 					return
@@ -417,7 +421,13 @@ func (e *engineImpl) streamResponse(
 // SkipCacheWrite suppresses all markers. Forked agents reuse the parent's
 // prefix via CacheSafeParams and therefore hit these breakpoints byte-for-byte.
 func (e *engineImpl) buildRequestWithModel(params QueryParams, messages []types.Message, model string) (*api.MessageRequest, error) {
-	maxTokens := e.maxTokens
+	return e.buildRequest(params, messages, model, e.MainTarget().MaxTokens)
+}
+
+// buildRequest builds the API request with an explicit default max_tokens
+// (the loop's MainTarget snapshot).
+func (e *engineImpl) buildRequest(params QueryParams, messages []types.Message, model string, defaultMaxTokens int) (*api.MessageRequest, error) {
+	maxTokens := defaultMaxTokens
 	if params.MaxOutputTokensOverride > 0 {
 		maxTokens = params.MaxOutputTokensOverride
 	}
