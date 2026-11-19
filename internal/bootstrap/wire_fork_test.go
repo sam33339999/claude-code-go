@@ -129,7 +129,7 @@ func TestBuildSubAgentQuery_WorkerNoWriteBack(t *testing.T) {
 		MaxTurns:     coordinator.DefaultMaxTurns,
 	}
 	var states sync.Map
-	params, seed := buildSubAgentQuery(req, reg, forkTestProfiles(), "claude-parent", nil, &states, "a-worker1")
+	params, seed := buildSubAgentQuery(req, reg, forkTestProfiles(), "claude-parent", "", nil, &states, "a-worker1")
 	if !params.NoWriteBack {
 		t.Error("sub-agents must not write back to the parent conversation")
 	}
@@ -155,7 +155,7 @@ func TestBuildSubAgentQuery_ResumePreservesParams(t *testing.T) {
 
 	inbox := make(chan string, 1)
 	req := coordinator.SpawnRequest{SubagentType: "fork", Prompt: "original prompt"}
-	params, seed := buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "claude-parent", inbox, &states, "a-fork1")
+	params, seed := buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "claude-parent", "", inbox, &states, "a-fork1")
 
 	if params.SystemPrompt.Parts[0].Text != "original system" || params.Model != "claude-original" {
 		t.Error("resume must preserve the original run's prompt and model (cache continuity)")
@@ -246,5 +246,33 @@ func TestBuildRunAgentFn_ForkAndResume(t *testing.T) {
 	}
 	if second.SystemPrompt.Parts[0].Text != "parent system" {
 		t.Error("resume must keep the original system prompt")
+	}
+}
+
+// TestBuildSubAgentQuery_OpenAIExploreAliasFallback guards the live-fire fix:
+// the explore profile's "haiku" model must not reach an OpenAI-compatible
+// endpoint (404 "Model not exist"); it falls back to inheriting the parent.
+func TestBuildSubAgentQuery_OpenAIExploreAliasFallback(t *testing.T) {
+	req := coordinator.SpawnRequest{
+		SubagentType: "explore",
+		Prompt:       "read and summarize",
+		MaxTurns:     coordinator.DefaultMaxTurns,
+	}
+	params, _ := buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "qwen4-max", "openai", nil, &sync.Map{}, "a-explore1")
+	if params.Model != "" {
+		t.Errorf("explore model on openai provider = %q, want empty (inherit parent; haiku would 404)", params.Model)
+	}
+
+	// Explicit full model ID still passes through on openai.
+	req.Model = "qwen-turbo"
+	params2, _ := buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "qwen4-max", "openai", nil, &sync.Map{}, "a-explore2")
+	if params2.Model != "qwen-turbo" {
+		t.Errorf("explicit model = %q, want qwen-turbo passthrough", params2.Model)
+	}
+
+	// Anthropic providers keep the legacy alias behaviour.
+	params3, _ := buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "claude-haiku-4-5", "direct", nil, &sync.Map{}, "a-explore3")
+	if params3.Model != "qwen-turbo" {
+		t.Errorf("direct provider explicit model = %q, want qwen-turbo", params3.Model)
 	}
 }

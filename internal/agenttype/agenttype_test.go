@@ -183,3 +183,45 @@ func TestResolveModel_PriorityAndInheritance(t *testing.T) {
 		t.Errorf("env model priority: got %q", got)
 	}
 }
+
+func TestResolveModelForProvider_OpenAIAliasFallback(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SUBAGENT_MODEL", "")
+	tests := []struct {
+		name     string
+		provider string
+		parent   string
+		tool     string
+		profile  string
+		want     string
+	}{
+		{"openai profile haiku inherits", "openai", "qwen4-max", "", "haiku", ""},
+		{"openai tool sonnet inherits", "openai", "qwen4-max", "sonnet", "", ""},
+		{"openai tool opus inherits", "openai", "qwen4-max", "opus", "", ""},
+		{"openai full id passthrough", "openai", "qwen4-max", "gpt-4o", "", "gpt-4o"},
+		{"openai profile full id passthrough", "openai", "qwen4-max", "", "qwen-turbo", "qwen-turbo"},
+		{"direct haiku same family", "direct", "claude-haiku-4-5", "", "haiku", "claude-haiku-4-5"},
+		{"direct haiku other family", "direct", "claude-opus-4-5", "", "haiku", "haiku"},
+		{"empty provider legacy", "", "claude-sonnet-4-5", "", "sonnet", "claude-sonnet-4-5"},
+		{"inherit stays empty", "openai", "qwen4-max", "", "inherit", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ResolveModelForProvider(tc.provider, tc.parent, tc.tool, tc.profile)
+			if got != tc.want {
+				t.Errorf("ResolveModelForProvider(%q,%q,%q,%q) = %q, want %q",
+					tc.provider, tc.parent, tc.tool, tc.profile, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestResolveModelForProvider_EnvOverride(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SUBAGENT_MODEL", "my-custom-model")
+	if got := ResolveModelForProvider("openai", "qwen4-max", "", "haiku"); got != "my-custom-model" {
+		t.Errorf("env override on openai = %q, want passthrough", got)
+	}
+	t.Setenv("CLAUDE_CODE_SUBAGENT_MODEL", "haiku")
+	if got := ResolveModelForProvider("direct", "claude-haiku-4-5", "", ""); got != "claude-haiku-4-5" {
+		t.Errorf("env alias on direct = %q, want parent family model (legacy)", got)
+	}
+}
