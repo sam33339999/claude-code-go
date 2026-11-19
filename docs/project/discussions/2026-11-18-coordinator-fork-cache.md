@@ -103,6 +103,25 @@ process CWD（向後兼容）。sub-agent 繼承會話目錄；**per-agent 獨�
 （leak 的 isolation:"worktree"）仍列 Phase 2。
 另確認 PermCtx=nil 安全（所有 CheckPermissions override 忽略 UseContext；checker 用自身快照＋ModeFn）。
 
+## 實機驗證紀錄（2026-11-19，編譯產物 bin/claude @ 09fff1b）
+
+環境：CLAUDE_PROVIDER=openai、OPENAI_BASE_URL=token-plan maas（qwen4-max）、
+OPENAI_API_KEY／OPENAI_MODEL／CC26_MODEL 已設定。全數通過：
+
+| # | 驗證 | 命令／情境 | 結果 |
+|---|------|-----------|------|
+| 1 | 基本連線 | `-p "Reply with exactly: OK"` | `OK` |
+| 2 | CWD | 於 /tmp/opencode/ccg-live-test 跑 Bash pwd | 輸出該目錄（WorkingDir 接線生效） |
+| 3 | 同步委派 | Agent worker（background false）跑 pwd 回报 | `DELEGATED-OK /tmp/opencode/ccg-live-test`（sub-agent CWD 繼承 ✓） |
+| 4 | 背景委派 | background worker 跑 sleep 3；父 sleep 6 後 GetAgentStatus | `completed` / `BG-SURVIVED`（生命週期修復生效） |
+| 5 | Cache 可觀測 | 同會話兩 turn（-c），stream-json | turn1 `InputTokens 7186 / CacheReadTokens 7168`；turn2 `7214 / 7168`——穩定前綴 ~99% 走快取，動態尾部新鮮 |
+| 6 | Fork 上下文继承 | 父記住 ZX-9971 → spawn fork 問代碼 → 父 sleep 8 → GetAgentStatus | `afork-…` `completed` / `FORK-SAW ZX-9971`（fork 繼承歷史＋背景存活 ✓） |
+
+解讀：CacheReadTokens 7168＝system＋tools 穩定前綴被 provider 快取命中（OpenAI 相容
+路徑隱式前綴快取）；fork 請求前綴與父 byte-identical（守護測試），故 fork 的輸入同樣
+走快取讀取——使用者 KV-cache 動機成立。OpenAI prompt_tokens 含 cached，命中數由
+CacheReadInputTokens 獨立報告（feat/openai-cache-usage 補上此前恆 0 的缺口）。
+
 ## Phase 2（未落地，後續任務）
 
 - **跨 process 存續**：Projects thread 可跨 coordinator 替換存活（project-activity wake 帶摘要）。
