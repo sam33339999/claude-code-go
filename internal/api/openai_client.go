@@ -148,6 +148,11 @@ func (c *openaiClient) convertToOpenAIRequest(req *MessageRequest) *openaiChatCo
 		MaxTokens: req.MaxTokens,
 		Stream:    req.Stream,
 	}
+	// Request usage in streaming responses so prompt-cache hit counts
+	// (prompt_tokens_details.cached_tokens) are observable.
+	if req.Stream {
+		openaiReq.StreamOptions = &openaiStreamOptions{IncludeUsage: true}
+	}
 
 	// Convert system message (plain text; OpenAI-compatible providers do
 	// implicit prefix caching, so cache_control breakpoints are not carried).
@@ -370,8 +375,9 @@ func (c *openaiClient) convertToMessageResponse(resp *openaiChatCompletionRespon
 		Role:  "assistant",
 		Model: resp.Model,
 		Usage: Usage{
-			InputTokens:  resp.Usage.PromptTokens,
-			OutputTokens: resp.Usage.CompletionTokens,
+			InputTokens:          resp.Usage.PromptTokens,
+			OutputTokens:         resp.Usage.CompletionTokens,
+			CacheReadInputTokens: resp.Usage.cachedTokens(),
 		},
 	}
 

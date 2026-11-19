@@ -21,6 +21,9 @@ type openaiSSEReader struct {
 	toolCalls        map[int]*accumulatedToolCall // index -> accumulated tool call
 	toolBlockStarted map[int]bool                 // whether we've sent content_block_start for each tool
 	inputUsage       int                          // accumulated from usage chunks
+	cachedUsage      int                          // prompt cache hit tokens from usage chunks
+	outputUsage      int                          // completion tokens from usage chunks
+	lastStopReason   string                       // stop reason from the finish chunk
 	pendingEvents    []*StreamEvent               // events to return before processing more chunks
 	debugLogger      *DebugLogger                 // debug logger for SSE event tracing
 }
@@ -128,9 +131,20 @@ func (r *openaiSSEReader) Next() (*StreamEvent, error) {
 			r.model = chunk.Model
 		}
 
-		// Track usage if provided
+		// Track usage if provided. OpenAI-compatible providers send usage in a
+		// final chunk (often after the finish chunk, with empty choices), so
+		// re-emit a message_delta carrying the final counts; the accumulator
+		// overwrites the earlier zero-usage snapshot.
 		if chunk.Usage != nil {
 			r.inputUsage = chunk.Usage.PromptTokens
+			r.cachedUsage = chunk.Usage.cachedTokens()
+			r.outputUsage = chunk.Usage.CompletionTokens
+			if r.started {
+				r.pendingEvents = append(r.pendingEvents, r.createUsageDeltaEvent())
+				ev := r.pendingEvents[0]
+				r.pendingEvents = r.pendingEvents[1:]
+				return ev, nil
+			}
 		}
 
 		// Send message_start on first chunk
@@ -213,7 +227,8 @@ func (r *openaiSSEReader) createMessageStartEvent(_ *openaiStreamChunk) *StreamE
 			Role:  "assistant",
 			Model: r.model,
 			Usage: Usage{
-				InputTokens: r.inputUsage,
+				InputTokens:          r.inputUsage,
+				CacheReadInputTokens: r.cachedUsage,
 			},
 		},
 	}
@@ -349,12 +364,35 @@ func (r *openaiSSEReader) createToolUseBlockStartEvent(index int, id, name strin
 // createMessageDeltaEvent creates the final message_delta event with stop reason.
 func (r *openaiSSEReader) createMessageDeltaEvent(choice *openaiStreamChoice) *StreamEvent {
 	stopReason := r.convertFinishReason(choice.FinishReason)
+	r.lastStopReason = stopReason
 	msgDelta := &MessageDeltaData{
 		Usage: Usage{
-			InputTokens: r.inputUsage,
+			InputTokens:          r.inputUsage,
+			OutputTokens:         r.outputUsage,
+			CacheReadInputTokens: r.cachedUsage,
 		},
 	}
 	msgDelta.Delta.StopReason = stopReason
+	data, _ := json.Marshal(msgDelta)
+	return &StreamEvent{
+		Type:         EventMessageDelta,
+		Data:         data,
+		MessageDelta: msgDelta,
+	}
+}
+
+// createUsageDeltaEvent re-emits message_delta with the final usage counts
+// when the provider's usage chunk arrives after the finish chunk. The stop
+// reason is repeated so the accumulator keeps it unchanged.
+func (r *openaiSSEReader) createUsageDeltaEvent() *StreamEvent {
+	msgDelta := &MessageDeltaData{
+		Usage: Usage{
+			InputTokens:          r.inputUsage,
+			OutputTokens:         r.outputUsage,
+			CacheReadInputTokens: r.cachedUsage,
+		},
+	}
+	msgDelta.Delta.StopReason = r.lastStopReason
 	data, _ := json.Marshal(msgDelta)
 	return &StreamEvent{
 		Type:         EventMessageDelta,

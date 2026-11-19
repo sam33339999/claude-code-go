@@ -92,9 +92,24 @@ func (a *Accumulator) Process(ev *StreamEvent) error {
 
 	case EventMessageDelta:
 		if ev.MessageDelta != nil {
-			a.message.StopReason = ev.MessageDelta.Delta.StopReason
-			// Merge usage delta
+			// An empty stop reason means "unchanged" (usage-only deltas).
+			if ev.MessageDelta.Delta.StopReason != "" {
+				a.message.StopReason = ev.MessageDelta.Delta.StopReason
+			}
+			// Merge usage delta. Output tokens accumulate (Anthropic delta
+			// semantics); input/cache fields, when present, carry the final
+			// authoritative counts (OpenAI-compatible usage arrives at stream
+			// end) and overwrite the message_start snapshot.
 			a.message.Usage.OutputTokens += ev.MessageDelta.Usage.OutputTokens
+			if ev.MessageDelta.Usage.InputTokens > 0 {
+				a.message.Usage.InputTokens = ev.MessageDelta.Usage.InputTokens
+			}
+			if ev.MessageDelta.Usage.CacheReadInputTokens > 0 {
+				a.message.Usage.CacheReadInputTokens = ev.MessageDelta.Usage.CacheReadInputTokens
+			}
+			if ev.MessageDelta.Usage.CacheCreationInputTokens > 0 {
+				a.message.Usage.CacheCreationInputTokens = ev.MessageDelta.Usage.CacheCreationInputTokens
+			}
 		}
 
 	case EventMessageStop:

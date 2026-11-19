@@ -2,7 +2,7 @@
 package: api
 import_path: internal/api
 layer: services
-generated_at: 2026-11-18T17:00:17Z
+generated_at: 2026-11-19T01:11:07Z
 source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, openai_client.go, openai_stream.go, openai_types.go, retry.go, stream.go, usage.go]
 ---
 
@@ -147,3 +147,4 @@ type StreamReader interface {
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
 - **OpenAI 兼容增强（随搬回正式入库）**：normalizeBaseURL 去除 baseURL 尾部 /v1 避免重复版本路径（原 agtkeel 提交 9262ebf）；openai_types.go 新增 ReasoningContent 字段支持 DeepSeek-R1/QwQ 类推理模型（原 .agtkeel-uncommitted.diff WIP，现已落定）。
 - **2026-11-18 prompt-cache wire 支援（feat/coordinator-fork-cache）**：此前 Anthropic 路徑**完全未送 cache_control**（TUI 設的 SystemPromptPart.CacheControl 被 engine 壓成純字串忽略）——prompt cache 從未寫入。現 MessageRequest.SystemBlocks 非空時 MarshalJSON 以 block 陣列序列化 system（帶斷點）；ToolSchema/ContentBlock +CacheControl；EphemeralCache 共享標記值。System 仍為 canonical 純文字（既有測試與 compact 路徑不受影響）；OpenAI 相容路徑經 SystemText() 讀純文字（provider 隱式前綴快取，不帶標記）。滾動斷點由 engine 佈局，api 層只負責序列化。
+- **2026-11-19 OpenAI 相容路徑 cache usage 映射（feat/openai-cache-usage）**：此前 OpenAI 路徑 CacheReadInputTokens 恆 0——openaiUsage 無 cached_tokens 欄位、StreamOptions.IncludeUsage 從未設定、usage chunk（常於 finish chunk 之後、choices 空）不被發出事件、accumulator 只合併 OutputTokens。現：openaiUsage +PromptTokensDetails（OpenAI 式）＋PromptCacheHitTokens（DeepSeek 式）＋cachedTokens()；streaming 請求設 stream_options.include_usage=true；usage chunk 觸發补充 message_delta（createUsageDeltaEvent，.repeat lastStopReason）携带 final input/output/cache counts；accumulator 非零 input/cache 欄位覆寫 message_start 快照、空 stop reason 視為不變（Anthropic delta 語義保留）。Complete 路徑同步映射。守護測試 openai_cache_usage_test.go×4。注意：OpenAI prompt_tokens 含 cached（與 Anthropic input_tokens 不含 cache read 的語義不同），CacheReadInputTokens 独立報告命中數。
