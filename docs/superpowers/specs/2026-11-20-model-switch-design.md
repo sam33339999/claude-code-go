@@ -152,3 +152,14 @@
 10. （審閱後）provider 改變時移除歷史中的 thinking 區塊；同 provider 換模型不清洗。
 11. （審閱後）切換存目標快照，之後 `/tier` 改綁定不影響主腦；`Current` 以 provider＋model 判定。
 12. （審閱後）別名解析改看 `MainLoopModel.Provider`；resume 回到 default。
+
+## 11. 已知、之後再處理（2026-11-20 審閱後）
+
+- 記憶 stop hook 的 fork 沒有帶 model / client / 上限（`RunForkedAgent` 忽略 `CacheSafeParams.Client`），切換 provider 後記憶抽取可能失敗。
+- `buildForkQuery` 在快照有 Model 但沒有 Client 時，model 與 client 分別回退。
+- `buildRunAgentFn` 的 parentModel 取自 AppState、main 取自 engine，兩個來源。
+- 以純模型 ID 切換時 `ContextWindow` 歸 0，改用內建表。
+- 等級綁到 `main:<啟動模型>` 時，選單可能有兩列都標示 current。
+- `/resume` 舊 session 時，若主腦已在非啟動 provider，不會清除 thinking 區塊。
+- 確認框開著時，agent 喚醒可能已讓主腦開始一輪；按 y 時沒有再檢查 isLoading。
+- 雜項：engine 與 modeltier 各有一個 `"main"` 常數；壓縮 debug log 文字仍寫「tiered sub-agent」；`wire.go`、`buildSubAgentQuery`、`buildRunAgentFn` 超出行數上限。

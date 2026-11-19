@@ -141,3 +141,15 @@
 10. （審閱後）權限檢查改用不互動、不記錄拒絕的模式；btw 關閉壓縮，脈絡太大就拒絕。
 11. （審閱後）ctrl+y 交出、但主腦這一輪沒再碰到工具邊界就結束時，轉為「待附加」，不自動開新一輪。
 12. （實作審閱後）btw 附加的 todo 只保留到主腦下一次 TodoWrite（主腦維持整份取代語意，與 oracle 一致）。
+
+## 11. 已知、之後再處理（2026-11-20 審閱後）
+
+- `/resume` 不會清掉進行中的 btw 與待附加備註（`/clear` 已處理）。
+- 待附加的 btw 備註也會附加到 agent 喚醒的那一輪，而不只是使用者的下一則訊息。
+- 停止 btw 後，channel 裡剩下的文字仍會追加到區塊。
+- `parseBTW`：帶 `--tier` 時多個空白與換行會被壓成一個空白；不認得 `--tier=x` 寫法。
+- MVU：`startBTW` 在 Update 內呼叫 `Query`；`refreshBTWBlock` 原地改寫訊息內容。
+- btw 的 `UseContext` 沒有帶 `MemoryStore`。
+- `NonInteractivePermissions` 只保證 orchestration 層不詢問（CodeMode bridge、AskUserQuestion 靠 btw 的工具過濾擋下）；btw 的工具呼叫仍會觸發 PreToolUse hooks。
+- 工具過濾排在 `ValidateInput` 之後；`executeOneTool`、`runQueryLoop` 超出 80 行。
+- `buildMainSystemPrompt` 的註解高估了快取命中（閒置時只命中穩定 system 的斷點）；缺少 coordinatorMode 分支的測試。
