@@ -33,6 +33,8 @@ const (
 	dialogQuestion              // AskUserQuestion (BF-08)
 	dialogResume                // /resume session picker
 	dialogSetup                 // /setup first-run wizard
+	dialogModelPicker           // /model menu
+	dialogModelConfirm          // /model cache-invalidation confirmation
 )
 
 // questionState holds the active AskUserQuestion dialog (BF-08): the question,
@@ -127,6 +129,11 @@ type AppModel struct {
 	// setupSeq carries the wizard's request counter across /setup sessions,
 	// so a request abandoned in a closed wizard can never match a new one.
 	setupSeq int
+	// modelSwitcher serves /model (may be nil: legacy SetModel path);
+	// modelPicker / pendingModel hold the menu and the switch awaiting y/n.
+	modelSwitcher commands.ModelSwitcher
+	modelPicker   *modelPicker
+	pendingModel  *commands.ModelOption
 	// transcript persists conversation turns to the session JSONL (may be nil).
 	transcript *transcript.Recorder
 	// questionAskCh/questionRespCh carry AskUserQuestion HIL traffic (BF-08);
@@ -231,6 +238,7 @@ func newAppModel(
 	mcpPool commands.MCPServerLister,
 	tiers commands.TierManager,
 	setup commands.SetupBackend,
+	models commands.ModelSwitcher,
 	rec *transcript.Recorder,
 	questionAskCh <-chan types.QuestionRequest,
 	questionRespCh chan<- types.QuestionResponse,
@@ -253,6 +261,7 @@ func newAppModel(
 		mcpPool:             mcpPool,
 		tiers:               tiers,
 		setupBackend:        setup,
+		modelSwitcher:       models,
 		transcript:          rec,
 		questionAskCh:       questionAskCh,
 		questionRespCh:      questionRespCh,

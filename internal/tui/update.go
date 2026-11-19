@@ -523,6 +523,10 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 		m.input.vimEnabled = !m.input.vimEnabled
 	}
 
+	if result.ModelRef != "" {
+		return m.switchModelRef(result.ModelRef), nil
+	}
+
 	if result.NewModel != "" {
 		m.queryEngine.SetModel(result.NewModel)
 		m.statusBar.model = result.NewModel
@@ -549,6 +553,8 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 			m.activeDialog = dialogConfig
 		case "setup":
 			m = m.openSetupDialog()
+		case "model":
+			m = m.openModelPicker()
 		case "resume":
 			if len(result.Sessions) == 0 {
 				break

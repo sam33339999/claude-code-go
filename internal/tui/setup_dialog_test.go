@@ -42,7 +42,7 @@ func newSetupModel(b commands.SetupBackend) AppModel {
 	appStore := state.NewAppStateStore(state.AppState{WorkingDir: "/tmp", MainLoopModel: state.ModelSetting{ModelID: "m"}})
 	reg := commands.NewRegistry()
 	commands.RegisterBuiltins(reg)
-	m := newAppModel(newFakeEngine(), appStore, false, true, reg, nil, nil, nil, nil, nil, nil, nil, nil, nil, b, nil, nil, nil)
+	m := newAppModel(newFakeEngine(), appStore, false, true, reg, nil, nil, nil, nil, nil, nil, nil, nil, nil, b, nil, nil, nil, nil)
 	m.termWidth, m.termHeight = 100, 30
 	return m
 }

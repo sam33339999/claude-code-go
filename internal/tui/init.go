@@ -28,6 +28,7 @@ import (
 // mcpPool exposes MCP server connection state for /mcp; may be nil.
 // tiers is the model tier table for /tier; may be nil.
 // setup serves the /setup wizard; may be nil.
+// models serves /model switching; may be nil (legacy SetModel).
 // rec persists conversation turns to the session JSONL (BF-18); may be nil.
 func New(
 	qe engine.QueryEngine,
@@ -44,6 +45,7 @@ func New(
 	mcpPool commands.MCPServerLister,
 	tiers commands.TierManager,
 	setup commands.SetupBackend,
+	models commands.ModelSwitcher,
 	rec *transcript.Recorder,
 	questionAskCh <-chan types.QuestionRequest,
 	questionRespCh chan<- types.QuestionResponse,
@@ -51,7 +53,7 @@ func New(
 	reg := commands.NewRegistry()
 	commands.RegisterBuiltins(reg)
 
-	m := newAppModel(qe, appStore, vimEnabled, dark, reg, permAskCh, permRespCh, agentCoord, agentEventCh, mq, qg, memoryStore, mcpPool, tiers, setup, rec, questionAskCh, questionRespCh)
+	m := newAppModel(qe, appStore, vimEnabled, dark, reg, permAskCh, permRespCh, agentCoord, agentEventCh, mq, qg, memoryStore, mcpPool, tiers, setup, models, rec, questionAskCh, questionRespCh)
 	return m
 }
 

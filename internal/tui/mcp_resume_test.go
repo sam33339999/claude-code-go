@@ -398,7 +398,7 @@ func TestNew_AcceptsMCPPool(t *testing.T) {
 		WorkingDir:    t.TempDir(),
 		MainLoopModel: state.ModelSetting{ModelID: "test-model"},
 	})
-	model := New(newFakeEngine(), appStore, false, true, nil, nil, nil, nil, nil, nil, nil, pool, nil, nil, nil, nil, nil)
+	model := New(newFakeEngine(), appStore, false, true, nil, nil, nil, nil, nil, nil, nil, pool, nil, nil, nil, nil, nil, nil)
 	m, ok := model.(AppModel)
 	if !ok {
 		t.Fatalf("expected AppModel, got %T", model)

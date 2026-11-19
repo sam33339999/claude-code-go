@@ -28,7 +28,7 @@ func newTieredModel(window int, warnings ...string) AppModel {
 	})
 	reg := commands.NewRegistry()
 	commands.RegisterBuiltins(reg)
-	return newAppModel(newFakeEngine(), appStore, false, true, reg, nil, nil, nil, nil, nil, nil, nil, nil, stubTiers{window: window, warnings: warnings}, nil, nil, nil, nil)
+	return newAppModel(newFakeEngine(), appStore, false, true, reg, nil, nil, nil, nil, nil, nil, nil, nil, stubTiers{window: window, warnings: warnings}, nil, nil, nil, nil, nil)
 }
 
 func TestStatusBar_UsesMainContextWindow(t *testing.T) {

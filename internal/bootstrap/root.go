@@ -240,6 +240,7 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 		container.MCPPool,
 		tiersOrNil(container.Tiers),
 		container.Setup,
+		container.ModelSwitcher,
 		rec,
 		container.QuestionAskCh,
 		container.QuestionRespCh,
