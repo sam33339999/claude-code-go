@@ -2,7 +2,7 @@
 package: coordinator
 import_path: internal/coordinator
 layer: core
-generated_at: 2026-11-19T05:16:58Z
+generated_at: 2026-11-19T05:38:34Z
 source_files: [adapter.go, coordinator.go, prompt.go]
 ---
 
@@ -81,7 +81,7 @@ type Coordinator interface {
 - `OnStatusChangeFn` → `internal/bootstrap/wire.go`
 - `ProgressEvent` → `internal/bootstrap/wire.go`
 - `RunAgentFn` → `internal/bootstrap/wire.go`
-- `SpawnRequest` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test)
+- `SpawnRequest` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/bootstrap/wire_result_test.go` (test)
 - `TaskNotification` → `internal/tui/update.go`
 
 ## Dependencies

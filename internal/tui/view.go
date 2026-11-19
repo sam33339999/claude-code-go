@@ -32,46 +32,61 @@ func (m AppModel) View() tea.View {
 		return m.screenView("")
 	}
 
-	// Render bottom-anchored extras FIRST and measure them, so the message
-	// viewport can shrink to keep everything inside the terminal. Without
-	// this, dialogs/todo panel append below a full-height viewport and get
-	// clipped off-screen (the approval dialog becomes invisible).
+	// Measure bottom-anchored extras (todo, dialog) that render below the
+	// viewport. reservedLines covers status bar + input + spinner + padding.
 	dialog := m.renderActiveDialog()
-	extraLines := renderedLines(dialog)
+	dialogLines := renderedLines(dialog)
 
 	var todoPanel string
+	todoLines := 0
 	if todos := m.appState.GetState().Todos; len(todos) > 0 {
 		todoPanel = renderTodoPanel(todos, m.theme)
-		extraLines += renderedLines(todoPanel)
+		// The todo panel is display-only: on short terminals truncate (or hide)
+		// it so the interactive dialog and input keep their space. Keep at least
+		// one viewport line; the soft viewport floor is enforced against the
+		// coordinator panel below, not against the todo panel.
+		todoBudget := m.termHeight - reservedLines - dialogLines - 1
+		todoPanel = truncateToLines(todoPanel, todoBudget)
+		todoLines = renderedLines(todoPanel)
 	}
 
+	// Space left for the top region (coordinator panel + message viewport)
+	// after the bottom-fixed UI. Budgeting this keeps the total render within
+	// termHeight so the input/dialog at the bottom are never clipped off-screen.
+	topAvailable := m.termHeight - reservedLines - todoLines - dialogLines
+	if topAvailable < 1 {
+		topAvailable = 1
+	}
+
+	// The viewport gets a usable floor; the coordinator panel takes the rest
+	// and is truncated when space is tight (it is the least critical region).
+	// This prevents a flood of agents from squeezing the output AND prevents
+	// the panel from pushing the bottom UI off-screen.
 	var coordPanel string
+	vpHeight := topAvailable
 	if m.coordinatorMode {
-		coordPanel = m.coordinatorPanel.View(m.termWidth, m.theme)
-		if coordPanel != "" {
-			extraLines += renderedLines(coordPanel) + 1 // trailing newline
+		panelBudget := topAvailable - minViewportLines
+		if panelBudget < 0 {
+			panelBudget = 0
+		}
+		coordPanel = truncateToLines(m.coordinatorPanel.View(m.termWidth, m.theme), panelBudget)
+		vpHeight = topAvailable - renderedLines(coordPanel)
+		if vpHeight < 1 {
+			vpHeight = 1
 		}
 	}
 
 	var sb strings.Builder
 
-	// --- Coordinator panel (multi-agent) ---
+	// --- Coordinator panel (multi-agent, top-anchored) ---
 	if coordPanel != "" {
 		sb.WriteString(coordPanel)
 		sb.WriteString("\n")
 	}
 
-	// --- Message list rendered through viewport (shrunk by extras) ---
-	// Only show viewport area when there is content to display;
-	// otherwise avoid filling the terminal with blank lines.
+	// --- Message list rendered through the viewport (height budgeted above) ---
 	vp := m.viewport
-	if extraLines > 0 {
-		h := vp.Height() - extraLines
-		if h < minViewportLines {
-			h = minViewportLines
-		}
-		vp.SetHeight(h)
-	}
+	vp.SetHeight(vpHeight)
 	vpContent := strings.TrimRight(vp.View(), "\n ")
 	if vpContent != "" {
 		sb.WriteString(vpContent)
@@ -139,6 +154,20 @@ func renderedLines(s string) int {
 		return 0
 	}
 	return len(strings.Split(strings.TrimRight(s, "\n"), "\n"))
+}
+
+// truncateToLines caps a rendered block to maxLines terminal lines, returning
+// "" when maxLines <= 0. Used to keep the coordinator panel within its height
+// budget so it never pushes the bottom UI off-screen.
+func truncateToLines(s string, maxLines int) string {
+	if s == "" || maxLines <= 0 {
+		return ""
+	}
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	if len(lines) <= maxLines {
+		return s
+	}
+	return strings.Join(lines[:maxLines], "\n")
 }
 
 // screenView wraps rendered content in a tea.View with the program's screen
