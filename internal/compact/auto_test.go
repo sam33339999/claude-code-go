@@ -205,3 +205,43 @@ func TestTracker_ConcurrentUse(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// TestCompact_FitKeepsToolLoopTail: a sub-agent history is one task prompt
+// followed by a long tool loop. Trimming must keep the task prompt and the
+// most recent tool round trips, not collapse to the prompt alone.
+func TestCompact_FitKeepsToolLoopTail(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "")
+	a := NewAutoCompactor()
+	c := &recordingClient{}
+	tgt := Target{Client: c, Model: "m", ContextWindow: 60000, MaxOutputTokens: 8192}
+	chunk := strings.Repeat("z", 8000)
+	msgs := []types.Message{textMsg(types.RoleUser, "TASK: audit the repo")}
+	for i := 0; i < 40; i++ {
+		id := fmt.Sprintf("t%d", i)
+		msgs = append(msgs, toolUseMsg(id, "Read", map[string]any{"p": id}))
+		msgs = append(msgs, toolResultMsg(id, fmt.Sprintf("result-%d %s", i, chunk)))
+	}
+	if _, err := a.Compact(context.Background(), msgs, CompactionParams{}, tgt, NewTracker()); err != nil {
+		t.Fatalf("Compact: %v", err)
+	}
+	sent := c.last().Messages
+	if len(sent) < 3 {
+		t.Fatalf("sent %d messages, want task prompt + tool round trips", len(sent))
+	}
+	if !strings.Contains(string(sent[0].Content), "TASK: audit the repo") || !strings.Contains(string(sent[0].Content), "truncated") {
+		t.Errorf("first message must keep the task prompt and note the truncation: %s", sent[0].Content)
+	}
+	if sent[1].Role != string(types.RoleAssistant) {
+		t.Errorf("suffix must start at an assistant boundary, got %s", sent[1].Role)
+	}
+	if !strings.Contains(string(sent[len(sent)-1].Content), "result-39") {
+		t.Error("most recent tool result must be kept")
+	}
+	total := 0
+	for _, m := range sent {
+		total += len(m.Content) / 4
+	}
+	if budget := 60000 - 8192 - AutoCompactBufferTokens; total > budget {
+		t.Errorf("sent ~%d tokens, budget %d", total, budget)
+	}
+}

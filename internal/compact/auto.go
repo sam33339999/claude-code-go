@@ -145,39 +145,47 @@ func (a *AutoCompactor) Compact(
 	}, nil
 }
 
-// fitForSummary returns the longest suffix of messages whose estimate fits
-// budget and that starts at a plain user message (no tool_result blocks, so
-// no orphaned tool pairs). If no such suffix fits, it keeps only the last
-// plain user message (or the last message when there is none).
+// truncationNotice marks where fitForSummary dropped older history.
+const truncationNotice = "[Earlier conversation truncated to fit the summary model's context window.]"
+
+// fitForSummary trims messages to fit budget for the summarisation request.
+// It keeps the first message when it is a plain user message (the task
+// prompt), annotated with truncationNotice, followed by the longest suffix
+// that starts at an assistant message — every tool_result after that point
+// still has its tool_use, and roles keep alternating. When even the shortest
+// such suffix does not fit, only the annotated head is sent.
 func fitForSummary(messages []types.Message, budget int) []types.Message {
 	if budget < 1 {
 		budget = 1
 	}
-	if EstimateTokens(messages) <= budget {
+	if len(messages) == 0 || EstimateTokens(messages) <= budget {
 		return messages
 	}
-	// suffix[i] = estimated tokens of messages[i:].
-	suffix := make([]int, len(messages)+1)
-	for i := len(messages) - 1; i >= 0; i-- {
-		suffix[i] = suffix[i+1] + EstimateTokens(messages[i:i+1])
+	head, rest := truncationHead(messages)
+	remaining := budget - EstimateTokens([]types.Message{head})
+	// suffix[i] = estimated tokens of rest[i:].
+	suffix := make([]int, len(rest)+1)
+	for i := len(rest) - 1; i >= 0; i-- {
+		suffix[i] = suffix[i+1] + EstimateTokens(rest[i:i+1])
 	}
-	lastPlain := -1
-	for i := range messages {
-		if !isPlainUser(messages[i]) {
-			continue
-		}
-		lastPlain = i
-		if suffix[i] <= budget {
-			return messages[i:]
+	for i := range rest {
+		if rest[i].Role == types.RoleAssistant && suffix[i] <= remaining {
+			return append([]types.Message{head}, rest[i:]...)
 		}
 	}
-	if lastPlain >= 0 {
-		return messages[lastPlain : lastPlain+1]
+	return []types.Message{head}
+}
+
+// truncationHead returns the user message that leads a trimmed history and
+// the messages eligible for the kept suffix.
+func truncationHead(messages []types.Message) (types.Message, []types.Message) {
+	notice := types.ContentBlock{Type: types.ContentTypeText, Text: strPtr(truncationNotice)}
+	if isPlainUser(messages[0]) {
+		head := messages[0]
+		head.Content = append(append([]types.ContentBlock(nil), head.Content...), notice)
+		return head, messages[1:]
 	}
-	if len(messages) == 0 {
-		return messages
-	}
-	return messages[len(messages)-1:]
+	return types.Message{Role: types.RoleUser, Content: []types.ContentBlock{notice}}, messages
 }
 
 func isPlainUser(m types.Message) bool {
