@@ -216,6 +216,23 @@ Crea o edita `~/.config/claude-code/settings.json`:
 }
 ```
 
+### Limitación de tasa
+
+El control de tasa del lado del cliente se aplica uniformemente a todos los proveedores. Ambas variables son opcionales; sin definir＝sin límite (el reintento automático con backoff en 429 sigue activo).
+
+| Variable de entorno | Descripción |
+|---------------------|-------------|
+| `CLAUDE_CODE_API_RPM` | Máximo de solicitudes por minuto (espaciado estricto entre inicios, p. ej. `60` = ≥1 s de intervalo) |
+| `CLAUDE_CODE_API_MAX_CONCURRENT` | Máximo de solicitudes en curso, incluido streaming (los sub-agentes paralelos esperan si superan el límite) |
+
+```bash
+# Recomendado para proveedores con límite de tasa (p. ej. Qwen):
+export CLAUDE_CODE_API_MAX_CONCURRENT=2   # limita ráfagas de sub-agentes paralelos
+export CLAUDE_CODE_API_RPM=60             # opcional: espaciar solicitudes
+```
+
+Las solicitudes que aún reciben 429 se reintentan automáticamente con backoff exponencial; la cabecera `retry-after` del proveedor tiene prioridad.
+
 ### Notas específicas por proveedor
 
 **OpenAI:**

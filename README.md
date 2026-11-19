@@ -216,6 +216,23 @@ Create or edit `~/.config/claude-code/settings.json`:
 }
 ```
 
+### Rate Limiting
+
+Client-side rate control applies uniformly to all providers. Both variables are optional; unset means unlimited (automatic retry with backoff on 429 still applies).
+
+| Environment Variable | Description |
+|----------------------|-------------|
+| `CLAUDE_CODE_API_RPM` | Max requests per minute (strict spacing between request starts, e.g. `60` = at least 1s apart) |
+| `CLAUDE_CODE_API_MAX_CONCURRENT` | Max in-flight requests, including streaming (parallel sub-agents queue beyond this cap) |
+
+```bash
+# Recommended for rate-limited providers (e.g. Qwen):
+export CLAUDE_CODE_API_MAX_CONCURRENT=2   # cap parallel sub-agent bursts
+export CLAUDE_CODE_API_RPM=60             # optional: pace requests
+```
+
+Requests that still hit a 429 are retried automatically with exponential backoff; the provider's `retry-after` header takes precedence.
+
 ### Provider-Specific Notes
 
 **OpenAI:**

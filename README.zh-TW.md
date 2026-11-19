@@ -216,6 +216,23 @@ claude
 }
 ```
 
+### 速率限制
+
+客戶端速率控制統一適用於所有供應商。兩個變數皆選填；未設＝不限速（429 自動退避重试仍生效）。
+
+| 環境變數 | 說明 |
+|----------|------|
+| `CLAUDE_CODE_API_RPM` | 每分鐘請求上限（請求啟動嚴格間距，如 `60`＝間距 ≥1 秒） |
+| `CLAUDE_CODE_API_MAX_CONCURRENT` | 同時 in-flight 請求上限（含串流；平行 sub-agent 超過上限會排队） |
+
+```bash
+# 建議速率受限的供應商（如 Qwen）：
+export CLAUDE_CODE_API_MAX_CONCURRENT=2   # 擋平行 sub-agent 爆量
+export CLAUDE_CODE_API_RPM=60             # 選填：請求節流
+```
+
+仍踩 429 的請求會自動指數退避重试；provider 的 `retry-after` header 優先。
+
 ### 各供應商注意事項
 
 **OpenAI：**

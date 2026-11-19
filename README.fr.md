@@ -216,6 +216,23 @@ Créez ou éditez `~/.config/claude-code/settings.json` :
 }
 ```
 
+### Limitation de débit
+
+Le contrôle de débit côté client s'applique uniformément à tous les fournisseurs. Les deux variables sont facultatives ; non définies＝illimité (le retry automatique avec backoff sur 429 reste actif).
+
+| Variable d'environnement | Description |
+|--------------------------|-------------|
+| `CLAUDE_CODE_API_RPM` | Requêtes max par minute (espacement strict entre démarrages, p. ex. `60` = ≥1 s d'intervalle) |
+| `CLAUDE_CODE_API_MAX_CONCURRENT` | Requêtes simultanées max, streaming inclus (les sous-agents parallèles attendent au-delà de la limite) |
+
+```bash
+# Recommandé pour les fournisseurs à débit limité (p. ex. Qwen) :
+export CLAUDE_CODE_API_MAX_CONCURRENT=2   # limite les rafales de sous-agents parallèles
+export CLAUDE_CODE_API_RPM=60             # facultatif : espacer les requêtes
+```
+
+Les requêtes recevant encore un 429 sont réessayées automatiquement avec backoff exponentiel ; l'en-tête `retry-after` du fournisseur est prioritaire.
+
 ### Notes spécifiques par fournisseur
 
 **OpenAI :**

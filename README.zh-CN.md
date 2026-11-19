@@ -216,6 +216,23 @@ claude
 }
 ```
 
+### 速率限制
+
+客户端速率控制统一适用于所有提供商。两个变量均为可选；未设置＝不限速（429 自动退避重试仍生效）。
+
+| 环境变量 | 说明 |
+|----------|------|
+| `CLAUDE_CODE_API_RPM` | 每分钟请求上限（请求启动严格间距，如 `60`＝间距 ≥1 秒） |
+| `CLAUDE_CODE_API_MAX_CONCURRENT` | 同时 in-flight 请求上限（含流式；并行 sub-agent 超过上限会排队） |
+
+```bash
+# 建议速率受限的提供商（如 Qwen）：
+export CLAUDE_CODE_API_MAX_CONCURRENT=2   # 挡并行 sub-agent 爆量
+export CLAUDE_CODE_API_RPM=60             # 可选：请求节流
+```
+
+仍触发 429 的请求会自动指数退避重试；提供商的 `retry-after` header 优先。
+
 ### 各提供商配置示例
 
 **OpenAI：**
