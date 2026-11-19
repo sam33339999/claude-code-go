@@ -52,7 +52,7 @@ func newPickerModel(sw commands.ModelSwitcher, history bool) (AppModel, *fakeEng
 	appStore := state.NewAppStateStore(state.AppState{WorkingDir: "/tmp", MainLoopModel: state.ModelSetting{ModelID: "claude-opus-5-5"}})
 	reg := commands.NewRegistry()
 	commands.RegisterBuiltins(reg)
-	m := newAppModel(fe, appStore, false, true, reg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, sw, nil, nil, nil)
+	m := newAppModel(fe, appStore, false, true, reg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, sw, nil, nil, nil, nil)
 	m.termWidth, m.termHeight = 100, 30
 	return m, fe
 }

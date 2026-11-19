@@ -134,6 +134,12 @@ type AppModel struct {
 	modelSwitcher commands.ModelSwitcher
 	modelPicker   *modelPicker
 	pendingModel  *commands.ModelOption
+	// btw is the live /btw side question (nil when none); mainUseCtx is the
+	// running main query's tool context, whose CacheParams snapshot /btw
+	// reuses (nil when the main loop is idle); btwTarget resolves --tier.
+	btw        *btwSession
+	mainUseCtx *tools.UseContext
+	btwTarget  func(ref string) (engine.MainTarget, error)
 	// transcript persists conversation turns to the session JSONL (may be nil).
 	transcript *transcript.Recorder
 	// questionAskCh/questionRespCh carry AskUserQuestion HIL traffic (BF-08);
@@ -239,6 +245,7 @@ func newAppModel(
 	tiers commands.TierManager,
 	setup commands.SetupBackend,
 	models commands.ModelSwitcher,
+	btwTarget func(ref string) (engine.MainTarget, error),
 	rec *transcript.Recorder,
 	questionAskCh <-chan types.QuestionRequest,
 	questionRespCh chan<- types.QuestionResponse,
@@ -262,6 +269,7 @@ func newAppModel(
 		tiers:               tiers,
 		setupBackend:        setup,
 		modelSwitcher:       models,
+		btwTarget:           btwTarget,
 		transcript:          rec,
 		questionAskCh:       questionAskCh,
 		questionRespCh:      questionRespCh,

@@ -268,7 +268,7 @@ func renderMessage(msg types.Message, width int, darkMode bool, theme Theme, mdR
 // renderMessageOpts dispatches on message kind.
 func renderMessageOpts(msg types.Message, opts renderOptions, lookups MessageLookups) string {
 	switch {
-	case isSystemMessage(msg):
+	case isSystemMessage(msg), msg.ID == btwMessageID:
 		return renderSystemMessage(msg, opts)
 	case msg.Role == types.RoleUser:
 		return renderUserMessage(msg, opts)

@@ -160,6 +160,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, waitForStreamEvent(m.streamCh)
 
 	case StreamDoneMsg:
+		m.mainUseCtx = nil
 		m = m.recordUsage(msg.Usage)
 		m = m.resetQueryFeedback()
 		m.isLoading = false
@@ -194,6 +195,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case StreamErrorMsg:
+		m.mainUseCtx = nil
 		m = m.resetQueryFeedback()
 		m.isLoading = false
 		m.showSpinner = false
@@ -390,6 +392,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input, cmd = m.input.Update(msg)
 		return m, tea.Batch(cmd, m.refreshCompletion())
 
+	// --- /btw side question stream ---
+	case btwChunkMsg:
+		return m.onBTWChunk(msg)
+
 	// --- /setup wizard results ---
 	case setupModelsMsg:
 		return m.onSetupModels(msg), nil
@@ -574,6 +580,7 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 	}
 
 	if result.ClearHistory {
+		m = m.dropBTW()
 		m.messages = nil
 		m.queryEngine.SetMessages(nil)
 		m.statusBar.contextTokens = 0

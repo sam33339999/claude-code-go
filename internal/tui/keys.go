@@ -253,6 +253,10 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch key.Code {
 	case tea.KeyEsc:
+		// A running /btw is stopped first; the next Esc reaches the main loop.
+		if m.btw != nil && m.btw.status == btwRunning {
+			return m.cancelBTW(), nil
+		}
 		if m.isLoading {
 			return m.doAbort()
 		}
@@ -411,6 +415,11 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 	m.completion = completionState{}
 	m.pinnedToBottom = true
 
+	// /btw runs immediately, even while the main loop is busy (never queued).
+	if name, args := splitSlash(text); name == "btw" {
+		return m.startBTW(args)
+	}
+
 	// Check for # quick memory input.
 	if strings.HasPrefix(text, "# ") {
 		m.input = m.input.SetValue("")
@@ -497,6 +506,7 @@ func (m AppModel) doAbort() (tea.Model, tea.Cmd) {
 	// P1-D fix: clear abort handle and stream channel so stale events are ignored.
 	m.abortFn = nil
 	m.streamCh = nil
+	m.mainUseCtx = nil
 	// P1: Force-end the query guard to invalidate stale goroutines.
 	if m.queryGuard != nil {
 		m.queryGuard.ForceEnd()

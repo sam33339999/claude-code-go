@@ -27,6 +27,7 @@ func RegisterBuiltins(r *Registry) {
 	r.Register(cmdMCP())
 	r.Register(cmdTier())
 	r.Register(cmdSetup())
+	r.Register(cmdBTW())
 	r.Register(cmdReview())
 	r.Register(cmdCommit())
 	r.Register(cmdDiff())
@@ -415,6 +416,18 @@ func cmdTerminalSetup() *Command {
 				Text:    FormatTerminalSetup(DetectTerminal(os.Getenv)),
 				Display: DisplayMessage,
 			}
+		},
+	}
+}
+
+// cmdBTW is listed for /help and completion; the TUI intercepts "/btw" before
+// command dispatch so it runs even while a query is in progress.
+func cmdBTW() *Command {
+	return &Command{
+		Name:        "btw",
+		Description: "Ask a side question in parallel (read-only; ctrl+y sends the answer to the main conversation)",
+		Execute: func(_ CommandContext, _ string) Result {
+			return Result{Text: "Usage: /btw [--tier <name>] <question>", Display: DisplayMessage}
 		},
 	}
 }

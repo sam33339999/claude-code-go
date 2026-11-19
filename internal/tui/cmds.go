@@ -116,6 +116,9 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 		},
 	}
 
+	// /btw reuses this query's prefix snapshot while it runs.
+	m.mainUseCtx = params.ToolUseContext
+
 	qe := m.queryEngine
 	guard := m.queryGuard
 
