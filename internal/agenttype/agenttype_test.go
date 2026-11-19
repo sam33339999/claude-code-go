@@ -225,3 +225,19 @@ func TestResolveModelForProvider_EnvOverride(t *testing.T) {
 		t.Errorf("env alias on direct = %q, want parent family model (legacy)", got)
 	}
 }
+
+func TestResolveAliasForProvider(t *testing.T) {
+	cases := []struct{ provider, parent, model, want string }{
+		{"openai", "qwen4-max", "haiku", ""},
+		{"OpenAI", "qwen4-max", "opus", ""},
+		{"direct", "claude-haiku-4-5", "haiku", "claude-haiku-4-5"},
+		{"direct", "x", "qwen-turbo", "qwen-turbo"},
+		{"openai", "x", "qwen-turbo", "qwen-turbo"},
+		{"direct", "x", "inherit", ""},
+	}
+	for _, c := range cases {
+		if got := ResolveAliasForProvider(c.provider, c.parent, c.model); got != c.want {
+			t.Errorf("ResolveAliasForProvider(%q,%q,%q) = %q, want %q", c.provider, c.parent, c.model, got, c.want)
+		}
+	}
+}

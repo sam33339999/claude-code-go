@@ -108,7 +108,7 @@ func (t *agentTool) InputSchema() tools.InputSchema {
 			}),
 			"model": tools.PropSchema(map[string]any{
 				"type":        "string",
-				"description": "Optional model override (e.g. 'haiku', 'sonnet', 'opus'). Ignored for agent_type \"fork\" — forks always inherit the parent model.",
+				"description": "Optional model override: a tier (lite, pro, max), a full model ID, or providerID:modelID from ~/.glaude/config.toml. Legacy aliases haiku/sonnet/opus map to lite/pro/max. Ignored for agent_type \"fork\" — forks always inherit the parent model.",
 			}),
 		},
 		[]string{"prompt"},
