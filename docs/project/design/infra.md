@@ -1351,3 +1351,4 @@ func Bootstrap(flags CLIFlags) (*App, error) {
 | `internal/config/settings.go` | `src/utils/settings/types.ts` |
 | `internal/config/loader.go` | `src/utils/settings/settings.ts` |
 | `internal/session/store.go` | `src/types/logs.ts` + JSONL 写入逻辑 |
+- **2026-11-19 /setup 設定寫入**：`config` +`MainModelSettings`、`WriteUserMainModel`、`UserSettingsPath`、`MainModelEnvVars`；`WriteOrderedJSONAtomic` 與 `writeSettingsAtomic` 改為保留既有檔案權限。`modeltier.Store` +`BindWithLimits`、`SetMainContextWindow`；`compact` +`KnownContextWindow`。

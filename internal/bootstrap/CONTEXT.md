@@ -2,17 +2,17 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-19T13:49:59Z
-source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tiers.go, tools.go, update_cmd.go, wire.go]
+generated_at: 2026-11-19T15:15:26Z
+source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, setup.go, tiers.go, tools.go, update_cmd.go, wire.go]
 ---
 
 # internal/bootstrap
 
-> Layer: **CLI** · Files: 27 · Interfaces: 0 · Structs: 2 · Functions: 8
+> Layer: **CLI** · Files: 28 · Interfaces: 0 · Structs: 2 · Functions: 8
 
 ## Structs
 
-- **AppContainer** — 17 fields: QueryEngine, AppStateStore, ToolRegistry, MCPPool, Settings, PermAskCh, PermRespCh, QuestionAskCh, ...
+- **AppContainer** — 18 fields: QueryEngine, AppStateStore, ToolRegistry, MCPPool, Settings, PermAskCh, PermRespCh, QuestionAskCh, ...
 - **ContainerOptions** — 8 fields: HomeDir, WorkingDir, ModelOverride, Verbose, Debug, DebugFile, Headless, ProviderClientFactory
 
 ## Functions
@@ -113,3 +113,4 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
   - 續跑沿用 `runStates` 裡派工當下的 `Client`/`Model`/`CompactTracker`（快取連續性），不受之後 `/tier` 影響。fork 永遠不帶 `Client`。每個 sub-agent 都有自己的 `compact.Tracker`。
   - config.toml 警告一律印到 stderr（不只 `--debug`），因為設定錯誤需要使用者看到。
   - 段落審查後補修：`/tier` 重新讀檔後，可能綁到啟動後才加入的 provider（沒有 client）；派工時直接報錯要求重啟，絕不退回主腦 client。
+- **2026-11-19 `setupBackend`（`setup.go`）**：實作 `commands.SetupBackend`。現值**每次從全域 `settings.json` 重新讀**（不用合併後的設定，避免把專案層、環境變數或 OAuth token 預填並寫進全域檔；同一會話跑第二次 /setup 也看得到上一次的結果）。沿用的金鑰在這裡解析，不經過 TUI。寫 `config.toml` 用另外從磁碟載入的 Store，不動執行中那一個：等級和主腦一樣等重新啟動才生效。`Overrides()` 只回報來源與欄位名，不回顯值。`NeedsSetup` 取自 `resolveAPIKey` 是否回空字串。

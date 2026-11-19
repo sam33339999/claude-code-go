@@ -73,11 +73,18 @@ func (s *Store) Providers() []ProviderStatus {
 // config.toml. Tier-level context_window / max_tokens are cleared because
 // they described the previous model. Comments in the file are not preserved.
 func (s *Store) Bind(tier, providerID, modelID string) error {
+	return s.BindWithLimits(tier, providerID, modelID, 0)
+}
+
+// BindWithLimits is Bind that also writes the tier's context_window when
+// contextWindow > 0 (e.g. reported by the provider's model list).
+func (s *Store) BindWithLimits(tier, providerID, modelID string, contextWindow int) error {
 	name, err := validTierName(tier)
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(modelID) == "" {
+	model := strings.TrimSpace(modelID)
+	if model == "" {
 		return fmt.Errorf("modeltier: bind %s: model is empty", name)
 	}
 	s.mu.Lock()
@@ -85,7 +92,11 @@ func (s *Store) Bind(tier, providerID, modelID string) error {
 	if _, ok := s.cfg.Providers[providerID]; !ok && providerID != MainProviderID {
 		return fmt.Errorf("modeltier: bind %s: provider %q is not registered in %s", name, providerID, s.path)
 	}
-	return s.commitLocked(name, TierEntry{Provider: providerID, Model: strings.TrimSpace(modelID)})
+	table := map[string]any{"provider": providerID, "model": model}
+	if contextWindow > 0 {
+		table["context_window"] = contextWindow
+	}
+	return s.commitLocked(setTier(name, table))
 }
 
 // Unbind clears tier's binding (the tier stays known, so it inherits the
@@ -97,15 +108,55 @@ func (s *Store) Unbind(tier string) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.commitLocked(name, TierEntry{})
+	return s.commitLocked(setTier(name, map[string]any{}))
 }
 
-// commitLocked sets tiers[name] in config.toml with a read-modify-write of
+// SetMainContextWindow writes [main] context_window (0 removes it, and an
+// empty [main] table is dropped) and atomically rewrites config.toml.
+func (s *Store) SetMainContextWindow(n int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.commitLocked(func(raw map[string]any) {
+		main, _ := raw["main"].(map[string]any)
+		if main == nil {
+			main = map[string]any{}
+		}
+		if n > 0 {
+			main["context_window"] = n
+		} else {
+			delete(main, "context_window")
+		}
+		if len(main) == 0 {
+			delete(raw, "main")
+			return
+		}
+		raw["main"] = main
+	})
+}
+
+// setTier returns a mutation replacing tiers[name] (any case variant) with table.
+func setTier(name string, table map[string]any) func(map[string]any) {
+	return func(raw map[string]any) {
+		tiers, _ := raw["tiers"].(map[string]any)
+		if tiers == nil {
+			tiers = map[string]any{}
+		}
+		for k := range tiers {
+			if strings.EqualFold(strings.TrimSpace(k), name) {
+				delete(tiers, k)
+			}
+		}
+		tiers[name] = table
+		raw["tiers"] = tiers
+	}
+}
+
+// commitLocked applies mutate to config.toml with a read-modify-write of
 // the file as it is on disk now, so sections the validator ignored, unknown
 // keys and edits made after startup all survive (only comments are lost).
 // The in-memory config is replaced only after the write succeeded.
 // Caller holds mu.
-func (s *Store) commitLocked(name string, entry TierEntry) error {
+func (s *Store) commitLocked(mutate func(raw map[string]any)) error {
 	if s.loadErr != nil {
 		return fmt.Errorf("modeltier: %s could not be loaded at startup (%v); fix the file and restart before using /tier", s.path, s.loadErr)
 	}
@@ -120,22 +171,7 @@ func (s *Store) commitLocked(name string, entry TierEntry) error {
 			return fmt.Errorf("modeltier: %s no longer parses (%v); not rewriting it", s.path, err)
 		}
 	}
-	tiers, _ := raw["tiers"].(map[string]any)
-	if tiers == nil {
-		tiers = map[string]any{}
-	}
-	for k := range tiers {
-		if strings.EqualFold(strings.TrimSpace(k), name) {
-			delete(tiers, k)
-		}
-	}
-	table := map[string]any{}
-	if entry.Provider != "" {
-		table["provider"] = entry.Provider
-		table["model"] = entry.Model
-	}
-	tiers[name] = table
-	raw["tiers"] = tiers
+	mutate(raw)
 
 	var buf bytes.Buffer
 	if err := toml.NewEncoder(&buf).Encode(raw); err != nil {

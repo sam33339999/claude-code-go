@@ -1062,3 +1062,4 @@ server push → jsonrpc reader（c.mu 保护 notify 读取，锁外调用）
 *文档版本：v1.2 · 2026-11-18 · 主会话（EV-01 通知路由）；v1.1 · 2026-11-18（BF-16）；v0.1 · 2026-04-02 · Agent-Services*
 
 - **2026-11-19 OpenAI 相容 usage 語意**：`openai` 轉接層的 `Usage.InputTokens` 改為 `prompt_tokens − cached`（不含快取讀取），對齊 Anthropic 語意；`CacheReadInputTokens` 不變。修正壓縮門檻與狀態列上下文用量的重複計算。介面簽名零變更。
+- **2026-11-19 `api.ListModels`（/setup）**：新增獨立函式 `ListModels(ctx, ClientConfig, *http.Client) ([]ModelListing, error)` 與 `ListModelsError`／`ListModelsErrorKind`；不改 `api.Client` 介面。

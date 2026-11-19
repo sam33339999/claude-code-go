@@ -41,3 +41,12 @@ func builtinContextWindow(model string) int {
 		return defaultContextWindow
 	}
 }
+
+// KnownContextWindow reports the built-in table's window for model and
+// whether the table knows the model (as opposed to the default fallback).
+func KnownContextWindow(model string) (int, bool) {
+	if !strings.HasPrefix(strings.ToLower(model), "claude-") {
+		return 0, false
+	}
+	return builtinContextWindow(model), true
+}

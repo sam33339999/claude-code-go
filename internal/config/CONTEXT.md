@@ -2,13 +2,13 @@
 package: config
 import_path: internal/config
 layer: infra
-generated_at: 2026-11-18T03:53:13Z
-source_files: [loader.go, mcpstore.go, orderedjson.go, pluginstore.go, settings.go, writer.go]
+generated_at: 2026-11-19T15:15:26Z
+source_files: [loader.go, mainmodel.go, mcpstore.go, orderedjson.go, pluginstore.go, settings.go, writer.go]
 ---
 
 # internal/config
 
-> Layer: **Infra** · Files: 6 · Interfaces: 1 · Structs: 18 · Functions: 19
+> Layer: **Infra** · Files: 7 · Interfaces: 1 · Structs: 19 · Functions: 21
 
 ## Interfaces
 
@@ -33,6 +33,7 @@ type ConfigLoader interface {
 - **Loader** — 2 fields
 - **MCPServerEntry** — 2 fields: Name, Raw
 - **MCPStore** — 2 fields
+- **MainModelSettings** — 4 fields: Provider, BaseURL, Model, APIKey
 - **MarketplaceEntry** — 4 fields: Name, Source, Version, Description
 - **MarketplaceManifest** — 6 fields: Name, Description, HasOwner, Plugins, RootDir, ManifestPath
 - **OrderedMap** — 2 fields
@@ -61,8 +62,10 @@ type ConfigLoader interface {
 - `PluginTimestamp(t time.Time) string`
 - `ScopeLabel(scope string) string`
 - `SettingsLocalPath(projectDir string) string`
+- `UserSettingsPath(homeDir string) string`
 - `ValidateMCPScope(scope string) error`
 - `WriteOrderedJSONAtomic(path string, doc *OrderedMap) error`
+- `WriteUserMainModel(homeDir string, s MainModelSettings) error`
 
 ## Constants
 
@@ -94,14 +97,15 @@ type ConfigLoader interface {
 - `InstalledPluginRecord` → `internal/bootstrap/plugin_install.go`, `internal/bootstrap/plugin_run.go`
 - `InstalledPlugins` → `internal/bootstrap/plugin_run.go`
 - `KnownMarketplace` → `internal/bootstrap/plugin_marketplace.go`
-- `LayeredSettings` → `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/wire.go`
+- `LayeredSettings` → `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/setup.go`, `internal/bootstrap/setup_test.go` (test) + 1 more
 - `MCPServerEntry` → `internal/bootstrap/mcp_health.go`, `internal/bootstrap/mcp_health_test.go` (test), `internal/bootstrap/mcp_list.go`, `internal/bootstrap/mcp_list_test.go` (test), `internal/bootstrap/mcp_render.go` + 2 more
 - `MCPStore` → `internal/bootstrap/mcp_cmd_test.go` (test), `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/mcp_list.go`, `internal/bootstrap/mcp_list_test.go` (test) + 2 more
+- `MainModelSettings` → `internal/bootstrap/setup.go`
 - `MarketplaceEntry` → `internal/bootstrap/plugin_install.go`
 - `MarketplaceManifest` → `internal/bootstrap/plugin_install.go`, `internal/bootstrap/plugin_marketplace.go`
 - `OrderedMap` → `internal/bootstrap/mcp_health_test.go` (test), `internal/bootstrap/mcp_list.go`, `internal/bootstrap/mcp_list_test.go` (test), `internal/bootstrap/mcp_render_test.go` (test), `internal/bootstrap/mcp_run.go`
 - `PluginStore` → `internal/bootstrap/plugin_cmd_test.go` (test), `internal/bootstrap/plugin_run.go`
-- `SettingsJson` → `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect_test.go` (test), `internal/state/store.go`
+- `SettingsJson` → `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/setup.go`, `internal/bootstrap/setup_test.go` (test), `internal/state/store.go`
 
 ## Dependencies
 
@@ -115,3 +119,4 @@ type ConfigLoader interface {
 ## Design Notes
 
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
+- **2026-11-19 `WriteUserMainModel`（/setup）**：以 OrderedMap read-modify-write 全域 `settings.json`，只設定 `provider`/`baseUrl`/`model`/`apiKey`（空金鑰不動），其他鍵與順序保留；原檔無法解析就不寫。檔案含金鑰，rename 前就設成 `0600`。同時修正 `WriteOrderedJSONAtomic` 與 `writeSettingsAtomic` 寫死 `0644` 的問題：既有檔案保留原權限，避免 plugin 設定等其他寫入者把含金鑰的檔案改回 world-readable。`MainModelEnvVars` 是 `applyEnvOverrides` 讀取的主腦環境變數清單，由掃原始碼的測試確保兩邊一致。

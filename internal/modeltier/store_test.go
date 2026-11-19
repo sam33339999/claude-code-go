@@ -246,3 +246,62 @@ func TestStore_WarningsKept(t *testing.T) {
 		t.Errorf("after AppendWarnings: %v", w)
 	}
 }
+
+func TestStore_BindWithLimits(t *testing.T) {
+	path := writeConfig(t, specExample)
+	s, _ := Load(path)
+	if err := s.BindWithLimits("lite", MainProviderID, "m", 32768); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := Load(path)
+	if b, _ := r.Resolve("lite"); b.Provider != MainProviderID || b.Model != "m" || b.ContextWindow != 32768 {
+		t.Errorf("lite = %+v", b)
+	}
+	if _, ok := r.Provider("zai"); !ok {
+		t.Error("other sections lost")
+	}
+	if err := s.BindWithLimits("pro", MainProviderID, "n", 0); err != nil {
+		t.Fatal(err)
+	}
+	r, _ = Load(path)
+	if b, _ := r.Resolve("pro"); b.ContextWindow != 0 {
+		t.Errorf("pro context_window = %d, want 0 (not written)", b.ContextWindow)
+	}
+}
+
+func TestStore_SetMainContextWindow(t *testing.T) {
+	path := writeConfig(t, specExample)
+	s, _ := Load(path)
+	if err := s.SetMainContextWindow(65536); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := Load(path)
+	if r.MainContextWindow() != 65536 {
+		t.Errorf("MainContextWindow = %d", r.MainContextWindow())
+	}
+	if err := s.SetMainContextWindow(0); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	if strings.Contains(string(raw), "[main]") {
+		t.Errorf("empty [main] table left behind:\n%s", raw)
+	}
+	r, _ = Load(path)
+	if r.MainContextWindow() != 0 {
+		t.Errorf("MainContextWindow = %d, want 0", r.MainContextWindow())
+	}
+	if b, _ := r.Resolve("lite"); b.Provider != "zai" {
+		t.Error("tiers lost")
+	}
+}
+
+func TestStore_SetMainContextWindowRefusesAfterLoadError(t *testing.T) {
+	path := writeConfig(t, "[[[ broken")
+	s, _ := Load(path)
+	if err := s.SetMainContextWindow(1); err == nil {
+		t.Fatal("want error after failed load")
+	}
+	if b, _ := os.ReadFile(path); string(b) != "[[[ broken" {
+		t.Error("file rewritten")
+	}
+}

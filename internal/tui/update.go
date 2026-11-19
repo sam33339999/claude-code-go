@@ -379,12 +379,22 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// --- Bracketed paste: insert into the input box ---
 	case tea.PasteMsg:
+		if m.activeDialog == dialogSetup && m.setupWizard != nil {
+			m.setupWizard.handlePaste(msg.Content)
+			return m, nil
+		}
 		if m.activeDialog != dialogNone {
 			return m, nil
 		}
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
 		return m, tea.Batch(cmd, m.refreshCompletion())
+
+	// --- /setup wizard results ---
+	case setupModelsMsg:
+		return m.onSetupModels(msg), nil
+	case setupAppliedMsg:
+		return m.onSetupApplied(msg), nil
 
 	// --- @-mention file index built in the background ---
 	case fileIndexReadyMsg:
@@ -537,6 +547,8 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 			m.activeDialog = dialogExit
 		case "config":
 			m.activeDialog = dialogConfig
+		case "setup":
+			m = m.openSetupDialog()
 		case "resume":
 			if len(result.Sessions) == 0 {
 				break

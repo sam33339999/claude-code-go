@@ -239,6 +239,7 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 		container.MemoryStore,
 		container.MCPPool,
 		tiersOrNil(container.Tiers),
+		container.Setup,
 		rec,
 		container.QuestionAskCh,
 		container.QuestionRespCh,

@@ -210,8 +210,26 @@ func LoadOrderedJSON(path string) (*OrderedMap, error) {
 
 // WriteOrderedJSONAtomic serialises doc as 2-space indented JSON (keys in
 // insertion order, HTML escaping disabled to match JSON.stringify output) and
-// replaces path via temp-file + rename, mirroring writeSettingsAtomic.
+// replaces path via temp-file + rename, mirroring writeSettingsAtomic. An
+// existing file keeps its permissions (settings.json may be 0600 because it
+// holds an API key); a new file is 0644.
 func WriteOrderedJSONAtomic(path string, doc *OrderedMap) error {
+	return writeOrderedJSONAtomicMode(path, doc, existingModeOr(path, 0o644))
+}
+
+// existingModeOr returns path's current permission bits, or def when path
+// does not exist.
+func existingModeOr(path string, def os.FileMode) os.FileMode {
+	if info, err := os.Stat(path); err == nil {
+		return info.Mode().Perm()
+	}
+	return def
+}
+
+// writeOrderedJSONAtomicMode is WriteOrderedJSONAtomic with an explicit mode,
+// applied to the temp file before the rename so the target never has wider
+// permissions, even briefly.
+func writeOrderedJSONAtomicMode(path string, doc *OrderedMap, mode os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("config: create %s: %w", dir, err)
@@ -242,7 +260,7 @@ func WriteOrderedJSONAtomic(path string, doc *OrderedMap) error {
 		os.Remove(tmpName)
 		return fmt.Errorf("config: close %s: %w", tmpName, err)
 	}
-	if err := os.Chmod(tmpName, 0o644); err != nil {
+	if err := os.Chmod(tmpName, mode); err != nil {
 		os.Remove(tmpName)
 		return fmt.Errorf("config: chmod %s: %w", tmpName, err)
 	}

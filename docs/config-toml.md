@@ -7,6 +7,8 @@
 - 格式錯誤或欄位不合法：啟動時印警告（stderr，並在 TUI 啟動訊息和 `/tier` 列表裡顯示），忽略有問題的部分，程式照常啟動。檔案無法解析時 `/tier` 拒絕寫檔。
 - 新增或修改 provider 要手動編輯檔案並**重新啟動**；`/tier` 只能在已註冊的 provider 之間改綁定。
 
+還沒有任何模型時，可以在 TUI 輸入 `/setup` 用引導的方式設定主腦與等級，見 [`docs/setup.md`](setup.md)。
+
 可直接複製的範例檔：[`docs/config.example.toml`](config.example.toml)（`cp docs/config.example.toml ~/.glaude/config.toml`；`TestExampleConfigParses` 確保它能被正確解析、沒有警告）。
 
 設計背景見 `docs/superpowers/specs/2026-11-19-provider-tiers-design.md`。

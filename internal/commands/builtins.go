@@ -26,6 +26,7 @@ func RegisterBuiltins(r *Registry) {
 	r.Register(cmdDream())
 	r.Register(cmdMCP())
 	r.Register(cmdTier())
+	r.Register(cmdSetup())
 	r.Register(cmdReview())
 	r.Register(cmdCommit())
 	r.Register(cmdDiff())

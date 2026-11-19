@@ -13,6 +13,7 @@ import (
 	"github.com/tunsuy/glaude/internal/agenttype"
 	"github.com/tunsuy/glaude/internal/api"
 	cmengine "github.com/tunsuy/glaude/internal/codemode"
+	"github.com/tunsuy/glaude/internal/commands"
 	"github.com/tunsuy/glaude/internal/compact"
 	"github.com/tunsuy/glaude/internal/config"
 	"github.com/tunsuy/glaude/internal/coordinator"
@@ -102,6 +103,8 @@ type AppContainer struct {
 	MemoryStore *memdir.MemoryStore
 	// Tiers is the ~/.glaude/config.toml tier table (never nil).
 	Tiers *modeltier.Store
+	// Setup serves the /setup wizard (never nil).
+	Setup commands.SetupBackend
 }
 
 // defaultModel is used when no model override is provided for Anthropic
@@ -279,6 +282,7 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 		AgentProfiles:    agentProfiles,
 		MemoryStore:      memoryStore,
 		Tiers:            router.store,
+		Setup:            newSetupBackend(opts.HomeDir, settings, apiKey == "", hasOAuthToken()),
 	}, nil
 }
 
@@ -426,6 +430,7 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 		AgentProfiles:    agentProfilesTest,
 		MemoryStore:      testMemoryStore,
 		Tiers:            router.store,
+		Setup:            newSetupBackend(opts.HomeDir, settings, false, false),
 	}, nil
 }
 

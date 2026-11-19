@@ -61,3 +61,4 @@ source_files: [config.go, resolve.go, store.go]
 - lite/pro/max 永遠是已知等級（即使檔案沒寫），未綁定時 `Resolve` 回 `Unbound` 並帶正規化等級名，讓 bootstrap 能退回舊別名規則。
 - 段落審查後補修：`Bind`/`Unbind` 改為在鎖內**重新讀檔**、以 `map[string]any` 只替換 `tiers.<name>` 再原子寫回，被驗證忽略的段落、未知鍵和啟動後的手動修改都會保留（只有註解遺失）。啟動時檔案讀取或解析失敗，就拒絕寫檔，避免把只是打錯一個字的檔案整個覆蓋。
 - 最終審查後補修：Store 保留啟動警告（`Warnings`、`AppendWarnings`），供 `/tier` 和 TUI 啟動訊息顯示。
+- **2026-11-19 /setup 擴充**：`commitLocked` 泛化為傳入 mutation func；新增 `BindWithLimits`（綁定時一併寫 `context_window`）與 `SetMainContextWindow`（0 刪除，`[main]` 空了就整段移除）。語意與 Bind/Unbind 相同：重新讀檔、只改目標段落、寫成功才換記憶體設定、載入失敗時拒寫。
