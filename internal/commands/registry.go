@@ -45,8 +45,11 @@ type Result struct {
 	// ToggleVim is set by /vim.
 	ToggleVim bool
 	// OpenDialog is set to a dialog name to open a specific modal dialog.
-	// Recognised values: "compact", "exit", "config".
+	// Recognised values: "compact", "exit", "config", "resume".
 	OpenDialog string
+	// Sessions carries the session list for the "resume" picker dialog.
+	// Text still holds a plain-text listing for non-interactive callers.
+	Sessions []SessionSummary
 	// ClearHistory signals the TUI to wipe the conversation history.
 	ClearHistory bool
 	// TriggerDream requests a manual memory consolidation (/dream).

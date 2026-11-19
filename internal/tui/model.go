@@ -31,6 +31,7 @@ const (
 	dialogExit                  // exit confirmation
 	dialogConfig                // /config
 	dialogQuestion              // AskUserQuestion (BF-08)
+	dialogResume                // /resume session picker
 )
 
 // questionState holds the active AskUserQuestion dialog (BF-08): the question,
@@ -123,6 +124,12 @@ type AppModel struct {
 	questionAskCh  <-chan types.QuestionRequest
 	questionRespCh chan<- types.QuestionResponse
 	questionReq    *questionState
+	// resumePicker is non-nil while the /resume picker is open.
+	resumePicker *resumePicker
+	// lastMemSample is when the last memory sample was requested;
+	// memSamplePending is true while one is in flight.
+	lastMemSample    time.Time
+	memSamplePending bool
 
 	// --- Multi-agent coordinator (injected via New()) ---
 	// agentCoordinator is the tools-facing adapter for the coordinator.

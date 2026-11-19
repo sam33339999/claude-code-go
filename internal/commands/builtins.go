@@ -372,7 +372,7 @@ func cmdResume() *Command {
 		Execute: func(ctx CommandContext, args string) Result {
 			sessionID := strings.TrimSpace(args)
 			if sessionID == "" {
-				sessions, err := listSessions(ctx.WorkingDir, resumeListLimit)
+				sessions, err := listSessions(ctx.WorkingDir, resumeScanLimit)
 				if err != nil {
 					return Result{Text: err.Error(), Display: DisplayError}
 				}
@@ -382,10 +382,20 @@ func cmdResume() *Command {
 						Display: DisplayMessage,
 					}
 				}
-				return Result{
-					Text:    formatSessionList(sessions),
+				listed := sessions
+				if len(listed) > resumeListLimit {
+					listed = listed[:resumeListLimit]
+				}
+				result := Result{
+					Text:    formatSessionList(listed),
 					Display: DisplayMessage,
 				}
+				// The interactive picker (TUI) gets the non-empty sessions.
+				if picks := summaries(sessions, ctx.SessionID); len(picks) > 0 {
+					result.OpenDialog = "resume"
+					result.Sessions = picks
+				}
+				return result
 			}
 
 			msgs, err := loadSessionMessages(ctx.WorkingDir, sessionID)

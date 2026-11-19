@@ -2,13 +2,13 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-19T06:52:46Z
-source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, rendercache.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, update.go, view.go, welcome.go]
+generated_at: 2026-11-19T08:08:11Z
+source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, memstat.go, memstat_darwin.go, memstat_linux.go, memstat_other.go, memstat_windows.go, messagelist.go, messages.go, model.go, permissions.go, rendercache.go, resumepicker.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, update.go, view.go, welcome.go]
 ---
 
 # internal/tui
 
-> Layer: **TUI** · Files: 21 · Interfaces: 0 · Structs: 38 · Functions: 6
+> Layer: **TUI** · Files: 27 · Interfaces: 0 · Structs: 38 · Functions: 6
 
 ## Structs
 
@@ -16,7 +16,7 @@ source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, 
 - **AgentProgressMsg** — 3 fields: TaskID, Activity, Detail
 - **AgentStatusMsg** — 5 fields: TaskID, Status, Description, Result, Summary
 - **AgentTaskState** — 12 fields: ID, Name, AgentType, Description, Status, StartTime, ElapsedMs, OutputTokens, ...
-- **AppModel** — 59 fields
+- **AppModel** — 62 fields
 - **CommandResultMsg** — 2 fields: Text, IsError
 - **CompactDoneMsg** — 1 fields: Summary
 - **CoordinatorPanel** — 3 fields: Tasks, SelectedIndex, TaskOrder
@@ -32,7 +32,7 @@ source_files: [agentcolors.go, cmds.go, completion.go, coordinator.go, init.go, 
 - **QuestionRequestMsg** — 4 fields: RequestID, Question, Options, RespFn
 - **SlashCommandMsg** — 2 fields: Name, Args
 - **SpinnerModel** — 4 fields
-- **StatusBar** — 9 fields
+- **StatusBar** — 10 fields
 - **StreamAssistantTurnMsg** — 2 fields: FinalMessage, Usage
 - **StreamDoneMsg** — 2 fields: FinalMessage, Usage
 - **StreamErrorMsg** — 1 fields: Err

@@ -15,8 +15,12 @@ import (
 )
 
 const (
-	// resumeListLimit caps the number of sessions shown by a bare /resume.
+	// resumeListLimit caps the number of sessions in the plain-text listing.
 	resumeListLimit = 10
+	// resumeScanLimit is how many recent session files the picker scans;
+	// resumePickerLimit caps the rows it offers (empty sessions excluded).
+	resumeScanLimit   = 60
+	resumePickerLimit = 20
 	// resumeSnippetLen is the maximum rune length of the first-message snippet.
 	resumeSnippetLen = 60
 )
@@ -27,6 +31,37 @@ type sessionInfo struct {
 	title        string // first user message snippet
 	modTime      time.Time
 	messageCount int
+}
+
+// SessionSummary is one previous session, as shown by the /resume picker.
+type SessionSummary struct {
+	ID           string
+	Title        string // first user message, whitespace-collapsed
+	ModTime      time.Time
+	MessageCount int
+	Current      bool // the session this TUI is running
+}
+
+// summaries converts listing rows for the picker, marking currentID. Sessions
+// without messages are left out: every launch creates a session file, so most
+// files are empty and would bury the real conversations. Unreadable sessions
+// (messageCount 0) are dropped too, since resuming them would fail; the
+// plain-text listing (Result.Text) still shows them as "(unreadable)".
+func summaries(sessions []sessionInfo, currentID string) []SessionSummary {
+	out := make([]SessionSummary, 0, len(sessions))
+	for _, s := range sessions {
+		if s.messageCount == 0 {
+			continue
+		}
+		if len(out) == resumePickerLimit {
+			break
+		}
+		out = append(out, SessionSummary{
+			ID: s.id, Title: s.title, ModTime: s.modTime,
+			MessageCount: s.messageCount, Current: s.id == currentID,
+		})
+	}
+	return out
 }
 
 // listSessions discovers the most recently modified JSONL sessions for the
@@ -155,16 +190,23 @@ func extractSessionMessages(entries []types.EntryEnvelope) []types.Message {
 	return msgs
 }
 
-// sessionTitle derives a display title from the first user message text.
+// sessionTitle derives a display title from the first user-typed message.
+// Machine-injected turns (e.g. <task-notification> XML) are skipped so the
+// title reflects what the user actually asked.
 func sessionTitle(msgs []types.Message) string {
 	for _, msg := range msgs {
 		if msg.Role != types.RoleUser {
 			continue
 		}
 		for _, block := range msg.Content {
-			if block.Type == types.ContentTypeText && block.Text != nil && *block.Text != "" {
-				return snippet(*block.Text, resumeSnippetLen)
+			if block.Type != types.ContentTypeText || block.Text == nil {
+				continue
 			}
+			text := strings.TrimSpace(*block.Text)
+			if text == "" || strings.HasPrefix(text, "<") {
+				continue
+			}
+			return snippet(text, resumeSnippetLen)
 		}
 	}
 	if len(msgs) == 0 {

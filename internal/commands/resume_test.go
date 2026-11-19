@@ -249,3 +249,20 @@ func TestResumeCommand_SkipsCorruptEntries(t *testing.T) {
 		t.Errorf("expected corrupt/unknown entries skipped, got %d messages", len(msgs))
 	}
 }
+
+func TestResumeCommand_PickerDataAndTitles(t *testing.T) {
+	cwd := t.TempDir()
+	sid := writeTestSession(t, cwd, "<task-notification>x</task-notification>", "ack", "real question")
+	cmd := resumeCommand(t)
+	result := cmd.Execute(commands.CommandContext{WorkingDir: cwd, SessionID: sid}, "")
+	if result.OpenDialog != "resume" || len(result.Sessions) != 1 {
+		t.Fatalf("bare /resume should open the picker with sessions, got %+v", result)
+	}
+	s := result.Sessions[0]
+	if s.ID != sid || !s.Current || s.MessageCount != 3 {
+		t.Errorf("unexpected summary %+v", s)
+	}
+	if s.Title != "real question" {
+		t.Errorf("title should skip machine-injected turns, got %q", s.Title)
+	}
+}

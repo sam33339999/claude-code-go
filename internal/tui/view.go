@@ -194,6 +194,10 @@ func (m AppModel) renderActiveDialog() string {
 		return m.renderConfigDialog()
 	case dialogQuestion:
 		return renderQuestionDialog(m.questionReq, m.dialogWidth(), m.theme)
+	case dialogResume:
+		if m.resumePicker != nil {
+			return m.resumePicker.view(m.dialogWidth(), m.resumePickerMaxHeight(), m.theme)
+		}
 	}
 	return ""
 }

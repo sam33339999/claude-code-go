@@ -46,6 +46,8 @@ func (m AppModel) handleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case dialogQuestion:
 		return m.handleQuestionKey(key)
+	case dialogResume:
+		return m.handleResumeKey(key)
 	}
 
 	// --- Normal / idle state ---

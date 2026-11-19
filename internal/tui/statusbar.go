@@ -33,6 +33,9 @@ type StatusBar struct {
 	mode types.PermissionMode
 	// vim is the styled Vim mode label ("" when Vim is off).
 	vim string
+	// memBytes is the process memory currently held from the OS (sampled
+	// about once a second); 0 hides it.
+	memBytes uint64
 }
 
 // addUsage records one request's usage reported by the API.
@@ -100,6 +103,9 @@ func (s StatusBar) View(width int, theme Theme) string {
 	if total := s.tokenUsage.Input + s.tokenUsage.CacheRead + s.tokenUsage.CacheCreated + s.tokenUsage.Output; total > 0 {
 		right = append(right, mutedStyle(theme).Render(formatTokens(s.tokenUsage)+" tok"))
 	}
+	if s.memBytes > 0 {
+		right = append(right, mutedStyle(theme).Render("mem "+formatBytes(s.memBytes)))
+	}
 	right = append(right, mutedStyle(theme).Render("effort "+effortStr))
 
 	// Left side: mode indicator first (it is the most important to notice),
@@ -123,7 +129,7 @@ func (s StatusBar) View(width int, theme Theme) string {
 	leftFixed := strings.Join(left, sep)
 
 	// On narrow terminals drop right-side items least-important first
-	// (effort, then tokens), keeping the context meter as long as possible.
+	// (effort, then memory, then tokens), keeping the context meter longest.
 	rightStr := strings.Join(right, sep)
 	for len(right) > 1 && displayWidth(leftFixed)+displayWidth(rightStr)+1 > width {
 		right = right[:len(right)-1]
