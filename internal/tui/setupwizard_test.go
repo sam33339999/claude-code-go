@@ -259,11 +259,21 @@ func TestSetupWizard_PlanTiers(t *testing.T) {
 	if p.MainModel != "q/a" {
 		t.Errorf("main = %q", p.MainModel)
 	}
-	if len(p.Tiers) != 2 || p.Tiers["lite"] != "q/b" || p.Tiers["max"] != "" {
-		t.Errorf("tiers = %v, want lite=q/b, max unbind", p.Tiers)
+	// lite stays main:q/b → unchanged, must not be rewritten (it may carry
+	// hand-written max_tokens / context_window); max was main:old → unbind.
+	if len(p.Tiers) != 1 || p.Tiers["max"] != "" {
+		t.Errorf("tiers = %v, want only max unbind", p.Tiers)
 	}
-	if len(p.ContextWindows) != 1 || p.ContextWindows["q/b"] != 32768 {
-		t.Errorf("context windows = %v", p.ContextWindows)
+	if len(p.ContextWindows) != 0 {
+		t.Errorf("context windows = %v, want none (no rebinding)", p.ContextWindows)
+	}
+	// Changing lite to q/a puts it in the plan with q/a's window.
+	w.models[0].ContextWindow = 65536
+	wKey(w, "down")
+	wKey(w, "left") // lite: q/b → q/a
+	p = w.plan()
+	if p.Tiers["lite"] != "q/a" || p.ContextWindows["q/a"] != 65536 {
+		t.Errorf("changed lite: tiers %v windows %v", p.Tiers, p.ContextWindows)
 	}
 	if p.Input.APIKey != "sk-test" {
 		t.Errorf("plan input = %+v", p.Input)

@@ -419,6 +419,11 @@ func (w *setupWizard) plan() commands.SetupPlan {
 			continue
 		}
 		if c := w.roleChoice[i+1]; c >= 0 {
+			if w.defaults.Tiers[role] == "main:"+w.checkOrder[c] {
+				// Unchanged: leave the tier as is (it may carry hand-written
+				// max_tokens / context_window that a rebind would drop).
+				continue
+			}
 			p.Tiers[role] = w.checkOrder[c]
 			used[w.checkOrder[c]] = true
 		} else if strings.HasPrefix(w.defaults.Tiers[role], "main:") {

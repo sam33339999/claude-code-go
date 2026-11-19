@@ -20,6 +20,7 @@
 4. **選模型**：直接打字即時過濾（不分大小寫）；↑/↓ 移動；**空白鍵勾選**（可以勾多個，換過濾條件也會保留）；Enter 下一步。一個都沒勾時，Enter 用游標所在的模型。模型清單有提供上下文長度時（例如 OpenRouter）會顯示在右側。
 5. **分配角色**（勾選兩個以上才會出現）：主腦必填；lite / pro / max 可以選勾選的模型或「unbound」。↑/↓ 選角色，←/→ 換模型。
    - 會帶入目前的 `main:<模型>` 綁定。原本綁在 `main:X`、這次選 unbound 的等級，寫入時會**解除綁定**（畫面標示 “will be unbound”）。
+   - 沒有改動的等級（原本就是 `main:X`、這次也選 X）完全不碰，等級上手寫的 `max_tokens` / `context_window` 會保留。
    - 綁在其他 provider（例如 `zai:glm-5.3-flash`）的等級不會被修改，只會顯示出來；要改請用 `/tier` 或手動編輯 `config.toml`。
 6. **確認**：列出要寫入的內容（金鑰只顯示末 4 碼）與會蓋過設定的來源（見下方）。Enter 寫入，Esc 返回。
 7. **完成**：請**重新啟動 glaude**，新設定才會生效（包括等級，避免會話中途出現新舊設定混用）。
@@ -51,6 +52,11 @@
 - `managed-settings.json` 鎖定了這些欄位。
 - 有設定以下環境變數：`CLAUDE_PROVIDER`、`API_PROVIDER`、`ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`ANTHROPIC_BASE_URL`、`OPENAI_BASE_URL`、`OPENAI_API_BASE`、`ANTHROPIC_MODEL`、`CLAUDE_MODEL`、`OPENAI_MODEL`。
 - 已經用 OAuth 登入：主腦會優先用 OAuth，API key 只在未登入時使用。
+
+## 已知限制
+
+- 不需要金鑰的本機端點（例如 Ollama、LM Studio）：API key 欄位仍是必填，請隨意填一個值；而且因為 settings 裡有了 `apiKey`，啟動就不會再出現 /setup 提示。
+- 換格式但沿用環境變數的金鑰時，`settings.json` 裡舊格式的 `apiKey` 會留著（目前環境變數優先，所以能用）。
 
 ## 不支援的部分
 

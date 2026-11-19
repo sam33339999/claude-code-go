@@ -198,7 +198,7 @@ func TestSetupDialog_StaleMsgFromClosedWizardIgnored(t *testing.T) {
 	m := toEndpointModel(t, b)
 	m, _ = press(m, tea.KeyPressMsg{Code: 's', Text: "s"})
 	m, oldCmd := press(m, tea.KeyPressMsg{Code: tea.KeyEnter}) // validating (gen 1)
-	for range 3 {                                             // validating → endpoint → format → closed
+	for range 3 {                                              // validating → endpoint → format → closed
 		m, _ = press(m, tea.KeyPressMsg{Code: tea.KeyEsc})
 	}
 	if m.activeDialog != dialogNone {
