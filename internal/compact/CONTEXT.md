@@ -2,7 +2,7 @@
 package: compact
 import_path: internal/compact
 layer: services
-generated_at: 2026-11-19T13:43:26Z
+generated_at: 2026-11-19T13:49:59Z
 source_files: [auto.go, compact.go, micro.go, snip.go, target.go, window.go]
 ---
 
@@ -85,3 +85,4 @@ type Compressor interface {
   - `fitForSummary`（C7）：對話超過摘要模型的上限時，從最舊端丟到符合預算，且切點必須是不含 tool_result 的 user 訊息（避免孤兒 tool 對）。摘要輸出上限 `min(20000, max_tokens)`。
   - **snip（C9/C12）**：證據見 `snip_prefix_test.go` 的歷史版本——修正前每輪都會把一則剛越過保護區的訊息改成 placeholder（前綴中段被改寫、快取每輪失效），並每輪追加一次 boundary 訊息（緊接 tool_result 的連續 user 訊息）。現在只在估算值 ≥ `SnipTriggerFraction`(0.8)×自動壓縮門檻時，一次剪完保護區之前的全部內容；Cache-first 下這等同一次壓縮（快取讀取 10% 價格、重寫 125%，提早 snip 通常賠錢）。說明文字併入 placeholder，不再有 boundary 訊息。
   - `CompactionExtra.SnipTokensFreed` 保留欄位但不再相減：訊息已是 snip 後的，修正前會重複扣除。
+  - 段落審查後補修：snip 每個壓縮週期最多一次（歷史已有被剪過的區塊就不再 snip，交給自動壓縮），否則估算值停在 [0.8T, T) 時會逐輪改寫前綴、重現 C9。`fitForSummary` 保留第一則 plain user（任務 prompt，附截斷說明），之後從 assistant 邊界切，保留最近的工具往返；修正前 sub-agent 的摘要會只剩任務 prompt。

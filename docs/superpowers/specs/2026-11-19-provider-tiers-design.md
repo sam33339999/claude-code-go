@@ -209,6 +209,8 @@ context_window = 200000              # 選填；優先於 provider 模型表
 
 ## 6. sub-agent 壓縮的修正前行為與修法（⚠️ 負責人要求特別記錄）
 
+> 狀態：已實作（2026-11-19，分支 `feat/provider-tiers`）。Design Notes 見 `internal/engine/CONTEXT.md`、`internal/compact/CONTEXT.md`。
+
 **修正前**：sub-agent 觸發自動壓縮時，用的是主腦的 client 和主腦啟動時的模型，不是該等級綁定的模型。原因是 `compact.NewAutoCompactor(cfg.Client, cfg.Model, …)` 在 engine 建立時就綁死了，而且整個 engine 只有一個 compactor（C3）。結果是費用和延遲算在主腦的模型上，例如主腦是 max 級，lite 級的 explore 一旦觸發壓縮，那次就按 max 計費。
 
 **修法**（Q2：走等級）：

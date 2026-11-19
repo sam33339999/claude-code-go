@@ -2,13 +2,13 @@
 package: engine
 import_path: internal/engine
 layer: core
-generated_at: 2026-11-19T05:38:34Z
-source_files: [budget.go, cache_params.go, engine.go, forked_agent.go, msg.go, orchestration.go, query.go, stop_hooks.go]
+generated_at: 2026-11-19T13:49:59Z
+source_files: [budget.go, cache_params.go, compaction.go, engine.go, forked_agent.go, msg.go, orchestration.go, query.go, stop_hooks.go]
 ---
 
 # internal/engine
 
-> Layer: **Core** · Files: 8 · Interfaces: 1 · Structs: 14 · Functions: 9
+> Layer: **Core** · Files: 9 · Interfaces: 1 · Structs: 14 · Functions: 9
 
 ## Interfaces
 
@@ -29,11 +29,11 @@ type QueryEngine interface {
 
 - **BudgetTracker** — 4 fields: ContinuationCount, LastDeltaTokens, LastGlobalTurnTokens, StartedAt
 - **CacheSafeParams** — 4 fields: SystemPrompt, ContextMessages, ToolUseContext, Model
-- **Config** — 7 fields: Client, Registry, Model, MaxTokens, PermissionChecker, StopHooks, MsgQueue
+- **Config** — 9 fields: Client, Registry, Model, MaxTokens, PermissionChecker, StopHooks, MsgQueue, MainContextWindow, ...
 - **ForkedAgentConfig** — 6 fields: PromptMessages, CacheSafeParams, QuerySource, MaxTurns, AllowedTools, OnMessage
 - **Msg** — 21 fields: Type, TextDelta, ToolUseID, ToolName, InputDelta, ToolInput, ToolResult, AssistantMsg, ...
 - **PermissionRequestMsg** — 6 fields: RequestID, ToolUseID, ToolName, Message, Input, RespFn
-- **QueryParams** — 15 fields: Messages, SystemPrompt, UserContext, SystemContext, ToolUseContext, QuerySource, MaxOutputTokensOverride, MaxTurns, ...
+- **QueryParams** — 18 fields: Messages, SystemPrompt, UserContext, SystemContext, ToolUseContext, QuerySource, MaxOutputTokensOverride, MaxTurns, ...
 - **StopHookContext** — 6 fields: Messages, ToolUseContext, QuerySource, IsBareMode, Engine, CacheParams
 - **StopHookRegistry** — 2 fields
 - **SystemPrompt** — 1 fields: Parts
@@ -93,7 +93,7 @@ type QueryEngine interface {
 - `CacheSafeParams` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/memdir/dream.go`, `internal/tui/cmds.go`
 - `Config` → `internal/bootstrap/wire.go`
 - `ForkedAgentConfig` → `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/session_memory.go`
-- `Msg` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/bootstrap/wire_result_test.go` (test), `internal/tui/cmds.go` + 2 more
+- `Msg` → `internal/bootstrap/run.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/bootstrap/wire_result_test.go` (test) + 4 more
 - `QueryEngine` → `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/tui/cmds.go`, `internal/tui/init.go`, `internal/tui/model.go`
 - `QueryParams` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/cmds.go`, `internal/tui/tui_test.go` (test)
 - `StopHookContext` → `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/extract_test.go` (test), `internal/memdir/session_memory.go`
@@ -118,3 +118,8 @@ type QueryEngine interface {
 - **2026-11-18 實機驗證修復：Interrupt slot 不被 background query 劫持（fix/agent-lifetime）**：Query 原無條件覆蓋 e.abortFn——sub-agent/fork 的 Query 跑在同一 engine 上會劫持 Interrupt（Ctrl+C 取消到 background query 而非主對話）。現仅 write-back（foreground）query 擁有 interrupt slot；NoWriteBack query 經自身 ctx 取消（coordinator cancelFn／fork ctx）。守護測試 TestInterrupt_NotHijackedByBackgroundQuery。
 - **2026-11-19 streamResponse 接上 WithRetry（feat/api-rate-control）**：e.client.Stream 呼叫包 api.WithRetry（Model/QuerySource from req）——429/5xx/網路錯誤指數退避重试（retry-after 優先），401 fail-fast（無 refresh hook）。此前 WithRetry 僅測試使用、生產路徑 429 直接失敗（使用者 qwen 上限痛點）。守護測試 retry_wiring_test.go×2（429→重试→成功；401→單次失敗）；TestQuery_StreamError_EmitsErrorMsg 改用非重试 400（通用網路錯誤現會重试，TS parity）。
 - **2026-11-19 thinking 顯示鏈守護（feat/openai-thinking-display）**：engine 既有 thinking_delta→MsgTypeThinkingDelta 路徑原僅 Anthropic 路徑觸及；OpenAI reasoning_content 現經 api 層轉譯為 thinking 事件後同鏈生效（零 engine 改動）。新增守護測試 thinking_display_test.go（thinking delta 事件＋assistant message thinking block 累積）。
+- **2026-11-19 `QueryParams.Client` 與壓縮依查詢目標（provider 等級，做法 C）**：
+  - `QueryParams.Client` 有值就用它發串流請求（`clientFor`），否則用 engine 預設 client；主腦與 fork 永遠不帶，前綴與 provider 不變（`TestQuery_MainLoopRequestUnchangedWithoutTiers` 以 golden 位元組把關）。`ContextWindow`、`CompactTracker` 同為每次查詢的設定；max_tokens 沿用既有 `MaxOutputTokensOverride`（C11）。
+  - **修正前行為（spec §6）**：sub-agent 觸發自動壓縮時用主腦的 client 與啟動時的模型（費用算在主腦模型上），門檻也用 `e.model`；全 engine 共用一份壓縮狀態。現在壓縮管線（`compaction.go` `runCompaction`）依 `targetFor(params)` 計算門檻並在該 target 的 client/model 上摘要；sub-agent 壓縮在 `--debug` 時記一行 log。
+  - C8：門檻估算＝最近一次 API 回報的 prompt tokens（input+cache read+cache creation）＋之後新增的訊息；沒有 usage 或歷史被改寫過時，退回 JSON÷4 估算並加上 system prompt 與工具 schema。**主腦也一起改**，所以主腦會比修正前早一點觸發壓縮——負責人認可的修正，是反目標「主腦行為不變」唯一的例外。
+  - C5：`SetModel` 加 `modelMu`；摘要模型在呼叫當下解析，`/model` 後立即生效。C6：帶 `Client` 的查詢忽略 `FallbackModel`（它指的是主腦 provider 上的模型）。`[main] context_window` 經 `Config.MainContextWindow` 只套用在跑主腦模型、未帶 Client 的查詢。

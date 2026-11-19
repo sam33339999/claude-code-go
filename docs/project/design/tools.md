@@ -1045,3 +1045,4 @@ FileEdit 要求 `old_string` 在文件中唯一出现一次。实现：
 | v1.8 | 2026-11-18 | 主会话 | feat/agent-cwd：UseContext +WorkingDir string（per-call 會話工作目錄）。Bash 設 cmd.Dir；fileops expandPathFrom(raw, workDir)（Read/Write/Edit/NotebookEdit Call）；Glob/Grep 預設目錄讀 uctx.WorkingDir；空值 fallback process CWD（向後兼容）。修 EnterWorktree 只改 AppState 不 chdir 導致工具仍在舊目錄、委派 agent 無目錄繼承。接線：TUI/headless/buildRunAgentFn（改收 *state.AppStateStore，live 讀 WorkingDir＋model）。schema 字節不變（WorkingDir 非 tool input）。守護測試×4 檔。 |
 | v1.6 | 2026-11-18 | 主会话 | BF-12 ToolSearch 实现：NewToolSearchTool(reg) 注册表注入，关键词评分（name×3/hint×2/desc×1，camelCase 拆词），top-10 JSON。BF-11 NotebookEdit 实现：.ipynb loose-JSON round trip（保留未知字段）、replace/insert/delete、source 双格式、markdown 转换清 outputs、原子写。两者 schema 字节不变。 |
 | v1.0 | 2026-04-02 | Agent-Tools | 初稿 |
+| v1.12 | 2026-11-19 | 主會話 | provider 等級：Agent 工具 `model` 參數 description 改為等級語意（lite/pro/max、完整模型 ID、`providerID:modelID`；舊別名映射）。schema 位元組一次性變更（新會話基線，會話內不變）。 |

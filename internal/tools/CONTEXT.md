@@ -2,7 +2,7 @@
 package: tools
 import_path: internal/tools
 layer: tools
-generated_at: 2026-11-19T03:15:41Z
+generated_at: 2026-11-19T13:49:59Z
 source_files: [base.go, registry.go, tool.go]
 ---
 
@@ -142,12 +142,12 @@ type Tool interface {
 - `MCPToolInfo` → `internal/mcp/adapter.go`, `internal/tools/mcp/mcp_test.go` (test)
 - `OnProgressFn` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test) + 21 more
 - `PathTool` → `internal/permissions/persist.go`, `internal/tools/fileops/fileedit.go`, `internal/tools/fileops/fileread.go`, `internal/tools/fileops/filewrite.go`, `internal/tools/fileops/notebookedit.go`
-- `PermissionContext` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/engine/query.go`, `internal/mcp/adapter.go` + 22 more
+- `PermissionContext` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/compaction.go`, `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go` + 22 more
 - `PermissionResult` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/ask.go`, `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test) + 11 more
 - `Registry` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/tools.go`, `internal/bootstrap/wire.go`, `internal/codemode/catalog.go` + 7 more
 - `Result` → `internal/bootstrap/wire_fork_test.go` (test), `internal/codemode/catalog_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test) + 23 more
 - `Tool` → `internal/bootstrap/wire_fork_test.go` (test), `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker.go`, `internal/permissions/checker_test.go` (test) + 37 more
-- `UseContext` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 53 more
+- `UseContext` → `internal/bootstrap/mcp.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 55 more
 - `ValidationResult` → `internal/engine/orchestration_test.go` (test), `internal/mcp/adapter.go`, `internal/permissions/checker_test.go` (test), `internal/tools/fileops/fileread.go`, `internal/tools/fileops/glob.go` + 5 more
 
 ## Dependencies

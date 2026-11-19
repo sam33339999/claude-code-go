@@ -1060,3 +1060,5 @@ server push → jsonrpc reader（c.mu 保护 notify 读取，锁外调用）
 - 测试：真实 WS server 推送×4 场景（connect 前/后设置、nil handler、reconnect 保持）
 
 *文档版本：v1.2 · 2026-11-18 · 主会话（EV-01 通知路由）；v1.1 · 2026-11-18（BF-16）；v0.1 · 2026-04-02 · Agent-Services*
+
+- **2026-11-19 OpenAI 相容 usage 語意**：`openai` 轉接層的 `Usage.InputTokens` 改為 `prompt_tokens − cached`（不含快取讀取），對齊 Anthropic 語意；`CacheReadInputTokens` 不變。修正壓縮門檻與狀態列上下文用量的重複計算。介面簽名零變更。
