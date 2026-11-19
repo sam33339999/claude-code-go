@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 )
 
@@ -46,11 +45,5 @@ func WriteUserMainModel(homeDir string, s MainModelSettings) error {
 	if s.APIKey != "" {
 		doc.Set("apiKey", s.APIKey)
 	}
-	if err := WriteOrderedJSONAtomic(path, doc); err != nil {
-		return err
-	}
-	if err := os.Chmod(path, 0o600); err != nil {
-		return fmt.Errorf("config: chmod %s: %w", path, err)
-	}
-	return nil
+	return writeOrderedJSONAtomicMode(path, doc, 0o600)
 }

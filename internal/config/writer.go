@@ -96,7 +96,8 @@ func writeSettingsAtomic(settingsPath string, doc map[string]any) error {
 		os.Remove(tmpName)
 		return fmt.Errorf("config: close %s: %w", tmpName, err)
 	}
-	if err := os.Chmod(tmpName, 0o644); err != nil {
+	// Keep an existing file's permissions (it may hold an API key).
+	if err := os.Chmod(tmpName, existingModeOr(settingsPath, 0o644)); err != nil {
 		os.Remove(tmpName)
 		return fmt.Errorf("config: chmod %s: %w", tmpName, err)
 	}

@@ -147,3 +147,34 @@ func TestMainModelEnvVars_MatchesLoader(t *testing.T) {
 		}
 	}
 }
+
+// TestWriteUserMainModel_PermsSurviveOtherWriters: another writer of the user
+// settings.json (plugins) must not widen it back to 0644 and expose the key.
+func TestWriteUserMainModel_PermsSurviveOtherWriters(t *testing.T) {
+	home := t.TempDir()
+	if err := config.WriteUserMainModel(home, mainModelInput()); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.NewPluginStore(home, t.TempDir()).SetPluginEnabled(config.PluginScopeUser, "p@m", true); err != nil {
+		t.Fatal(err)
+	}
+	info, _ := os.Stat(config.UserSettingsPath(home))
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("perm after plugin write = %o, want 600", perm)
+	}
+	doc, _ := config.LoadOrderedJSON(config.UserSettingsPath(home))
+	if doc.GetString("apiKey") != "sk-new" {
+		t.Error("apiKey lost after plugin write")
+	}
+}
+
+func TestWriteOrderedJSONAtomic_NewFileDefault0644(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "x.json")
+	if err := config.WriteOrderedJSONAtomic(path, config.NewOrderedMap()); err != nil {
+		t.Fatal(err)
+	}
+	info, _ := os.Stat(path)
+	if perm := info.Mode().Perm(); perm != 0o644 {
+		t.Errorf("new file perm = %o, want 644 (unchanged default)", perm)
+	}
+}
