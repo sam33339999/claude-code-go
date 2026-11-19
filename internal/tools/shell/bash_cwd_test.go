@@ -32,8 +32,14 @@ func TestBashTool_WorkingDir(t *testing.T) {
 	if !ok {
 		t.Fatalf("content type %T, want shell.BashOutput", result.Content)
 	}
-	if !strings.Contains(out.Stdout, resolved) {
-		t.Errorf("pwd output = %q, want it to contain %q (session WorkingDir)", out.Stdout, resolved)
+	// pwd prints the logical path, which may still go through a symlink
+	// (macOS: /var -> /private/var), so resolve it before comparing.
+	got, err := filepath.EvalSymlinks(strings.TrimSpace(out.Stdout))
+	if err != nil {
+		t.Fatalf("resolve pwd output %q: %v", out.Stdout, err)
+	}
+	if got != resolved {
+		t.Errorf("pwd output = %q (resolved %q), want %q (session WorkingDir)", out.Stdout, got, resolved)
 	}
 }
 
