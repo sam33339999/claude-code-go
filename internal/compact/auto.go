@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 
 	"github.com/tunsuy/glaude/internal/api"
@@ -46,145 +44,98 @@ type AutoCompactTrackingState struct {
 	ConsecutiveFailures int
 }
 
-// AutoCompactor implements Compressor using LLM summarisation.
-// It triggers when the estimated context token count exceeds a model-specific
-// threshold derived from the effective context window.
-type AutoCompactor struct {
-	// client is used to call the LLM for summarisation.
-	client api.Client
-	// model is the summarisation model (may differ from the conversation model).
-	model string
-	// maxTokens caps the token count for the summarisation request.
-	maxTokens int
-	// tracking records session-level compaction state.
-	tracking AutoCompactTrackingState
-}
+// AutoCompactor performs LLM-summarisation compaction. It is stateless:
+// per-agent state lives in a Tracker, and the client, model and limits come
+// from the query's Target.
+type AutoCompactor struct{}
 
 // NewAutoCompactor constructs an AutoCompactor.
-// model is the model used for the summarisation call (typically the same as the
-// main conversation model). maxTokens is the conversation model's max_tokens.
-func NewAutoCompactor(client api.Client, model string, maxTokens int) *AutoCompactor {
-	if maxTokens <= 0 {
-		maxTokens = MaxOutputTokensForSummary
-	}
-	return &AutoCompactor{
-		client:    client,
-		model:     model,
-		maxTokens: maxTokens,
-	}
+func NewAutoCompactor() *AutoCompactor {
+	return &AutoCompactor{}
 }
 
-// autoCompactThreshold returns the token count at which auto-compact should trigger.
-// threshold = effectiveContextWindow − AutoCompactBufferTokens
-// effectiveContextWindow = contextWindow − min(maxOutputTokens, 20_000)
-func autoCompactThreshold(model string, maxOutputTokens int) int {
-	contextWindow := resolveContextWindow(model)
-	maxOutput := maxOutputTokens
-	if maxOutput > MaxOutputTokensForSummary {
+// AutoCompactThreshold returns the token count at which auto-compact triggers:
+// Window − min(MaxOutputTokens, MaxOutputTokensForSummary) − AutoCompactBufferTokens.
+func AutoCompactThreshold(t Target) int {
+	maxOutput := t.MaxOutputTokens
+	if maxOutput <= 0 || maxOutput > MaxOutputTokensForSummary {
 		maxOutput = MaxOutputTokensForSummary
 	}
-	effective := contextWindow - maxOutput
-	return effective - AutoCompactBufferTokens
+	return t.Window() - maxOutput - AutoCompactBufferTokens
 }
 
-// ContextWindow returns the context window (in tokens) used for model — the
-// same value auto-compaction budgets against. Exposed for display (the TUI
-// status bar's context-usage meter).
-func ContextWindow(model string) int {
-	return resolveContextWindow(model)
-}
-
-// resolveContextWindow returns the known context window for a model, falling
-// back to defaultContextWindow for unrecognised models.
-// Env var CLAUDE_CODE_AUTO_COMPACT_WINDOW overrides.
-func resolveContextWindow(model string) int {
-	if v, err := strconv.Atoi(os.Getenv("CLAUDE_CODE_AUTO_COMPACT_WINDOW")); err == nil && v > 0 {
-		return v
-	}
-	// Well-known model windows (approximate).
-	switch {
-	case strings.HasPrefix(model, "claude-3-5") || strings.HasPrefix(model, "claude-3.5"):
-		return 200_000
-	case strings.HasPrefix(model, "claude-3") || strings.HasPrefix(model, "claude-opus"):
-		return 200_000
-	case strings.HasPrefix(model, "claude-2"):
-		return 100_000
-	default:
-		return defaultContextWindow
-	}
-}
-
-// NeedsCompaction reports whether the current message history is large enough
-// to warrant auto-compaction.
-// estimatedTokens is derived by a rough character-count heuristic (~4 chars/token).
-func (a *AutoCompactor) NeedsCompaction(messages []types.Message, model string, extra CompactionExtra) bool {
-	if a.tracking.ConsecutiveFailures >= MaxConsecutiveFailures {
+// ShouldCompact reports whether estTokens (the estimated prompt size,
+// including system prompt and tool schemas) warrants auto-compaction for t.
+// It returns false once tr's circuit breaker is open.
+func (a *AutoCompactor) ShouldCompact(estTokens int, t Target, tr *Tracker) bool {
+	if tr.breakerOpen() {
 		return false
 	}
-	threshold := autoCompactThreshold(model, a.maxTokens)
-	est := estimateTokens(messages) - extra.SnipTokensFreed
-	return est >= threshold
+	return estTokens >= AutoCompactThreshold(t)
 }
 
-// Compact runs the LLM-summarisation compaction pipeline.
-// It returns a CompactionResult containing the summarised message history.
+// summaryMaxOut is the output cap for the summarisation request:
+// min(MaxOutputTokensForSummary, t.MaxOutputTokens) when the latter is set.
+func summaryMaxOut(t Target) int {
+	if t.MaxOutputTokens > 0 && t.MaxOutputTokens < MaxOutputTokensForSummary {
+		return t.MaxOutputTokens
+	}
+	return MaxOutputTokensForSummary
+}
+
+// Compact summarises messages on t.Client / t.Model and records the outcome
+// in tr. History that would not fit the summary model's window is trimmed
+// from the oldest end first (see fitForSummary).
 func (a *AutoCompactor) Compact(
 	ctx context.Context,
 	messages []types.Message,
 	params CompactionParams,
+	t Target,
+	tr *Tracker,
 ) (*CompactionResult, error) {
-	preCount := estimateTokens(messages)
-
-	// Build the summarisation system prompt.
+	if t.Client == nil {
+		tr.recordFailure()
+		return nil, fmt.Errorf("compact: no client")
+	}
+	preCount := EstimateTokens(messages)
 	summarySystem := buildSummarySystemPrompt(params)
-
-	// Convert messages to API params.
-	apiMessages, err := messagesToAPIParams(messages)
+	maxOut := summaryMaxOut(t)
+	budget := t.Window() - maxOut - AutoCompactBufferTokens - len(summarySystem)/4
+	apiMessages, err := messagesToAPIParams(fitForSummary(messages, budget))
 	if err != nil {
-		a.tracking.ConsecutiveFailures++
+		tr.recordFailure()
 		return nil, fmt.Errorf("compact: marshal messages: %w", err)
 	}
 
 	req := &api.MessageRequest{
-		Model:     a.model,
-		MaxTokens: MaxOutputTokensForSummary,
+		Model:     t.Model,
+		MaxTokens: maxOut,
 		Messages:  apiMessages,
 		System:    summarySystem,
 		Stream:    false,
 	}
-
-	resp, err := a.client.Complete(ctx, req)
+	resp, err := t.Client.Complete(ctx, req)
 	if err != nil {
-		a.tracking.ConsecutiveFailures++
+		tr.recordFailure()
 		return nil, fmt.Errorf("compact: LLM summarisation: %w", err)
 	}
-
-	// Extract the summary text from the response.
 	summaryText := extractTextFromResponse(resp)
 	if summaryText == "" {
-		a.tracking.ConsecutiveFailures++
+		tr.recordFailure()
 		return nil, fmt.Errorf("compact: empty summary from LLM")
 	}
 
-	// Build the replacement message list: one user summary message.
 	summaryMsg := types.Message{
 		Role: types.RoleUser,
 		Content: []types.ContentBlock{
 			{Type: types.ContentTypeText, Text: strPtr(summaryText)},
 		},
 	}
-
-	// Reset consecutive failure counter on success.
-	a.tracking.ConsecutiveFailures = 0
-	a.tracking.Compacted = true
-	a.tracking.TurnCounter = 0
-
-	postCount := estimateTokens([]types.Message{summaryMsg})
-
+	tr.recordSuccess()
 	return &CompactionResult{
 		SummaryMessages:       []types.Message{summaryMsg},
 		PreCompactTokenCount:  preCount,
-		PostCompactTokenCount: postCount,
+		PostCompactTokenCount: EstimateTokens([]types.Message{summaryMsg}),
 		CompactionUsage: &TokenUsage{
 			InputTokens:              resp.Usage.InputTokens,
 			OutputTokens:             resp.Usage.OutputTokens,
@@ -194,9 +145,51 @@ func (a *AutoCompactor) Compact(
 	}, nil
 }
 
-// GetTracking returns a copy of the current tracking state.
-func (a *AutoCompactor) GetTracking() AutoCompactTrackingState {
-	return a.tracking
+// fitForSummary returns the longest suffix of messages whose estimate fits
+// budget and that starts at a plain user message (no tool_result blocks, so
+// no orphaned tool pairs). If no such suffix fits, it keeps only the last
+// plain user message (or the last message when there is none).
+func fitForSummary(messages []types.Message, budget int) []types.Message {
+	if budget < 1 {
+		budget = 1
+	}
+	if EstimateTokens(messages) <= budget {
+		return messages
+	}
+	// suffix[i] = estimated tokens of messages[i:].
+	suffix := make([]int, len(messages)+1)
+	for i := len(messages) - 1; i >= 0; i-- {
+		suffix[i] = suffix[i+1] + EstimateTokens(messages[i:i+1])
+	}
+	lastPlain := -1
+	for i := range messages {
+		if !isPlainUser(messages[i]) {
+			continue
+		}
+		lastPlain = i
+		if suffix[i] <= budget {
+			return messages[i:]
+		}
+	}
+	if lastPlain >= 0 {
+		return messages[lastPlain : lastPlain+1]
+	}
+	if len(messages) == 0 {
+		return messages
+	}
+	return messages[len(messages)-1:]
+}
+
+func isPlainUser(m types.Message) bool {
+	if m.Role != types.RoleUser {
+		return false
+	}
+	for _, b := range m.Content {
+		if b.Type == types.ContentTypeToolResult {
+			return false
+		}
+	}
+	return true
 }
 
 // buildSummarySystemPrompt builds the system prompt for the summarisation LLM call.
@@ -248,9 +241,9 @@ func messagesToAPIParams(messages []types.Message) ([]api.MessageParam, error) {
 	return params, nil
 }
 
-// estimateTokens approximates the token count for a message list using the
-// rough heuristic of 4 characters per token.
-func estimateTokens(messages []types.Message) int {
+// EstimateTokens approximates the token count for a message list using the
+// rough heuristic of 4 characters per token (JSON bytes ÷ 4).
+func EstimateTokens(messages []types.Message) int {
 	raw, err := json.Marshal(messages)
 	if err != nil {
 		return 0

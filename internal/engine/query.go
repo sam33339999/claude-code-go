@@ -122,15 +122,15 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 		// Step 3: Auto compaction — LLM-based summarisation when context is
 		// near the model's context window limit.
 		if e.autoCompactor != nil {
-			extra := compact.CompactionExtra{SnipTokensFreed: snipResult.TokensFreed}
-			if e.autoCompactor.NeedsCompaction(messages, e.model, extra) {
+			tgt := compact.Target{Client: e.client, Model: e.model, MaxOutputTokens: e.maxTokens}
+			if e.autoCompactor.ShouldCompact(compact.EstimateTokens(messages)-snipResult.TokensFreed, tgt, e.mainTracker) {
 				compactParams := compact.CompactionParams{
 					SystemPromptParts: systemPromptParts(params),
 					UserContext:       params.UserContext,
 					SystemContext:     params.SystemContext,
 					QuerySource:       params.QuerySource,
 				}
-				if result, err := e.autoCompactor.Compact(ctx, messages, compactParams); err == nil {
+				if result, err := e.autoCompactor.Compact(ctx, messages, compactParams, tgt, e.mainTracker); err == nil {
 					messages = result.SummaryMessages
 				}
 			}

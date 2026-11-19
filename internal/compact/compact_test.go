@@ -254,9 +254,7 @@ func TestMicroCompactor_Compact_PreservesAssistantMessages(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────
 
 func TestAutoCompactThreshold_Default(t *testing.T) {
-	threshold := autoCompactThreshold("claude-3-opus-20240229", 8192)
-	// effectiveContextWindow = 200_000 - min(8192, 20_000) = 200_000 - 8_192 = 191_808
-	// threshold = 191_808 - 13_000 = 178_808
+	threshold := AutoCompactThreshold(Target{Model: "claude-3-opus-20240229", MaxOutputTokens: 8192})
 	expected := 200_000 - 8192 - AutoCompactBufferTokens
 	if threshold != expected {
 		t.Errorf("expected threshold %d, got %d", expected, threshold)
@@ -264,8 +262,8 @@ func TestAutoCompactThreshold_Default(t *testing.T) {
 }
 
 func TestAutoCompactThreshold_MaxOutputCap(t *testing.T) {
-	// When maxOutputTokens > MaxOutputTokensForSummary, it is capped.
-	threshold := autoCompactThreshold("claude-3-opus-20240229", 100_000)
+	// When MaxOutputTokens > MaxOutputTokensForSummary, it is capped.
+	threshold := AutoCompactThreshold(Target{Model: "claude-3-opus-20240229", MaxOutputTokens: 100_000})
 	expected := 200_000 - MaxOutputTokensForSummary - AutoCompactBufferTokens
 	if threshold != expected {
 		t.Errorf("expected threshold %d (capped), got %d", expected, threshold)
@@ -285,9 +283,9 @@ func TestResolveContextWindow_KnownModels(t *testing.T) {
 		{"unknown-model-xyz", defaultContextWindow},
 	}
 	for _, tc := range cases {
-		got := resolveContextWindow(tc.model)
+		got := ContextWindow(tc.model)
 		if got != tc.want {
-			t.Errorf("resolveContextWindow(%q) = %d, want %d", tc.model, got, tc.want)
+			t.Errorf("ContextWindow(%q) = %d, want %d", tc.model, got, tc.want)
 		}
 	}
 }
@@ -295,35 +293,37 @@ func TestResolveContextWindow_KnownModels(t *testing.T) {
 func TestEstimateTokens_Empty(t *testing.T) {
 	// nil marshals to "null" which is 4 chars / 4 = 1 token
 	// — any non-negative value is fine; just ensure no panic.
-	_ = estimateTokens(nil)
+	_ = EstimateTokens(nil)
 }
 
 func TestEstimateTokens_NonEmpty(t *testing.T) {
 	msgs := []types.Message{
 		textMsg(types.RoleUser, "Hello, world!"),
 	}
-	est := estimateTokens(msgs)
+	est := EstimateTokens(msgs)
 	if est <= 0 {
 		t.Errorf("expected positive token estimate, got %d", est)
 	}
 }
 
-func TestAutoCompactor_NeedsCompaction_BelowThreshold(t *testing.T) {
-	a := NewAutoCompactor(nil, "claude-3-opus-20240229", 8192)
-	// A single short message is well below the threshold.
+func TestAutoCompactor_ShouldCompact_BelowThreshold(t *testing.T) {
+	a := NewAutoCompactor()
+	tgt := Target{Model: "claude-3-opus-20240229", MaxOutputTokens: 8192}
 	msgs := []types.Message{textMsg(types.RoleUser, "hi")}
-	if a.NeedsCompaction(msgs, "claude-3-opus-20240229", CompactionExtra{}) {
+	if a.ShouldCompact(EstimateTokens(msgs), tgt, NewTracker()) {
 		t.Error("expected false for small context")
 	}
 }
 
-func TestAutoCompactor_NeedsCompaction_CircuitBreaker(t *testing.T) {
-	a := NewAutoCompactor(nil, "claude-3-opus-20240229", 8192)
-	a.tracking.ConsecutiveFailures = MaxConsecutiveFailures
+func TestAutoCompactor_ShouldCompact_CircuitBreaker(t *testing.T) {
+	a := NewAutoCompactor()
+	tgt := Target{Model: "claude-3-opus-20240229", MaxOutputTokens: 8192}
+	tr := NewTracker()
+	tr.state.ConsecutiveFailures = MaxConsecutiveFailures
 	// Even with a massive context, circuit breaker disables compaction.
 	large := strings.Repeat("x", 1_000_000)
 	msgs := []types.Message{textMsg(types.RoleUser, large)}
-	if a.NeedsCompaction(msgs, "claude-3-opus-20240229", CompactionExtra{}) {
+	if a.ShouldCompact(EstimateTokens(msgs), tgt, tr) {
 		t.Error("expected false when circuit breaker is open")
 	}
 }

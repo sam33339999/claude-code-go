@@ -118,6 +118,8 @@ type engineImpl struct {
 	microCompactor *compact.MicroCompactor
 	// autoCompactor performs LLM-based summarisation when context is near the limit.
 	autoCompactor *compact.AutoCompactor
+	// mainTracker is the main loop's session-long auto-compact state.
+	mainTracker *compact.Tracker
 
 	// permChecker is the permission checker for HIL (Human-in-the-Loop) support.
 	// If nil, all tools are allowed without asking.
@@ -169,7 +171,8 @@ func New(cfg Config) QueryEngine {
 		maxTokens:      maxTokens,
 		abortCh:        make(chan struct{}),
 		microCompactor: compact.NewMicroCompactor(),
-		autoCompactor:  compact.NewAutoCompactor(cfg.Client, cfg.Model, maxTokens),
+		autoCompactor:  compact.NewAutoCompactor(),
+		mainTracker:    compact.NewTracker(),
 		permChecker:    cfg.PermissionChecker,
 		stopHooks:      cfg.StopHooks,
 		msgQueue:       cfg.MsgQueue,
