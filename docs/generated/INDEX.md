@@ -1,6 +1,6 @@
 ---
 type: auto-generated-index
-generated_at: 2026-11-19T17:37:33Z
+generated_at: 2026-11-19T18:19:04Z
 package_count: 42
 ---
 
@@ -33,7 +33,7 @@ package_count: 42
 | `internal/oauth` | Services | TokenStore(3m), AuthCodeListener, AuthURLParams, Client, FileStore | [CONTEXT](../../internal/oauth/CONTEXT.md) |
 | `internal/permissions` | Services | Checker(3m), AskRequest, AskResponse, CheckerConfig, DangerousPathResult | [CONTEXT](../../internal/permissions/CONTEXT.md) |
 | `internal/coordinator` | Core | Coordinator(8m), AgentUsage, Config, Event, MCPClientInfo | [CONTEXT](../../internal/coordinator/CONTEXT.md) |
-| `internal/engine` | Core | QueryEngine(5m), BudgetTracker, CacheSafeParams, Config, ForkedAgentConfig | [CONTEXT](../../internal/engine/CONTEXT.md) |
+| `internal/engine` | Core | QueryEngine(7m), BudgetTracker, CacheSafeParams, Config, ForkedAgentConfig | [CONTEXT](../../internal/engine/CONTEXT.md) |
 | `internal/tools` | Tools | AgentCoordinator(9m), MCPToolInfo(1m), PathTool(1m), PermissionContext(1m), SearchOrReadTool(1m), ... | [CONTEXT](../../internal/tools/CONTEXT.md) |
 | `internal/tools/agent` | Tools | AgentInput, AgentOutput, GetAgentStatusInput, GetAgentStatusOutput, SendMessageInput | [CONTEXT](../../internal/tools/agent/CONTEXT.md) |
 | `internal/tools/codemode` | Tools | - | [CONTEXT](../../internal/tools/codemode/CONTEXT.md) |
@@ -47,7 +47,7 @@ package_count: 42
 | `internal/tools/web` | Tools | HTTPClient(1m), WebFetchInput, WebFetchOutput, WebSearchInput, WebSearchOutput | [CONTEXT](../../internal/tools/web/CONTEXT.md) |
 | `internal/tui` | TUI | AgentColorManager, AgentProgressMsg, AgentStatusMsg, AgentTaskState, AppModel | [CONTEXT](../../internal/tui/CONTEXT.md) |
 | `internal/bootstrap` | CLI | AppContainer, ContainerOptions | [CONTEXT](../../internal/bootstrap/CONTEXT.md) |
-| `internal/commands` | CLI | MCPServerLister(1m), SetupBackend(5m), TierManager(6m), Command, CommandContext | [CONTEXT](../../internal/commands/CONTEXT.md) |
+| `internal/commands` | CLI | MCPServerLister(1m), ModelSwitcher(3m), SetupBackend(5m), TierManager(6m), Command | [CONTEXT](../../internal/commands/CONTEXT.md) |
 
 ---
 *42 packages across 8 layers.*

@@ -2,7 +2,7 @@
 package: modeltier
 import_path: internal/modeltier
 layer: unknown
-generated_at: 2026-11-19T14:01:30Z
+generated_at: 2026-11-19T18:19:04Z
 source_files: [config.go, resolve.go, store.go]
 ---
 
@@ -39,7 +39,7 @@ source_files: [config.go, resolve.go, store.go]
 ## Change Impact
 
 **Exported type references (files that use types from this package):**
-- `Binding` → `internal/bootstrap/tiers.go`, `internal/commands/tier.go`, `internal/commands/tier_test.go` (test)
+- `Binding` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/tiers.go`, `internal/commands/tier.go`, `internal/commands/tier_test.go` (test)
 - `Provider` → `internal/bootstrap/tiers.go`, `internal/bootstrap/tiers_test.go` (test), `internal/commands/tier.go`, `internal/commands/tier_test.go` (test)
 - `ProviderStatus` → `internal/commands/tier.go`, `internal/commands/tier_test.go` (test)
 - `Store` → `internal/bootstrap/tiers.go`, `internal/bootstrap/wire.go`, `internal/commands/tier.go`, `internal/commands/tier_test.go` (test)

@@ -2,7 +2,7 @@
 package: compact
 import_path: internal/compact
 layer: services
-generated_at: 2026-11-19T15:15:26Z
+generated_at: 2026-11-19T18:19:04Z
 source_files: [auto.go, compact.go, micro.go, snip.go, target.go, window.go]
 ---
 
@@ -65,7 +65,7 @@ type Compressor interface {
 - `CompactionExtra` → `internal/engine/compaction.go`
 - `CompactionParams` → `internal/engine/compaction.go`
 - `MicroCompactor` → `internal/engine/engine.go`
-- `Target` → `internal/engine/compaction.go`
+- `Target` → `internal/engine/compaction.go`, `internal/tui/modelpicker.go`
 - `Tracker` → `internal/engine/compaction.go`, `internal/engine/engine.go`
 
 ## Dependencies

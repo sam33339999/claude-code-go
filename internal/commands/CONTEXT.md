@@ -2,13 +2,13 @@
 package: commands
 import_path: internal/commands
 layer: cli
-generated_at: 2026-11-19T15:15:26Z
-source_files: [builtins.go, mcp.go, registry.go, resume.go, setup.go, terminal_setup.go, tier.go]
+generated_at: 2026-11-19T18:19:04Z
+source_files: [builtins.go, mcp.go, modelswitch.go, registry.go, resume.go, setup.go, terminal_setup.go, tier.go]
 ---
 
 # internal/commands
 
-> Layer: **CLI** · Files: 7 · Interfaces: 3 · Structs: 11 · Functions: 5
+> Layer: **CLI** · Files: 8 · Interfaces: 4 · Structs: 12 · Functions: 5
 
 ## Interfaces
 
@@ -18,6 +18,17 @@ source_files: [builtins.go, mcp.go, registry.go, resume.go, setup.go, terminal_s
 ```go
 type MCPServerLister interface {
     GetAll() []*mcp.ServerConnection
+}
+```
+
+### ModelSwitcher (3 methods)
+> ModelSwitcher switches the main loop between the startup model and tier
+
+```go
+type ModelSwitcher interface {
+    Options() []ModelOption
+    Resolve(ref string) (ModelOption, error)
+    Apply(opt ModelOption) error
 }
 ```
 
@@ -52,8 +63,9 @@ type TierManager interface {
 
 - **Command** — 3 fields: Name, Description, Execute
 - **CommandContext** — 10 fields: WorkingDir, Model, SessionID, DarkMode, VimEnabled, Effort, MessageCount, TokensInput, ...
+- **ModelOption** — 8 fields: Name, Provider, Model, ContextWindow, MaxTokens, Available, Reason, Current
 - **Registry** — 2 fields
-- **Result** — 14 fields: Text, Display, ShouldExit, NewMessages, NewSessionID, NewTheme, NewModel, NewEffort, ...
+- **Result** — 15 fields: Text, Display, ShouldExit, NewMessages, NewSessionID, NewTheme, NewModel, ModelRef, ...
 - **SessionSummary** — 5 fields: ID, Title, ModTime, MessageCount, Current
 - **SetupDefaults** — 5 fields: Format, BaseURL, Model, KeySources, Tiers
 - **SetupInput** — 3 fields: Format, BaseURL, APIKey
@@ -89,8 +101,10 @@ type TierManager interface {
 - `Command` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
 - `CommandContext` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
 - `MCPServerLister` → `internal/tui/cmds.go`, `internal/tui/init.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/model.go`
+- `ModelOption` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/modelswitch_test.go` (test), `internal/tui/model.go`, `internal/tui/modelpicker.go`, `internal/tui/modelpicker_test.go` (test)
+- `ModelSwitcher` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`, `internal/tui/modelpicker_test.go` (test)
 - `Registry` → `internal/tui/completion.go`, `internal/tui/model.go`
-- `Result` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/setup_dialog_test.go` (test), `internal/tui/tiers_test.go` (test), `internal/tui/tui_test.go` (test), `internal/tui/update.go`
+- `Result` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/modelpicker_test.go` (test), `internal/tui/setup_dialog_test.go` (test), `internal/tui/tiers_test.go` (test), `internal/tui/tui_test.go` (test) + 1 more
 - `SessionSummary` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/resumepicker.go`
 - `SetupBackend` → `internal/bootstrap/setup.go`, `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`, `internal/tui/setup_dialog.go` + 1 more
 - `SetupDefaults` → `internal/bootstrap/setup.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`, `internal/tui/setupwizard_test.go` (test)
@@ -117,3 +131,4 @@ type TierManager interface {
 - **2026-11-19 `/tier`**：`TierManager` 介面（`*modeltier.Store` 直接實作），經 `CommandContext.Tiers` 注入（commands 不得 import bootstrap）。改綁定在 Execute 內同步寫檔（小檔案，比照其他同步指令），下一個派出的 sub-agent 生效。等級表是唯一狀態來源，TUI 不需另外更新狀態。
 - 最終審查後補修：`TierManager` +`Warnings()`；`/tier` 列表最上方顯示 config.toml 的啟動警告（TUI 的 alt screen 會蓋掉 stderr）。
 - **2026-11-19 `/setup` 與 `SetupBackend`**：`/setup` 只回傳 `OpenDialog: "setup"`，commands 層不做 I/O、不 import `internal/api`（資料型別自己定義）。`SetupDefaults.KeySources` 依格式記錄可沿用的金鑰來源（`settings` 只對目前格式有效、`env:<VAR>`），讓換格式後的提示與阻擋正確。`SetupInput.APIKey` 為空表示沿用，沿用的金鑰由 backend 取得，不經過 TUI。
+- **2026-11-20 `/model`**：無參數回 `OpenDialog: "model"`，有參數回 `ModelRef`；解析與切換都由注入的 `ModelSwitcher` 做（commands 不 import bootstrap）。`ModelOption.Label()` 統一顯示 `provider:model`。

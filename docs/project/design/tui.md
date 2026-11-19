@@ -1076,3 +1076,4 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 | v1.0 | 2026-04-02 | Agent-TUI | 初稿 |
 | v2.3 | 2026-11-19 | 主會話 | provider 等級：新增 `/tier` 指令與 `commands.TierManager` 介面、`CommandContext.Tiers`；`tui.New`/`newAppModel` 在 `mcpPool` 後新增 `tiers commands.TierManager` 參數（bootstrap 傳入 `container.Tiers`）；狀態列上下文長度改用 `compact.ResolveContextWindow(model, [main] context_window)`。 |
 | v2.4 | 2026-11-19 | 主會話 | /setup 首次設定引導：`commands` +`SetupBackend` 介面與 `Setup*` 型別、`ErrModelListUnsupported`、`/setup`；`tui` +`dialogSetup`、`setupWizard` 狀態機、`setupModelsMsg`/`setupAppliedMsg`；`tui.New`/`newAppModel` 在 `tiers` 後新增 `setup commands.SetupBackend` 參數；未設定認證時的啟動提示。 |
+| v2.5 | 2026-11-20 | 主會話 | /model 選單：`commands` +`ModelOption`、`ModelSwitcher`、`Result.ModelRef`；`tui` +`dialogModelPicker`、`dialogModelConfirm`、`modelPicker`；`tui.New`/`newAppModel` 在 `setup` 後新增 `models commands.ModelSwitcher` 參數。 |

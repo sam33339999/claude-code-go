@@ -2,7 +2,7 @@
 package: api
 import_path: internal/api
 layer: services
-generated_at: 2026-11-19T15:15:26Z
+generated_at: 2026-11-19T18:19:04Z
 source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, listmodels.go, openai_client.go, openai_stream.go, openai_types.go, ratelimit.go, retry.go, stream.go, usage.go]
 ---
 
@@ -127,7 +127,7 @@ type StreamReader interface {
 **Exported type references (files that use types from this package):**
 - `APIError` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/retry_wiring_test.go` (test), `internal/engine/tiers_test.go` (test)
 - `Accumulator` → `internal/engine/query.go`
-- `Client` → `internal/bootstrap/setup.go`, `internal/bootstrap/tiers.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/compact/target.go` + 4 more
+- `Client` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/setup.go`, `internal/bootstrap/tiers.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go` + 6 more
 - `ClientConfig` → `internal/bootstrap/setup.go`, `internal/bootstrap/tiers.go`, `internal/bootstrap/wire.go`
 - `ContentBlock` → `internal/compact/auto_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test), `internal/engine/tiers_test.go` (test)
 - `ContentBlockDeltaData` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
@@ -135,12 +135,12 @@ type StreamReader interface {
 - `ListModelsError` → `internal/bootstrap/setup.go`
 - `MessageDeltaData` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
 - `MessageParam` → `internal/compact/auto.go`, `internal/engine/query.go`
-- `MessageRequest` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto.go`, `internal/compact/auto_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test) + 7 more
+- `MessageRequest` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto.go`, `internal/compact/auto_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test) + 8 more
 - `MessageResponse` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto.go`, `internal/compact/auto_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/query.go` + 2 more
 - `MessageStartData` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
 - `RetryOptions` → `internal/engine/query.go`
 - `StreamEvent` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
-- `StreamReader` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test) + 6 more
+- `StreamReader` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test) + 7 more
 - `SystemBlock` → `internal/engine/query.go`
 - `ToolSchema` → `internal/engine/compaction.go`
 - `Usage` → `internal/engine/compaction.go`, `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test)

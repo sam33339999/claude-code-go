@@ -2,7 +2,7 @@
 package: config
 import_path: internal/config
 layer: infra
-generated_at: 2026-11-19T15:15:26Z
+generated_at: 2026-11-19T18:19:04Z
 source_files: [loader.go, mainmodel.go, mcpstore.go, orderedjson.go, pluginstore.go, settings.go, writer.go]
 ---
 
@@ -97,7 +97,7 @@ type ConfigLoader interface {
 - `InstalledPluginRecord` → `internal/bootstrap/plugin_install.go`, `internal/bootstrap/plugin_run.go`
 - `InstalledPlugins` → `internal/bootstrap/plugin_run.go`
 - `KnownMarketplace` → `internal/bootstrap/plugin_marketplace.go`
-- `LayeredSettings` → `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/setup.go`, `internal/bootstrap/setup_test.go` (test) + 1 more
+- `LayeredSettings` → `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/modelswitch.go`, `internal/bootstrap/setup.go` + 2 more
 - `MCPServerEntry` → `internal/bootstrap/mcp_health.go`, `internal/bootstrap/mcp_health_test.go` (test), `internal/bootstrap/mcp_list.go`, `internal/bootstrap/mcp_list_test.go` (test), `internal/bootstrap/mcp_render.go` + 2 more
 - `MCPStore` → `internal/bootstrap/mcp_cmd_test.go` (test), `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/mcp_list.go`, `internal/bootstrap/mcp_list_test.go` (test) + 2 more
 - `MainModelSettings` → `internal/bootstrap/setup.go`

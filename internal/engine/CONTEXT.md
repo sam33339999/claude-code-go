@@ -2,17 +2,17 @@
 package: engine
 import_path: internal/engine
 layer: core
-generated_at: 2026-11-19T13:49:59Z
+generated_at: 2026-11-19T18:19:04Z
 source_files: [budget.go, cache_params.go, compaction.go, engine.go, forked_agent.go, msg.go, orchestration.go, query.go, stop_hooks.go]
 ---
 
 # internal/engine
 
-> Layer: **Core** · Files: 9 · Interfaces: 1 · Structs: 14 · Functions: 9
+> Layer: **Core** · Files: 9 · Interfaces: 1 · Structs: 15 · Functions: 9
 
 ## Interfaces
 
-### QueryEngine (5 methods)
+### QueryEngine (7 methods)
 > QueryEngine is the top-level interface exposed to the TUI/SDK layer.
 
 ```go
@@ -22,15 +22,18 @@ type QueryEngine interface {
     GetMessages() []types.Message
     SetMessages(messages []types.Message)
     SetModel(model string)
+    MainTarget() MainTarget
+    SetMainTarget(t MainTarget)
 }
 ```
 
 ## Structs
 
 - **BudgetTracker** — 4 fields: ContinuationCount, LastDeltaTokens, LastGlobalTurnTokens, StartedAt
-- **CacheSafeParams** — 4 fields: SystemPrompt, ContextMessages, ToolUseContext, Model
+- **CacheSafeParams** — 7 fields: SystemPrompt, ContextMessages, ToolUseContext, Model, Client, ContextWindow, MaxTokens
 - **Config** — 9 fields: Client, Registry, Model, MaxTokens, PermissionChecker, StopHooks, MsgQueue, MainContextWindow, ...
 - **ForkedAgentConfig** — 6 fields: PromptMessages, CacheSafeParams, QuerySource, MaxTurns, AllowedTools, OnMessage
+- **MainTarget** — 5 fields: Client, ProviderID, Model, ContextWindow, MaxTokens
 - **Msg** — 21 fields: Type, TextDelta, ToolUseID, ToolName, InputDelta, ToolInput, ToolResult, AssistantMsg, ...
 - **PermissionRequestMsg** — 6 fields: RequestID, ToolUseID, ToolName, Message, Input, RespFn
 - **QueryParams** — 18 fields: Messages, SystemPrompt, UserContext, SystemContext, ToolUseContext, QuerySource, MaxOutputTokensOverride, MaxTurns, ...
@@ -63,6 +66,7 @@ type QueryEngine interface {
 - `CompletionThreshold`
 - `DefaultMaxToolUseConcurrency`
 - `DiminishingThreshold`
+- `MainProviderID`
 - `MaxContinuations`
 - `MsgTypeAssistantMessage`
 - `MsgTypeCompactEnd`
@@ -90,11 +94,12 @@ type QueryEngine interface {
 - `stubQueryEngine` in `internal/bootstrap/wire_fork_test.go`
 
 **Exported type references (files that use types from this package):**
-- `CacheSafeParams` → `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/memdir/dream.go`, `internal/tui/cmds.go`
+- `CacheSafeParams` → `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/memdir/dream.go`, `internal/tui/cmds.go`
 - `Config` → `internal/bootstrap/wire.go`
 - `ForkedAgentConfig` → `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/session_memory.go`
+- `MainTarget` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/modelswitch_test.go` (test), `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 1 more
 - `Msg` → `internal/bootstrap/run.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/bootstrap/wire_result_test.go` (test) + 4 more
-- `QueryEngine` → `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/tui/cmds.go`, `internal/tui/init.go`, `internal/tui/model.go`
+- `QueryEngine` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/tui/cmds.go`, `internal/tui/init.go` + 1 more
 - `QueryParams` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/cmds.go`, `internal/tui/tui_test.go` (test)
 - `StopHookContext` → `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/extract_test.go` (test), `internal/memdir/session_memory.go`
 - `StopHookRegistry` → `internal/bootstrap/wire.go`
@@ -123,3 +128,4 @@ type QueryEngine interface {
   - **修正前行為（spec §6）**：sub-agent 觸發自動壓縮時用主腦的 client 與啟動時的模型（費用算在主腦模型上），門檻也用 `e.model`；全 engine 共用一份壓縮狀態。現在壓縮管線（`compaction.go` `runCompaction`）依 `targetFor(params)` 計算門檻並在該 target 的 client/model 上摘要；sub-agent 壓縮在 `--debug` 時記一行 log。
   - C8：門檻估算＝最近一次 API 回報的 prompt tokens（input+cache read+cache creation）＋之後新增的訊息；沒有 usage 或歷史被改寫過時，退回 JSON÷4 估算並加上 system prompt 與工具 schema。**主腦也一起改**，所以主腦會比修正前早一點觸發壓縮——負責人認可的修正，是反目標「主腦行為不變」唯一的例外。
   - C5：`SetModel` 加 `modelMu`；摘要模型在呼叫當下解析，`/model` 後立即生效。C6：帶 `Client` 的查詢忽略 `FallbackModel`（它指的是主腦 provider 上的模型）。`[main] context_window` 經 `Config.MainContextWindow` 只套用在跑主腦模型、未帶 Client 的查詢。
+- **2026-11-20 `MainTarget`（/model 切換主腦）**：主腦的 client、ProviderID、model、context window、max_tokens 合成 `MainTarget`，以 `mainMu` 保護；`SetMainTarget` 讓 /model 在會話中換到別的 provider。`runQueryLoop` 開始時取一次快照，整輪不換（切換只影響下一個查詢）。換 provider 時移除歷史中的 thinking 區塊（簽章只對原 provider 有效，切換本來就讓快取失效）；被中斷的查詢稍後寫回時若主腦已換 provider 會再清一次，鎖順序固定為 `e.mu → mainMu`。`CacheSafeParams` 記錄請求的 client、context window、max_tokens，讓 fork 與它的續跑停在原本的 provider。沒有切換時主腦請求位元組不變（golden 測試）。
