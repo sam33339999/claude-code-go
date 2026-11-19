@@ -1,7 +1,7 @@
 # `/btw` 平行旁支問答 設計
 
 - 日期：2026-11-20
-- 狀態：草案，待負責人核准。
+- 狀態：草案，審閱問題已答覆，待負責人核准。
 - 範圍：provider-tiers 設計 §10 的第 3 件。
 - 依賴：`docs/superpowers/specs/2026-11-20-model-switch-design.md` 的 `engine.MainTarget`（`--tier` 與「跟主腦同一個目標」都用它），所以在 `/model` 之後實作。
 
@@ -71,6 +71,7 @@
 - engine 新增 `QueryParams.ToolFilter func(name string, input tools.Input) (allowed bool, reason string)`：工具清單（schema）照送，執行前呼叫；不允許時不執行，回 `tool_result` 錯誤「<name> is not available in /btw (read-only)」。
 - btw 的 filter（審閱後修正）：`IsReadOnly(input) == true` **且不在排除清單**，或名稱是 `TodoWrite`（見 §5.7）。排除清單：`AskUserQuestion`（會跳對話框）、`EnterPlanMode` / `ExitPlanMode`（會改整個會話的權限模式）、`Sleep`，以及任何 coordinator / sub-agent 工具。其餘（Write、Edit、Bash、Agent、SendMessage、…）一律擋。排除清單要有守護測試，新增工具時一併檢查。
 - **權限**（審閱後修正）：唯讀工具仍要經過權限判斷（不然 btw 可以不經同意讀專案外的檔案），但以**不互動、不記錄**的方式：permissions 套件新增一個檢查模式（例如 `Checker.CheckNonInteractive`），結果是 ask 時直接當成 deny、**不呼叫 askUser**，而且**不寫入**會話共用的拒絕紀錄（否則 btw 被擋的次數會讓主腦之後改成一直詢問使用者）。`QueryParams.NonInteractivePermissions bool` 讓 orchestration 改用這個模式。reason「needs permission; ask the main conversation instead」。
+- **TodoWrite 只能新增**（負責人決定 2026-11-20）：btw 呼叫 TodoWrite 時**不整份取代**會話共用的 todo 清單，只把它傳入的項目**附加**到主腦清單尾端，並標記來自 btw（例如內容前綴 `[btw] `）；主腦既有項目與其狀態完全不動。實作方式：`UseContext` 帶一個旗標（例如 `TodoAppendOnly bool`），`interact` 的 TodoWrite 依旗標改為附加；btw 傳入的項目若與既有項目內容相同則略過。
 - **壓縮隔離**：btw 帶自己的 `CompactTracker`，並以 `QueryParams.NoCompaction bool` 關閉 snip／micro／auto 壓縮（壓縮會多一次 LLM 呼叫、改寫前綴、吃不到快取，失敗還會影響熔斷）。請求估算超過目標窗口時直接拒絕：「the conversation is too large for /btw; ask the main conversation instead」。
 
 ### 5.4 修正：非主腦查詢不得接收主腦佇列
@@ -124,6 +125,7 @@
 
 - 2026-11-19：主腦繼續跑時平行回答；繼承脈絡；只讀＋TodoWrite；預設主腦模型以吃快取；可用 `--tier`。
 - 2026-11-20：回答以旁注顯示、不進主腦歷史，完成後可選擇交給主腦（ctrl+y）；做法 A。
+- 2026-11-20（審閱後）：btw 的 TodoWrite 只能「新增」到主腦的 todo 清單，不能覆蓋或改動既有項目。
 
 ## 10. 我替負責人做的決定（核准時請確認）
 
