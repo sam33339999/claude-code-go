@@ -870,7 +870,10 @@ func TestQuery_ChannelClosedOnCompletion(t *testing.T) {
 func TestQuery_StreamError_EmitsErrorMsg(t *testing.T) {
 	client := &mockClient{
 		streamFn: func(_ context.Context, _ *api.MessageRequest) (api.StreamReader, error) {
-			return nil, errors.New("network error")
+			// Non-retryable API error: retryable errors (429/5xx/network) are
+			// retried with backoff by the WithRetry wiring and would exceed
+			// the drain timeout; a 400 surfaces immediately.
+			return nil, &api.APIError{StatusCode: 400, Message: "bad request"}
 		},
 	}
 	eng := New(Config{Client: client, Registry: tools.NewRegistry()})

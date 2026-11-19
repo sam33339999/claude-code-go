@@ -285,7 +285,12 @@ func (e *engineImpl) streamResponse(
 	req *api.MessageRequest,
 	msgCh chan<- Msg,
 ) (types.Message, []toolCall, string, api.Usage, error) {
-	reader, err := e.client.Stream(ctx, req)
+	reader, err := api.WithRetry(ctx, func(ctx context.Context, _ int) (api.StreamReader, error) {
+		return e.client.Stream(ctx, req)
+	}, api.RetryOptions{
+		Model:       req.Model,
+		QuerySource: req.QuerySource,
+	})
 	if err != nil {
 		return types.Message{}, nil, "", api.Usage{}, fmt.Errorf("engine: stream: %w", err)
 	}
