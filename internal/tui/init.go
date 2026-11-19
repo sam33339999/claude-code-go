@@ -187,6 +187,8 @@ func listenForAgentEvent(ch <-chan coordinator.Event) tea.Cmd {
 				TaskID:      evt.AgentID,
 				Status:      status,
 				Description: evt.Description,
+				Result:      evt.Result,
+				Summary:     evt.Summary,
 			}
 		default:
 			return nil
@@ -207,6 +209,19 @@ func mapCoordinatorStatus(s string) AgentStatus {
 		return AgentFailed // treat killed as failed in TUI
 	default:
 		return AgentRunning
+	}
+}
+
+// coordinatorStatus converts a TUI AgentStatus back to the coordinator's
+// status string for the <task-notification> wake payload.
+func coordinatorStatus(s AgentStatus) coordinator.AgentStatus {
+	switch s {
+	case AgentCompleted:
+		return coordinator.AgentStatusCompleted
+	case AgentFailed:
+		return coordinator.AgentStatusFailed
+	default:
+		return coordinator.AgentStatusRunning
 	}
 }
 
