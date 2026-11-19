@@ -514,7 +514,7 @@ func (m AppModel) doAbort() (tea.Model, tea.Cmd) {
 	// P1-D fix: clear abort handle and stream channel so stale events are ignored.
 	m.abortFn = nil
 	m.streamCh = nil
-	m.mainUseCtx = nil
+	m.mainSnap = nil
 	// P1: Force-end the query guard to invalidate stale goroutines.
 	if m.queryGuard != nil {
 		m.queryGuard.ForceEnd()

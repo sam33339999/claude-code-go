@@ -134,12 +134,12 @@ type AppModel struct {
 	modelSwitcher commands.ModelSwitcher
 	modelPicker   *modelPicker
 	pendingModel  *commands.ModelOption
-	// btw is the live /btw side question (nil when none); mainUseCtx is the
-	// running main query's tool context, whose CacheParams snapshot /btw
-	// reuses (nil when the main loop is idle); btwTarget resolves --tier.
+	// btw is the live /btw side question (nil when none); mainSnap receives
+	// the running main query's cache-safe snapshot, which /btw reuses (nil
+	// when the main loop is idle); btwTarget resolves --tier.
 	btw        *btwSession
 	btwPending string // a /btw answer to attach to the next user message
-	mainUseCtx *tools.UseContext
+	mainSnap   *tools.SnapshotSlot
 	btwTarget  func(ref string) (engine.MainTarget, error)
 	// transcript persists conversation turns to the session JSONL (may be nil).
 	transcript *transcript.Recorder

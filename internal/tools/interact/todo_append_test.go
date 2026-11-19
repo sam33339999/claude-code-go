@@ -105,3 +105,13 @@ func TestTodoWrite_ReplaceModeUnchanged(t *testing.T) {
 		t.Errorf("replace mode changed: %+v", got)
 	}
 }
+
+// Review M-1: an item already on the main list (unprefixed) is not re-added.
+func TestTodoWrite_AppendSkipsMainDuplicate(t *testing.T) {
+	tool, store := newTodoTool()
+	seedTodos(store, types.TodoItem{ID: "a", Content: "check retry", Status: types.TodoPending})
+	_, _ = tool.Call(todoInput(t, types.TodoItem{ID: "x", Content: "check retry", Status: types.TodoPending}), appendCtx(), nil)
+	if got := store.GetState().Todos; len(got) != 1 {
+		t.Errorf("duplicate of a main item appended: %+v", got)
+	}
+}

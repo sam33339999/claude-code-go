@@ -119,8 +119,10 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 		},
 	}
 
-	// /btw reuses this query's prefix snapshot while it runs.
-	m.mainUseCtx = params.ToolUseContext
+	// /btw reuses this query's prefix snapshot while it runs (read through a
+	// mutex-guarded slot: the engine writes it from its own goroutine).
+	m.mainSnap = &tools.SnapshotSlot{}
+	params.ToolUseContext.Snapshot = m.mainSnap
 
 	qe := m.queryEngine
 	guard := m.queryGuard

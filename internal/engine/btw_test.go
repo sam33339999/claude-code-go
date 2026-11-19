@@ -174,3 +174,53 @@ func TestBTW_RequestPrefixMatchesMain(t *testing.T) {
 		}
 	}
 }
+
+// Review I-1: per-query switches must not leak into the caller's UseContext.
+func TestQuerySwitches_DoNotMutateCallerUseContext(t *testing.T) {
+	uctx := &tools.UseContext{Ctx: context.Background()}
+	eng := New(Config{Client: &countingClient{}, Registry: tools.NewRegistry(), Model: "m"})
+	runQuery(t, eng, QueryParams{Messages: []types.Message{userText("x")}, NoWriteBack: true, ToolUseContext: uctx,
+		NonInteractivePermissions: true, ToolFilter: func(tools.Tool, tools.Input) (bool, string) { return false, "" }})
+	if uctx.ExecFilter != nil || uctx.NonInteractivePermissions {
+		t.Error("caller's UseContext was mutated by a filtered query")
+	}
+}
+
+// Review I-2: switches apply even when the caller passes no UseContext.
+func TestQuerySwitches_NoUseContextFailsClosed(t *testing.T) {
+	w := &callCountTool{stubTool: stubTool{name: "Write"}}
+	eng := New(Config{Client: toolThenDone("Write"), Registry: newTestRegistry(w), Model: "m"})
+	ch, err := eng.Query(context.Background(), QueryParams{Messages: []types.Message{userText("x")}, NoWriteBack: true,
+		ToolFilter: func(tools.Tool, tools.Input) (bool, string) { return false, "blocked" }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	drainMsgs(ch)
+	if w.calls.Load() != 0 {
+		t.Error("ToolFilter ignored without a UseContext (fail-open)")
+	}
+}
+
+// Review: the snapshot slot is safe to read from another goroutine while the
+// loop writes it.
+func TestSnapshotSlot_ConcurrentRead(t *testing.T) {
+	slot := &tools.SnapshotSlot{}
+	reg := newTestRegistry(&stubTool{name: "Read", safe: true, readOnly: true})
+	eng := New(Config{Client: toolThenDone("Read"), Registry: reg, Model: "m"})
+	stop := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				_ = slot.Load()
+			}
+		}
+	}()
+	runQuery(t, eng, QueryParams{Messages: []types.Message{userText("x")}, ToolUseContext: &tools.UseContext{Ctx: context.Background(), Snapshot: slot}})
+	close(stop)
+	if snap, ok := slot.Load().(*CacheSafeParams); !ok || snap.Model != "m" {
+		t.Errorf("slot = %+v", slot.Load())
+	}
+}

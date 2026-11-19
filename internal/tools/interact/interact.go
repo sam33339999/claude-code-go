@@ -138,6 +138,7 @@ func appendTodos(existing, items []types.TodoItem) []types.TodoItem {
 	for _, it := range out {
 		ids[it.ID] = true
 		contents[it.Content] = true
+		contents[btwTodoPrefix+strings.TrimPrefix(it.Content, btwTodoPrefix)] = true // main items count too
 	}
 	for _, it := range items {
 		if !strings.HasPrefix(it.Content, btwTodoPrefix) {

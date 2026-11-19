@@ -114,8 +114,8 @@ func parseBTW(args string) (tier, question string, err error) {
 // the written-back history and the stable system prompt.
 func (m *AppModel) btwContext() (engine.SystemPrompt, []types.Message, engine.MainTarget) {
 	mt := m.queryEngine.MainTarget()
-	if m.isLoading && m.mainUseCtx != nil {
-		if snap, ok := m.mainUseCtx.CacheParams.(*engine.CacheSafeParams); ok && snap != nil {
+	if m.isLoading && m.mainSnap != nil {
+		if snap, ok := m.mainSnap.Load().(*engine.CacheSafeParams); ok && snap != nil {
 			t := engine.MainTarget{Client: snap.Client, Model: snap.Model, ContextWindow: snap.ContextWindow, MaxTokens: snap.MaxTokens}
 			if t.Client == nil {
 				t.Client = mt.Client

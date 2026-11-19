@@ -12,6 +12,7 @@ import (
 
 	"github.com/tunsuy/glaude/internal/api"
 	"github.com/tunsuy/glaude/internal/msgqueue"
+	"github.com/tunsuy/glaude/internal/tools"
 	"github.com/tunsuy/glaude/pkg/types"
 )
 
@@ -60,15 +61,21 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 	messages := make([]types.Message, len(params.Messages))
 	copy(messages, params.Messages)
 
-	// Per-query execution switches reach the orchestration layer through the
-	// tool-use context (the request itself is unaffected).
-	if uctx := params.ToolUseContext; uctx != nil {
-		if params.ToolFilter != nil {
-			uctx.ExecFilter = params.ToolFilter
+	// Per-query execution switches reach the orchestration layer through a
+	// private copy of the tool-use context (never the caller's, which may be
+	// shared — e.g. the main loop's), created if the caller passed none so
+	// the switches fail closed.
+	if params.ToolFilter != nil || params.NonInteractivePermissions {
+		var c tools.UseContext
+		if params.ToolUseContext != nil {
+			c = *params.ToolUseContext
 		}
-		if params.NonInteractivePermissions {
-			uctx.NonInteractivePermissions = true
+		if c.Ctx == nil {
+			c.Ctx = ctx
 		}
+		c.ExecFilter = params.ToolFilter
+		c.NonInteractivePermissions = params.NonInteractivePermissions
+		params.ToolUseContext = &c
 	}
 
 	// Write the final message history back to the engine when the loop exits,
@@ -144,6 +151,9 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 			limits := targetFor(params, mt)
 			snap.ContextWindow, snap.MaxTokens = limits.ContextWindow, limits.MaxOutputTokens
 			params.ToolUseContext.CacheParams = snap
+			if slot := params.ToolUseContext.Snapshot; slot != nil {
+				slot.Store(snap)
+			}
 		}
 
 		req, err := e.buildRequest(params, messages, activeModel, mt.MaxTokens)

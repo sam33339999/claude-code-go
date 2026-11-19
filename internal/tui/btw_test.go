@@ -141,11 +141,12 @@ func TestBTW_UsesSnapshotWhileRunning(t *testing.T) {
 	m.isLoading = true
 	snapClient := &stubClient{}
 	_ = snapClient
-	m.mainUseCtx = &tools.UseContext{CacheParams: &engine.CacheSafeParams{
+	m.mainSnap = &tools.SnapshotSlot{}
+	m.mainSnap.Store(&engine.CacheSafeParams{
 		SystemPrompt:    engine.SystemPrompt{Parts: []engine.SystemPromptPart{{Text: "snap system"}}},
 		ContextMessages: []types.Message{newUserMessage("snap history")},
 		Model:           "snap-model", Client: snapClient, MaxTokens: 4096,
-	}}
+	})
 	m, _ = submit(m, "/btw q")
 	p := be.queries[0]
 	if p.SystemPrompt.Parts[0].Text != "snap system" || *p.Messages[0].Content[0].Text != "snap history" || p.Model != "snap-model" || p.Client != snapClient {
@@ -155,7 +156,8 @@ func TestBTW_UsesSnapshotWhileRunning(t *testing.T) {
 
 func TestBTW_UsesHistoryWhenIdle(t *testing.T) {
 	m, be := newBTWModel(t, nil)
-	m.mainUseCtx = &tools.UseContext{CacheParams: &engine.CacheSafeParams{ContextMessages: []types.Message{newUserMessage("stale")}}}
+	m.mainSnap = &tools.SnapshotSlot{}
+	m.mainSnap.Store(&engine.CacheSafeParams{ContextMessages: []types.Message{newUserMessage("stale")}})
 	m, _ = submit(m, "/btw q")
 	p := be.queries[0]
 	if *p.Messages[0].Content[0].Text != "earlier question" || p.SystemPrompt.Parts[0].Text != "project memory" || p.Model != "main-model" {

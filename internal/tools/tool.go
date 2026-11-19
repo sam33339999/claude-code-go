@@ -8,6 +8,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"sync"
 )
 
 // Input represents tool call input parameters (a JSON object).
@@ -133,6 +134,9 @@ type UseContext struct {
 	// TodoAppendOnly makes TodoWrite append to the session todo list instead
 	// of replacing it (used by /btw).
 	TodoAppendOnly bool
+	// Snapshot, when set, also receives each cache-safe snapshot the loop
+	// writes to CacheParams, readable from other goroutines.
+	Snapshot *SnapshotSlot
 	// MemoryStore is the project memory store injected by bootstrap/TUI.
 	// Concrete type: *memdir.MemoryStore (set in internal/tools/memory).
 	MemoryStore any
@@ -331,4 +335,26 @@ func PropSchema(def map[string]any) json.RawMessage {
 		panic("tool.PropSchema: " + err.Error())
 	}
 	return b
+}
+
+// SnapshotSlot shares the latest cache-safe prefix snapshot of a running
+// query with another goroutine (e.g. the TUI starting a /btw). It is held by
+// pointer so copies of UseContext share it.
+type SnapshotSlot struct {
+	mu sync.Mutex
+	v  any
+}
+
+// Store records the latest snapshot.
+func (s *SnapshotSlot) Store(v any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.v = v
+}
+
+// Load returns the latest snapshot (nil if none yet).
+func (s *SnapshotSlot) Load() any {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.v
 }

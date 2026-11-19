@@ -160,7 +160,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, waitForStreamEvent(m.streamCh)
 
 	case StreamDoneMsg:
-		m.mainUseCtx = nil
+		m.mainSnap = nil
 		m = m.recordUsage(msg.Usage)
 		m = m.resetQueryFeedback()
 		m.isLoading = false
@@ -198,7 +198,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case StreamErrorMsg:
-		m.mainUseCtx = nil
+		m.mainSnap = nil
 		m = m.resetQueryFeedback()
 		m.isLoading = false
 		m.showSpinner = false
