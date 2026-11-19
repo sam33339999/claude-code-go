@@ -17,6 +17,27 @@ import (
 // startQueryCmd builds a tea.Cmd that launches a new query against the engine.
 // It cancels any in-flight query first, then opens a new context and channel.
 // The userText message is already appended to m.messages by the caller (handleSubmit).
+// buildMainSystemPrompt returns the main loop's stable system prefix:
+// GLAUDE.md content, then the resident-coordinator role prompt when
+// coordinator mode is active, with one cache breakpoint at the end. Dynamic
+// per-turn reminders are appended by startQueryCmd after it. /btw reuses it
+// so its prefix matches the main loop's cache.
+func buildMainSystemPrompt(m *AppModel) engine.SystemPrompt {
+	var sysPrompt engine.SystemPrompt
+	if m.memdirPrompt != "" {
+		sysPrompt.Parts = append(sysPrompt.Parts, engine.SystemPromptPart{Text: m.memdirPrompt})
+	}
+	if m.coordinatorMode {
+		sysPrompt.Parts = append(sysPrompt.Parts, engine.SystemPromptPart{
+			Text: coordinator.GetCoordinatorSystemPrompt(false),
+		})
+	}
+	if len(sysPrompt.Parts) > 0 {
+		sysPrompt.Parts[len(sysPrompt.Parts)-1].CacheControl = "ephemeral"
+	}
+	return sysPrompt
+}
+
 func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 	// Cancel any running query.
 	if m.abortFn != nil {
@@ -58,20 +79,7 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 	// role prompt when coordinator mode is active. One cache breakpoint at
 	// the end of the stable section; dynamic memory reminders are appended
 	// after it (turn-tail state, never cached into the prefix).
-	var sysPrompt engine.SystemPrompt
-	if m.memdirPrompt != "" {
-		sysPrompt.Parts = append(sysPrompt.Parts, engine.SystemPromptPart{
-			Text: m.memdirPrompt,
-		})
-	}
-	if m.coordinatorMode {
-		sysPrompt.Parts = append(sysPrompt.Parts, engine.SystemPromptPart{
-			Text: coordinator.GetCoordinatorSystemPrompt(false),
-		})
-	}
-	if len(sysPrompt.Parts) > 0 {
-		sysPrompt.Parts[len(sysPrompt.Parts)-1].CacheControl = "ephemeral"
-	}
+	sysPrompt := buildMainSystemPrompt(m)
 
 	// Surface relevant memories (if memory store is available).
 	if m.memoryStore != nil && memdir.IsAutoMemoryEnabled(false, nil) {

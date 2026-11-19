@@ -81,7 +81,13 @@ type QueuedCommand struct {
 	AgentID string
 	// CreatedAt is the wall-clock time when the command was created.
 	CreatedAt time.Time
+	// Origin tags where the command came from ("" = typed by the user,
+	// OriginBTW = a /btw answer handed to the main loop).
+	Origin string
 }
+
+// OriginBTW marks a /btw answer handed to the main loop with ctrl+y.
+const OriginBTW = "btw"
 
 // NewCommand creates a QueuedCommand with a unique ID and the current timestamp.
 // The agentID defaults to "" (main session).
