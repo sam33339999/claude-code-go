@@ -529,7 +529,7 @@ func buildRunAgentFn(
 			}
 		}
 
-		params, seed := buildSubAgentQuery(req, reg, agentProfiles, parentModel, inboxCh, &runStates, agentID)
+		params, seed := buildSubAgentQuery(req, reg, agentProfiles, parentModel, st.Settings.Provider, inboxCh, &runStates, agentID)
 
 		// Inject AgentID into context for downstream use.
 		agentCtx := agentctx.WithAgentID(ctx, string(agentID))
@@ -578,6 +578,7 @@ func buildSubAgentQuery(
 	reg *tools.Registry,
 	agentProfiles *agenttype.Registry,
 	parentModel string,
+	provider string,
 	inboxCh <-chan string,
 	runStates *sync.Map,
 	agentID coordinator.AgentID,
@@ -628,12 +629,14 @@ func buildSubAgentQuery(
 	// Build ExcludeTools from profile.
 	excludeTools := buildExcludeToolsFromProfile(profile, reg, req.AllowedTools, req.DenyTools)
 
-	// Resolve model: env > request > profile > inherit.
+	// Resolve model: env > request > profile > inherit. Anthropic family
+	// aliases (e.g. explore's "haiku") fall back to the parent model on the
+	// openai provider, where they would 404 "Model not exist".
 	profileModel := ""
 	if profile != nil {
 		profileModel = profile.Model
 	}
-	queryModel := agenttype.ResolveModel(parentModel, req.Model, profileModel)
+	queryModel := agenttype.ResolveModelForProvider(provider, parentModel, req.Model, profileModel)
 
 	// Build the initial user message.
 	userMsg := types.Message{
