@@ -56,9 +56,10 @@
 
 ### 5.2 脈絡與目標
 
-- **前綴快照**：TUI 保留主腦最近一次查詢的 `tools.UseContext` 指標；engine 每輪都把 `CacheSafeParams`（system prompt、歷史、model、client）寫進 `UseContext.CacheParams`。btw 取最新的快照：
-  - 主腦在跑：用快照（反映這一輪最新的歷史）。
-  - 主腦閒置：用快照；從未有過查詢（新會話）時，以 `startQueryCmd` 相同的方式組 system prompt（抽成共用 helper），歷史用 `queryEngine.GetMessages()`。
+- **脈絡來源**（審閱後修正）：
+  - 主腦**在跑**：用這次查詢 `UseContext.CacheParams` 的快照。engine 在每次送出請求前寫快照，所以快照是「主腦目前這一個請求」的前綴，正好命中它的快取；看不到主腦正在串流中的輸出（可接受）。
+  - 主腦**閒置**：不用快照（它少了最後一輪的 assistant 回覆與 tool_result，而且 `/clear`、`/compact`、resume、`/model` 之後會過期）。改用 `queryEngine.GetMessages()`，system prompt 以 `startQueryCmd` 相同的方式組（抽成共用 helper）。前綴仍能命中上一個快取斷點。
+  - TUI 只在主腦查詢進行中保留那次查詢的 `UseContext` 指標，查詢結束就丟棄。
 - **請求**：`messages = 快照歷史 + [user: 問題 + btw 說明]`。btw 說明是接在問題後的一段固定文字（例如「This is a side question asked while you are working; answer it briefly. You can only use read-only tools.」），只出現在尾端，不動前綴。
 - **目標**：
   - 預設：快照的 client 與 model（= 主腦這一輪的目標，才吃得到快取）。
@@ -68,8 +69,9 @@
 ### 5.3 執行時工具限制
 
 - engine 新增 `QueryParams.ToolFilter func(name string, input tools.Input) (allowed bool, reason string)`：工具清單（schema）照送，執行前呼叫；不允許時不執行，回 `tool_result` 錯誤「<name> is not available in /btw (read-only)」。
-- btw 的 filter：工具 `IsReadOnly(input) == true`，或名稱是 `TodoWrite`。其餘（Write、Edit、Bash、Agent、SendMessage、…）一律擋。
-- **權限**：唯讀工具仍經過既有的權限鏈；若結果是「需要詢問使用者」，btw **直接拒絕**該次呼叫（不跳對話框），reason「needs permission; ask the main conversation instead」。以 `QueryParams` 的一個旗標（例如 `NoInteractivePermissions bool`）讓 orchestration 把 ask 當成 deny。
+- btw 的 filter（審閱後修正）：`IsReadOnly(input) == true` **且不在排除清單**，或名稱是 `TodoWrite`（見 §5.7）。排除清單：`AskUserQuestion`（會跳對話框）、`EnterPlanMode` / `ExitPlanMode`（會改整個會話的權限模式）、`Sleep`，以及任何 coordinator / sub-agent 工具。其餘（Write、Edit、Bash、Agent、SendMessage、…）一律擋。排除清單要有守護測試，新增工具時一併檢查。
+- **權限**（審閱後修正）：唯讀工具仍要經過權限判斷（不然 btw 可以不經同意讀專案外的檔案），但以**不互動、不記錄**的方式：permissions 套件新增一個檢查模式（例如 `Checker.CheckNonInteractive`），結果是 ask 時直接當成 deny、**不呼叫 askUser**，而且**不寫入**會話共用的拒絕紀錄（否則 btw 被擋的次數會讓主腦之後改成一直詢問使用者）。`QueryParams.NonInteractivePermissions bool` 讓 orchestration 改用這個模式。reason「needs permission; ask the main conversation instead」。
+- **壓縮隔離**：btw 帶自己的 `CompactTracker`，並以 `QueryParams.NoCompaction bool` 關閉 snip／micro／auto 壓縮（壓縮會多一次 LLM 呼叫、改寫前綴、吃不到快取，失敗還會影響熔斷）。請求估算超過目標窗口時直接拒絕：「the conversation is too large for /btw; ask the main conversation instead」。
 
 ### 5.4 修正：非主腦查詢不得接收主腦佇列
 
@@ -96,7 +98,7 @@
   [btw] Q: <問題>
   A: <回答>
   ```
-- 主腦在跑：以 `msgqueue.ModePrompt`（`PriorityNext`）入列，在下一個工具邊界由 `drainMidTurn` 接到歷史尾端（既有機制，不動前綴）。
+- 主腦在跑：以 `msgqueue.ModePrompt`（`PriorityNext`）入列，在下一個工具邊界由 `drainMidTurn` 接到歷史尾端（既有機制，不動前綴）。這則佇列項目要帶 btw 標記：**主腦這一輪如果沒有再碰到工具邊界就結束**，TUI 在處理佇列前把帶標記、尚未被取走的項目移出，改成「待附加的 btw 備註」（同下一條），不自動開新一輪（審閱後修正）。
 - 主腦閒置：不自動開一輪查詢；暫存為「待附加的 btw 備註」，附加在使用者下一則訊息的前面一起送出；輸入框上方顯示「1 btw note will be attached」，可按 Esc 取消（我的決定：避免使用者只是想存起來，主腦卻立刻開始回應）。
 - 交出後提示列消失，區塊標示「sent to main」。
 
@@ -132,3 +134,7 @@
 5. 主腦閒置時 ctrl+y 不自動開始查詢，而是附加在下一則訊息前面送出；可取消。
 6. btw 不寫進 transcript，resume 後看不到；交給主腦的內容隨主腦歷史保存。
 7. 一併修正 §5.4：非主腦查詢不再接收主腦的佇列訊息。
+8. （審閱後）唯讀判斷用 `IsReadOnly` 加排除清單（AskUserQuestion、Enter/ExitPlanMode、Sleep、coordinator 工具）。
+9. （審閱後）主腦閒置時用 `GetMessages()`，執行中才用快照；快照在查詢結束時丟棄。
+10. （審閱後）權限檢查改用不互動、不記錄拒絕的模式；btw 關閉壓縮，脈絡太大就拒絕。
+11. （審閱後）ctrl+y 交出、但主腦這一輪沒再碰到工具邊界就結束時，轉為「待附加」，不自動開新一輪。
