@@ -92,9 +92,12 @@
   ```
   以既有的 `modelMu`（改名為 `mainMu` 亦可）保護 client、model、mainContextWindow、maxTokens 四個值；`clientFor`、`activeModelFor`、`targetFor`、`buildRequestWithModel` 改讀快照。`SetModel(m)` 保留為「只換模型」的便捷方法（內部呼叫 SetMainTarget）。
 - 跟著主腦一起換的：主對話、`Client` 為 nil 且 `Model` 為空的 sub-agent（inherit）、fork（快照取 activeModel，provider 跟 engine 預設 client 走）、記憶抽取／session memory 等背景 `Query`。
-- 不受影響的：等級路由的 sub-agent（自帶 `Client`）；已派出、正在續跑的 sub-agent（`runStates` 保存派工當下的 params）。
+- 不受影響的：等級路由的 sub-agent（自帶 `Client`）；**已派出的 sub-agent 續跑時凍結在派工當下的目標**：inherit 與 fork 的 sub-agent 在派工時就把當下的主腦 client、model、window、max_tokens 寫進 params（目前 inherit 存的是 nil/空字串，續跑時會讀到新主腦——要改），沿用 provider-tiers「續跑沿用派工當下綁定」的快取連續性原則。
+- **`main:<模型>` 等級永遠指啟動時的主腦 client**（settings.json 的 provider 與金鑰），不是「目前的主腦」：bootstrap 保留啟動 client，`resolveSubAgentTarget` 遇到 `main` 綁定時明確帶入它。否則主腦切到 zai 後，`lite = main:claude-haiku` 會把 haiku 送到 zai 而 404。
+- **切換存的是解析後的目標快照**，不是等級名：之後 `/tier` 改了該等級，主腦不跟著換（要換就再選一次）。`Options().Current` 以 provider＋model 比對判定。
+- **跨 provider 的歷史**：provider 改變時，engine 從之後送出的請求中移除 thinking 區塊（原廠簽章到別家 Anthropic 相容端點可能回 400；切換本來就讓前綴失效，所以這不增加額外的快取損失）。tool_use / tool_result 照舊保留。同一 provider 只換模型時不清洗。
 - **一輪查詢內不換**：`runQueryLoop` 在查詢開始時取一次目標快照，整個 loop 都用它（修正前每輪重讀 `e.model`）。
-- bootstrap 同步更新 `AppState.MainLoopModel`（`ModelID` 與 `Provider` 的線格式），讓 `buildRunAgentFn` 依新主腦解析別名（例如切到 openai 格式的 zai 後，inherit 規則要用 openai 的別名邏輯）。
+- bootstrap 同步更新 `AppState.MainLoopModel`（`ModelID`，以及 `Provider` 填線格式 `direct` / `openai`），並把 `buildRunAgentFn` 傳給別名解析的 provider 從 `st.Settings.Provider` 改為 `MainLoopModel.Provider`（空值時退回 `Settings.Provider`），讓切到 openai 格式的 zai 後，inherit 的別名規則用 openai 邏輯。resume 一個切換過的 session 時回到 default（切換只在 session 有效）；`MainLoopModel` 的序列化格式不變。
 
 ### 5.3 TUI
 
@@ -108,7 +111,8 @@
   request re-sends the whole conversation (≈<估算> tokens) without cache.
   y switch · n cancel
   ```
-  估算值用目前歷史的 token 估算（`compact.EstimateTokens`，不含 overhead 也可，標示「≈」）。歷史為空或選的就是目前目標 → 不警示（選目前目標 = no-op，提示「already on …」）。
+  估算值用目前歷史的 token 估算（`compact.EstimateTokens`，不含 overhead 也可，標示「≈」）。
+  - 目前歷史估算超過新目標的自動壓縮門檻時，確認框多一行警告：「conversation is larger than the new model's window: it will be compacted on the next turn and the oldest part may be trimmed」。壓縮的摘要輸入會經 `fitForSummary` 截到新目標放得下，不會失敗，但最舊的內容可能被捨棄。不在切換前用舊目標先壓縮（那會新增 LLM 呼叫）。歷史為空或選的就是目前目標 → 不警示（選目前目標 = no-op，提示「already on …」）。
 - 成功後：system 訊息「Main model: pro → openrouter:qwen/qwen3.8-27b (session only)」；狀態列更新 model 與 `contextWindow`。
 - `commands` 層不得 import bootstrap；`ModelSwitcher` 由 `tui.New` 注入（nil → 退回現在的 `SetModel` 行為）。
 
@@ -142,3 +146,9 @@
 4. 選目前已在用的目標 = no-op，不警示。
 5. 等級金鑰缺失時選單顯示不可用，不退回舊 client。
 6. 確認框顯示的 token 數是估算值。
+7. （審閱後）`main:<模型>` 等級永遠指啟動時的主腦 client。
+8. （審閱後）已派出的 sub-agent 續跑時凍結在派工當下的目標（inherit / fork 派工時寫入當下主腦目標）。
+9. （審閱後）切到窗口比歷史小的目標：確認框警告、下一輪壓縮並可能截掉最舊內容；不在切換前先壓縮。
+10. （審閱後）provider 改變時移除歷史中的 thinking 區塊；同 provider 換模型不清洗。
+11. （審閱後）切換存目標快照，之後 `/tier` 改綁定不影響主腦；`Current` 以 provider＋model 判定。
+12. （審閱後）別名解析改看 `MainLoopModel.Provider`；resume 回到 default。
