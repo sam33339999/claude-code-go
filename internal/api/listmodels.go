@@ -73,6 +73,10 @@ func ListModels(ctx context.Context, cfg ClientConfig, httpClient *http.Client) 
 			base = defaultOpenAIBaseURL
 		}
 		models, err = listOpenAIModels(ctx, httpClient, base, cfg.APIKey)
+		if err == nil && openRouterHostMatch(base) {
+			// OpenRouter serves /models without auth; verify the key too.
+			err = getJSON(ctx, httpClient, base+"/v1/key", map[string]string{"Authorization": "Bearer " + cfg.APIKey}, cfg.APIKey, &struct{}{})
+		}
 	default:
 		return nil, &ListModelsError{Kind: ListModelsNotSupported, Message: fmt.Sprintf("provider %q cannot list models", cfg.Provider)}
 	}
@@ -134,6 +138,13 @@ func listOpenAIModels(ctx context.Context, c *http.Client, base, key string) ([]
 		out = append(out, ModelListing{ID: m.ID, ContextWindow: max(m.ContextLength, 0)})
 	}
 	return out, nil
+}
+
+// openRouterHostMatch reports whether base is OpenRouter, whose model list is
+// public (a wrong key still lists models). Variable for tests.
+var openRouterHostMatch = func(base string) bool {
+	u, err := url.Parse(base)
+	return err == nil && (u.Hostname() == "openrouter.ai" || strings.HasSuffix(u.Hostname(), ".openrouter.ai"))
 }
 
 // notAModelList reports a 200 response without a "data" array.

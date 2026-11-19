@@ -198,6 +198,7 @@ func (w *setupWizard) viewDone(theme Theme) string {
 		}
 	}
 	sb.WriteString("\nRestart glaude to use the new settings.\n")
+	sb.WriteString(mutedStyle(theme).Render("Some endpoints list models without checking the key; if the first message fails with 401, run /setup again.") + "\n")
 	warnings := append(append([]string(nil), w.overrides...), w.report.Warnings...)
 	for _, o := range warnings {
 		sb.WriteString(warningStyle(theme).Render("⚠ "+o) + "\n")

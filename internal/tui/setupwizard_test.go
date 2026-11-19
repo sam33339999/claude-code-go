@@ -396,3 +396,11 @@ func TestSetupWizard_KeySourcePerFormat(t *testing.T) {
 		t.Errorf("settings key must not carry over to another format: %v", a)
 	}
 }
+
+func TestSetupWizard_DoneNotesKeyCaveat(t *testing.T) {
+	w := toConfirm(t)
+	w.onApplied(commands.SetupReport{SettingsWritten: true}, nil)
+	if !strings.Contains(wView(w), "401") {
+		t.Error("done page must say a wrong key may only show up as 401 later")
+	}
+}

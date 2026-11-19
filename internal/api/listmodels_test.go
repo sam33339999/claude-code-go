@@ -201,3 +201,40 @@ func TestListModels_MissingDataIsUnsupported(t *testing.T) {
 		t.Errorf("kind = %s, want not_supported", got)
 	}
 }
+
+// TestListModels_OpenRouterChecksKey: OpenRouter lists models without auth,
+// so a bad key must be caught with GET /api/v1/key.
+func TestListModels_OpenRouterChecksKey(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/models":
+			_, _ = w.Write([]byte(`{"data":[{"id":"q/a"}]}`))
+		case "/api/v1/key":
+			if r.Header.Get("Authorization") != "Bearer good" {
+				w.WriteHeader(401)
+				return
+			}
+			_, _ = w.Write([]byte(`{"data":{}}`))
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+	old := openRouterHostMatch
+	openRouterHostMatch = func(string) bool { return true }
+	defer func() { openRouterHostMatch = old }()
+
+	if _, err := ListModels(context.Background(), ClientConfig{Provider: ProviderOpenAI, BaseURL: srv.URL + "/api/v1", APIKey: "good"}, nil); err != nil {
+		t.Fatalf("good key: %v", err)
+	}
+	_, err := ListModels(context.Background(), ClientConfig{Provider: ProviderOpenAI, BaseURL: srv.URL + "/api/v1", APIKey: "bad"}, nil)
+	if got := listErrKind(t, err); got != ListModelsUnauthorized {
+		t.Errorf("bad key: kind %s, want unauthorized", got)
+	}
+}
+
+func TestOpenRouterHostMatch(t *testing.T) {
+	if !openRouterHostMatch("https://openrouter.ai/api") || openRouterHostMatch("https://api.openai.com") {
+		t.Error("openRouterHostMatch")
+	}
+}
