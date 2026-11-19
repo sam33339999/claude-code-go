@@ -241,7 +241,7 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 		tiersOrNil(container.Tiers),
 		container.Setup,
 		container.ModelSwitcher,
-		nil, // /btw --tier resolver: wired in Task 6
+		btwTargetFn(container.ModelSwitcher),
 		rec,
 		container.QuestionAskCh,
 		container.QuestionRespCh,

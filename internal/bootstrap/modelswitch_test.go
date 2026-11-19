@@ -167,3 +167,20 @@ func TestModelSwitcher_PlainIDKeepsCurrentProvider(t *testing.T) {
 		t.Errorf("main = %+v", eng.main)
 	}
 }
+
+func TestModelSwitcher_TargetFor(t *testing.T) {
+	s, eng, _ := newTestSwitcher(t, switchTestConfig)
+	got, err := s.TargetFor("lite")
+	if err != nil || clientID(got.Client) != "zai" || got.Model != "glm-5.3-flash" || got.ContextWindow != 131072 || got.MaxTokens != 8192 || got.ProviderID != "zai" {
+		t.Errorf("TargetFor(lite) = %+v %v", got, err)
+	}
+	if _, err := s.TargetFor("max"); err == nil {
+		t.Error("unbound tier must error")
+	}
+	if got, err := s.TargetFor(""); err != nil || got != eng.main {
+		t.Errorf("TargetFor(\"\") = %+v %v, want the current main target", got, err)
+	}
+	if eng.main != switchStartup {
+		t.Error("TargetFor must not switch the main loop")
+	}
+}

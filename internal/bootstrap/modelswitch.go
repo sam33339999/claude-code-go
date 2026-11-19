@@ -162,3 +162,32 @@ func mainWireFormat(settings *config.LayeredSettings) string {
 	}
 	return string(api.ProviderDirect)
 }
+
+// TargetFor resolves ref like /model does and returns the engine target
+// without switching the main loop ("" = the current main target). /btw
+// --tier uses it.
+func (s *modelSwitcher) TargetFor(ref string) (engine.MainTarget, error) {
+	if strings.TrimSpace(ref) == "" {
+		return s.eng.MainTarget(), nil
+	}
+	o, err := s.Resolve(ref)
+	if err != nil {
+		return engine.MainTarget{}, err
+	}
+	if !o.Available {
+		return engine.MainTarget{}, fmt.Errorf("%s is not available: %s", o.Label(), o.Reason)
+	}
+	client, err := s.clientFor(o.Provider)
+	if err != nil {
+		return engine.MainTarget{}, err
+	}
+	return engine.MainTarget{Client: client, ProviderID: o.Provider, Model: o.Model, ContextWindow: o.ContextWindow, MaxTokens: o.MaxTokens}, nil
+}
+
+// btwTargetFn adapts the container's ModelSwitcher for /btw --tier.
+func btwTargetFn(ms commands.ModelSwitcher) func(string) (engine.MainTarget, error) {
+	if s, ok := ms.(*modelSwitcher); ok && s != nil {
+		return s.TargetFor
+	}
+	return nil
+}
