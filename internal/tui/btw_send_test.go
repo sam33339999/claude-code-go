@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/tunsuy/glaude/internal/commands"
 	"github.com/tunsuy/glaude/internal/engine"
 	"github.com/tunsuy/glaude/internal/msgqueue"
 )
@@ -121,5 +122,51 @@ func runCmds(cmd tea.Cmd) {
 			}
 		}
 	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+// Final review I-1: Esc on a finished btw dismisses it and never interrupts
+// the main loop.
+func TestBTW_EscOnDoneDismissesOnly(t *testing.T) {
+	m, _ := doneBTW(t, true)
+	aborted := false
+	m.abortFn = func() { aborted = true }
+	m, _ = press(m, tea.KeyPressMsg{Code: tea.KeyEsc})
+	if aborted || !m.isLoading {
+		t.Fatal("Esc on a finished btw interrupted the main loop")
+	}
+	if strings.Contains(btwBlock(m), "ctrl+y") {
+		t.Errorf("hint still shown after dismiss: %q", btwBlock(m))
+	}
+	m, _ = press(m, ctrlY)
+	if m.msgQueue.Len() != 0 {
+		t.Error("a dismissed btw must not be sendable")
+	}
+}
+
+// Final review I-2: a btw note left in the queue after an abort/error must
+// never start a main turn by itself.
+func TestBTW_NoteNeverStartsTurnAfterAbort(t *testing.T) {
+	m, be := doneBTW(t, true)
+	m, _ = press(m, ctrlY)
+	m.abortFn = func() {}
+	m, _ = press(m, tea.KeyPressMsg{Code: tea.KeyEsc}) // main aborted
+	before := len(be.queries)
+	runCmds(processQueueCmd(&m))
+	if len(be.queries) != before {
+		t.Fatal("the btw note started a main turn")
+	}
+	if !strings.HasPrefix(m.btwPending, "[btw] Q:") || m.msgQueue.Len() != 0 {
+		t.Errorf("note not reclaimed: pending %q queue %d", m.btwPending, m.msgQueue.Len())
+	}
+}
+
+// Final review M-3: /clear drops a pending btw note.
+func TestBTW_ClearDropsPending(t *testing.T) {
+	m, _ := doneBTW(t, false)
+	m, _ = press(m, ctrlY)
+	m, _ = m.applyCommandResult(commands.Result{ClearHistory: true, Display: commands.DisplayNone}, "clear")
+	if m.btwPending != "" || m.btw != nil {
+		t.Error("/clear must drop the btw session and its pending note")
 	}
 }

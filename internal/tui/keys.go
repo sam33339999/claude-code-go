@@ -261,6 +261,12 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.btw != nil && m.btw.status == btwRunning {
 			return m.cancelBTW(), nil
 		}
+		// A finished, unsent btw: Esc only dismisses its hint.
+		if m.btw != nil && m.btw.status == btwDone && !m.btw.sent && !m.btw.dismissed {
+			m.btw.dismissed = true
+			m.refreshBTWBlock()
+			return m, nil
+		}
 		if m.isLoading {
 			return m.doAbort()
 		}

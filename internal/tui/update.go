@@ -475,6 +475,10 @@ func processQueueCmd(m *AppModel) tea.Cmd {
 	if m.msgQueue == nil {
 		return nil
 	}
+	// A /btw note never starts a main turn on its own (whatever drains the
+	// queue: turn end, abort, error, agent wake-ups): it waits for the next
+	// user message instead.
+	*m = m.reclaimBTWNotes()
 
 	cmd, ok := m.msgQueue.Dequeue("") // main session agentID=""
 	if !ok {
@@ -584,6 +588,7 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 
 	if result.ClearHistory {
 		m = m.dropBTW()
+		m.btwPending = ""
 		m.messages = nil
 		m.queryEngine.SetMessages(nil)
 		m.statusBar.contextTokens = 0

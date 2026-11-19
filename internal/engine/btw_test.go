@@ -224,3 +224,17 @@ func TestSnapshotSlot_ConcurrentRead(t *testing.T) {
 		t.Errorf("slot = %+v", slot.Load())
 	}
 }
+
+// Final review I-3: in append-only mode TodoWrite runs under the real
+// permission checker in default mode (it never prompts, so Ask must not
+// turn it into a denial).
+func TestNonInteractive_TodoWriteAppendAllowed(t *testing.T) {
+	todo := &callCountTool{stubTool: stubTool{name: "TodoWrite"}}
+	chk := &askChecker{}
+	eng := New(Config{Client: toolThenDone("TodoWrite"), Registry: newTestRegistry(todo), Model: "m", PermissionChecker: chk})
+	runQuery(t, eng, QueryParams{Messages: []types.Message{userText("x")}, NoWriteBack: true, NonInteractivePermissions: true,
+		ToolUseContext: &tools.UseContext{Ctx: context.Background(), TodoAppendOnly: true}})
+	if todo.calls.Load() != 1 || chk.requested.Load() != 0 {
+		t.Errorf("TodoWrite calls %d, interactive %d", todo.calls.Load(), chk.requested.Load())
+	}
+}

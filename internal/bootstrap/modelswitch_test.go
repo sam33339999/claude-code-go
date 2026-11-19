@@ -184,3 +184,16 @@ func TestModelSwitcher_TargetFor(t *testing.T) {
 		t.Error("TargetFor must not switch the main loop")
 	}
 }
+
+// Final review M-1: resolving the target already in use marks it Current.
+func TestModelSwitcher_ResolveMarksCurrent(t *testing.T) {
+	s, _, _ := newTestSwitcher(t, switchTestConfig)
+	if o, _ := s.Resolve("default"); !o.Current {
+		t.Error("default must be current at startup")
+	}
+	lite, _ := s.Resolve("lite")
+	_ = s.Apply(lite)
+	if o, _ := s.Resolve("lite"); !o.Current {
+		t.Error("lite must be current after switching to it")
+	}
+}

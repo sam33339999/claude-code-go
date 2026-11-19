@@ -48,6 +48,7 @@ type btwSession struct {
 	cancel    context.CancelFunc
 	ch        <-chan engine.Msg
 	sent      bool
+	dismissed bool // Esc on a finished answer: hint hidden, ctrl+y disabled
 }
 
 // btwChunkMsg carries one engine Msg of the /btw stream (ok=false: closed).
@@ -261,9 +262,12 @@ func (b *btwSession) render() string {
 		}
 		sb.WriteString("└ " + status + " · Esc stop")
 	case btwDone:
-		if b.sent {
+		switch {
+		case b.sent:
 			sb.WriteString("└ sent to main")
-		} else {
+		case b.dismissed:
+			sb.WriteString("└ dismissed")
+		default:
 			sb.WriteString("└ ctrl+y send to main · Esc dismiss")
 		}
 	case btwFailed:
@@ -293,7 +297,7 @@ func (b *btwSession) handoff() string {
 // to the next user message. It works once per side question.
 func (m AppModel) sendBTW() AppModel {
 	b := m.btw
-	if b == nil || b.status != btwDone || b.sent {
+	if b == nil || b.status != btwDone || b.sent || b.dismissed {
 		return m
 	}
 	b.sent = true

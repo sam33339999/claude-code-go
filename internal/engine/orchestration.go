@@ -279,6 +279,11 @@ func executeOneTool(
 		if uctx != nil && uctx.NonInteractivePermissions {
 			// Never prompt and never record a denial: Ask counts as Deny.
 			permResult, permErr = permChecker.CanUseTool(ctx, tc.name, tc.input, uctx)
+			// TodoWrite in append-only mode never prompts in the original
+			// either; it only adds to the session list, so allow it.
+			if permErr == nil && permResult.Behavior == tools.PermissionAsk && uctx.TodoAppendOnly && tc.name == "TodoWrite" {
+				permResult = tools.PermissionResult{Behavior: tools.PermissionAllow}
+			}
 			if permErr == nil && permResult.Behavior == tools.PermissionAsk {
 				permResult = tools.PermissionResult{Behavior: tools.PermissionDeny, Reason: "needs permission; ask the main conversation instead"}
 			}

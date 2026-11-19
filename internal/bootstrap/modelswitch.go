@@ -81,8 +81,18 @@ func (s *modelSwitcher) fromBinding(name string, b modeltier.Binding) commands.M
 	return o
 }
 
-// Resolve implements commands.ModelSwitcher.
+// Resolve implements commands.ModelSwitcher; the result's Current reports
+// whether the main loop already runs on it.
 func (s *modelSwitcher) Resolve(ref string) (commands.ModelOption, error) {
+	o, err := s.resolve(ref)
+	if err == nil {
+		cur := s.eng.MainTarget()
+		o.Current = o.Available && o.Provider == cur.ProviderID && o.Model == cur.Model
+	}
+	return o, err
+}
+
+func (s *modelSwitcher) resolve(ref string) (commands.ModelOption, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return commands.ModelOption{}, fmt.Errorf("model reference is empty")
