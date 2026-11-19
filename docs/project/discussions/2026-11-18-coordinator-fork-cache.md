@@ -124,6 +124,11 @@ CacheReadInputTokens 獨立報告（feat/openai-cache-usage 補上此前恆 0 �
 
 ## Phase 2（未落地，後續任務）
 
+> **狀態（2026-11-19 使用者確認）：無急迫性，全部記錄為 backlog、不排程。**
+> 其中項目 2（wake 產品層）與項目 3（worktree isolation）使用者明確指示「先記錄文件」。
+> 觸發條件建議：需要平行多個寫入 agent → 項目 3；需要關機再開續話 → 項目 1；
+> 需要常駐專案管家介面 → 項目 2；Anthropic 直連且續話間隔 >5m → 項目 4。
+
 - **跨 process 存續**：Projects thread 可跨 coordinator 替換存活（project-activity wake 帶摘要）。
   目前 goroutine 隨 process 死；需接 internal/session＋transcript 持久化＋resume（runStates 已留
   per-agent 歷史，是持久化的天然起點）。
