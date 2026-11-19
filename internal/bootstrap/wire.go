@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/tunsuy/claude-code-go/internal/agentctx"
@@ -717,11 +718,21 @@ func collectSubAgentRun(
 ) (string, []types.Message, error) {
 	collected := append([]types.Message(nil), seed...)
 	var lastText string
+	// lastAssistantText holds the text of the most recent assistant message
+	// that carried text. It is the authoritative final report: streamed deltas
+	// can be empty in edge cases (tool-only final turn, max_turns cutoff), but
+	// the assistant message still carries the answer. Prefer it over the raw
+	// stream accumulation so the coordinator never receives an empty result
+	// when the agent actually answered.
+	var lastAssistantText string
 	for msg := range msgCh {
 		switch msg.Type {
 		case engine.MsgTypeAssistantMessage:
 			if msg.AssistantMsg != nil {
 				collected = append(collected, *msg.AssistantMsg)
+				if t := assistantTextOf(*msg.AssistantMsg); t != "" {
+					lastAssistantText = t
+				}
 			}
 
 		case engine.MsgTypeUserMessage:
@@ -755,14 +766,34 @@ func collectSubAgentRun(
 
 		case engine.MsgTypeError:
 			if msg.Err != nil {
-				return lastText, collected, msg.Err
+				return subAgentResult(lastText, lastAssistantText), collected, msg.Err
 			}
 
 		default:
 			// Consume other events (thinking, turn complete, etc.).
 		}
 	}
-	return lastText, collected, nil
+	return subAgentResult(lastText, lastAssistantText), collected, nil
+}
+
+// subAgentResult picks the agent's final report: the last assistant message
+// text when present (authoritative), otherwise the accumulated stream text.
+func subAgentResult(streamText, assistantText string) string {
+	if assistantText != "" {
+		return assistantText
+	}
+	return streamText
+}
+
+// assistantTextOf concatenates the text blocks of an assistant message.
+func assistantTextOf(m types.Message) string {
+	var sb strings.Builder
+	for _, b := range m.Content {
+		if b.Type == types.ContentTypeText && b.Text != nil {
+			sb.WriteString(*b.Text)
+		}
+	}
+	return sb.String()
 }
 
 // buildExcludeToolsFromProfile computes the ExcludeTools map from an agent profile,

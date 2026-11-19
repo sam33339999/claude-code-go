@@ -2,7 +2,7 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-19T05:16:58Z
+generated_at: 2026-11-19T05:38:34Z
 source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, update_cmd.go, wire.go]
 ---
 
@@ -106,3 +106,4 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 - **2026-11-18 WorkingDir 接線（feat/agent-cwd）**：buildRunAgentFn 改收 *state.AppStateStore（原 state.AppState 快照）——每次 spawn live 讀 WorkingDir＋MainLoopModel（/model、EnterWorktree 切換後生效），sub-agent uctx.WorkingDir 繼承會話目錄。headlessRun useCtx 亦注入 AppStateStore.WorkingDir。兩條建構路徑（生產＋test）同步。
 - **2026-11-19 sub-agent model alias 修正接線（fix/subagent-model-alias）**：buildSubAgentQuery +provider 參數，call site 傳 st.Settings.Provider（live）；explore 的 haiku alias 在 openai provider 不再直送（404 根因）。fork 路徑不受影響（本就繼承父 model）。
 - **2026-11-19 完成事件接線（feat/coordinator-completion-wake）**：buildOnStatusChangeFn 适配 OnStatusChangeFn 新簽名（+result/summary），填入 Event.Result/Summary 供 TUI 建唤醒通知。
+- **2026-11-19 sub-agent result 空值修復（fix/subagent-result-layout）**：collectSubAgentRun 原僅累加 MsgTypeStreamText 為 result——tool-only 結尾/max_turns 截斷/stream delta 缺失時 result 空→DefaultSummaryGenerator(空)→summary 也空（使用者見双空）。現追踪 lastAssistantText（最近帶 text 的 assistant message，權威最終報告），result=lastAssistantText 非空否則 fallback streamText。副效：result 改取「最後一個 text assistant message」而非全 turn stream 累加（更贴近 final report，不含中間 narration）。+subAgentResult/assistantTextOf helper。守護測試 wire_result_test.go×3。
