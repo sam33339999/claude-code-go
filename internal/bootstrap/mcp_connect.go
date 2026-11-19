@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
-	"github.com/tunsuy/claude-code-go/internal/mcp"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	mcptools "github.com/tunsuy/claude-code-go/internal/tools/mcp"
+	"github.com/tunsuy/glaude/internal/config"
+	"github.com/tunsuy/glaude/internal/mcp"
+	"github.com/tunsuy/glaude/internal/tools"
+	mcptools "github.com/tunsuy/glaude/internal/tools/mcp"
 )
 
 // Startup MCP wiring: connect the pool to every configured server and register

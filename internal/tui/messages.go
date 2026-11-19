@@ -3,8 +3,8 @@ package tui
 import (
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/memdir"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // --- User input ---
@@ -158,7 +158,7 @@ type CommandResultMsg struct {
 	IsError bool
 }
 
-// MemdirLoadedMsg is sent when the initial CLAUDE.md files have been loaded.
+// MemdirLoadedMsg is sent when the initial GLAUDE.md files have been loaded.
 type MemdirLoadedMsg struct {
 	Paths       []string
 	ScopedFiles []memdir.DiscoveredFile // Scoped discovery results (new multi-layer)

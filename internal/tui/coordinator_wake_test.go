@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/msgqueue"
+	"github.com/tunsuy/glaude/internal/msgqueue"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

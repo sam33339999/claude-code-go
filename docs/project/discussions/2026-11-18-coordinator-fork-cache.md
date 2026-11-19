@@ -18,7 +18,7 @@ LLM KV-cache（prompt cache）**——fork 出來的 agent 繼承父的請求前
    但 `engine.buildRequestWithModel` 把 system 壓成純字串、`api.MessageRequest` 無任何 cache 標記
    欄位——prompt cache 從未寫入，cache_read 恆 0。
 2. **Coordinator system prompt 未接生產**：`GetCoordinatorSystemPrompt` 只有測試在用；主會話
-   實際只拿 CLAUDE.md＋記憶 reminder。
+   實際只拿 GLAUDE.md＋記憶 reminder。
 3. **Sub-agent 路徑**：`buildRunAgentFn` 未設 `NoWriteBack`（sub-agent 結束覆蓋主對話）、
    `CacheParams` 未接線、inbox 無人消費（`_ <-chan string`）、無歷史保留（SendMessage 無法續話）。
 
@@ -103,7 +103,7 @@ process CWD（向後兼容）。sub-agent 繼承會話目錄；**per-agent 獨�
 （leak 的 isolation:"worktree"）仍列 Phase 2。
 另確認 PermCtx=nil 安全（所有 CheckPermissions override 忽略 UseContext；checker 用自身快照＋ModeFn）。
 
-## 實機驗證紀錄（2026-11-19，編譯產物 bin/claude @ 09fff1b）
+## 實機驗證紀錄（2026-11-19，編譯產物 bin/glaude @ 09fff1b）
 
 環境：CLAUDE_PROVIDER=openai、OPENAI_BASE_URL=token-plan maas（qwen4-max）、
 OPENAI_API_KEY／OPENAI_MODEL／CC26_MODEL 已設定。全數通過：

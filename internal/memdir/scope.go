@@ -7,20 +7,20 @@ import (
 	"sort"
 )
 
-// MemoryScope represents the scope level of a CLAUDE.md file.
+// MemoryScope represents the scope level of a GLAUDE.md file.
 // Lower values are lower priority; higher values override lower ones.
 type MemoryScope int
 
 const (
 	// ScopeManaged is the lowest priority — admin-level instructions.
-	// Located at /etc/claude-code/CLAUDE.md (Linux/macOS only).
+	// Located at /etc/glaude/GLAUDE.md (Linux/macOS only).
 	ScopeManaged MemoryScope = iota
 	// ScopeUser is user-global instructions.
-	// Located at ~/.claude/CLAUDE.md.
+	// Located at ~/.glaude/GLAUDE.md.
 	ScopeUser
 	// ScopeProject is project-level instructions (git-tracked).
-	// Located at {gitRoot}/CLAUDE.md, {gitRoot}/.claude/CLAUDE.md,
-	// and {gitRoot}/.claude/rules/*.md.
+	// Located at {gitRoot}/GLAUDE.md, {gitRoot}/.glaude/GLAUDE.md,
+	// and {gitRoot}/.glaude/rules/*.md.
 	ScopeProject
 	// ScopeLocal is the highest priority — personal project overrides (not git-tracked).
 	// Located at {gitRoot}/CLAUDE.local.md.
@@ -49,15 +49,15 @@ type DiscoveredFile struct {
 	Scope MemoryScope
 }
 
-// DiscoverAll finds all CLAUDE.md files across all 4 scope layers.
+// DiscoverAll finds all GLAUDE.md files across all 4 scope layers.
 // Files are returned in priority order (Managed first, Local last).
 // startDir is typically the project working directory.
 func DiscoverAll(startDir string) ([]DiscoveredFile, error) {
 	var files []DiscoveredFile
 
-	// 1. Managed scope: /etc/claude-code/CLAUDE.md (Linux/macOS only)
+	// 1. Managed scope: /etc/glaude/GLAUDE.md (Linux/macOS only)
 	if runtime.GOOS != "windows" {
-		managedPath := "/etc/claude-code/CLAUDE.md"
+		managedPath := "/etc/glaude/GLAUDE.md"
 		if isReadableFile(managedPath) {
 			files = append(files, DiscoveredFile{
 				Path:  managedPath,
@@ -66,10 +66,10 @@ func DiscoverAll(startDir string) ([]DiscoveredFile, error) {
 		}
 	}
 
-	// 2. User scope: ~/.claude/CLAUDE.md
+	// 2. User scope: ~/.glaude/GLAUDE.md
 	home, err := os.UserHomeDir()
 	if err == nil && home != "" {
-		userPath := filepath.Join(home, ".claude", "CLAUDE.md")
+		userPath := filepath.Join(home, ".glaude", "GLAUDE.md")
 		if isReadableFile(userPath) {
 			files = append(files, DiscoveredFile{
 				Path:  userPath,
@@ -81,8 +81,8 @@ func DiscoverAll(startDir string) ([]DiscoveredFile, error) {
 	// 3. Project scope: requires git root
 	gitRoot := findGitRoot(startDir)
 
-	// {gitRoot}/CLAUDE.md
-	projectRoot := filepath.Join(gitRoot, "CLAUDE.md")
+	// {gitRoot}/GLAUDE.md
+	projectRoot := filepath.Join(gitRoot, "GLAUDE.md")
 	if isReadableFile(projectRoot) {
 		files = append(files, DiscoveredFile{
 			Path:  projectRoot,
@@ -90,8 +90,8 @@ func DiscoverAll(startDir string) ([]DiscoveredFile, error) {
 		})
 	}
 
-	// {gitRoot}/.claude/CLAUDE.md
-	projectDotClaude := filepath.Join(gitRoot, ".claude", "CLAUDE.md")
+	// {gitRoot}/.glaude/GLAUDE.md
+	projectDotClaude := filepath.Join(gitRoot, ".glaude", "GLAUDE.md")
 	if isReadableFile(projectDotClaude) {
 		files = append(files, DiscoveredFile{
 			Path:  projectDotClaude,
@@ -99,8 +99,8 @@ func DiscoverAll(startDir string) ([]DiscoveredFile, error) {
 		})
 	}
 
-	// {gitRoot}/.claude/rules/*.md (sorted alphabetically)
-	rulesDir := filepath.Join(gitRoot, ".claude", "rules")
+	// {gitRoot}/.glaude/rules/*.md (sorted alphabetically)
+	rulesDir := filepath.Join(gitRoot, ".glaude", "rules")
 	if info, statErr := os.Stat(rulesDir); statErr == nil && info.IsDir() {
 		entries, readErr := os.ReadDir(rulesDir)
 		if readErr == nil {

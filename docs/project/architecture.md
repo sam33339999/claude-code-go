@@ -1,4 +1,4 @@
-# Claude Code Go — 总体架构设计文档
+# Glaude — 总体架构设计文档
 
 > 版本：v2.0
 > 日期：2026-04-02
@@ -114,7 +114,7 @@
 - 只做启动引导和参数路由，不包含业务逻辑
 - 负责初始化各模块（依赖注入），但不管理运行时状态
 
-**关键功能**：交互式 REPL 模式、非交互式（`-p`）模式、`claude api` SDK 模式、`claude mcp` MCP 管理、`claude doctor` 诊断、`claude config` 配置管理、会话恢复（`--resume`）、自动更新
+**关键功能**：交互式 REPL 模式、非交互式（`-p`）模式、`glaude api` SDK 模式、`glaude mcp` MCP 管理、`glaude doctor` 诊断、`glaude config` 配置管理、会话恢复（`--resume`）、自动更新
 
 ---
 
@@ -287,7 +287,7 @@
 
 #### 配置系统模块
 
-**职责**：管理三级配置文件的读写：全局配置（`~/.claude/`）、项目配置（`.claude/`）、本地覆盖配置（`.claude.local`）。支持配置合并与优先级覆盖。
+**职责**：管理三级配置文件的读写：全局配置（`~/.glaude/`）、项目配置（`.glaude/`）、本地覆盖配置（`.glaude.local`）。支持配置合并与优先级覆盖。
 
 **边界**：
 - 只做配置文件 I/O，不包含业务判断
@@ -351,11 +351,11 @@
 ### 4.4 配置优先级
 
 ```
-本地配置（.claude/settings.local.json）
+本地配置（.glaude/settings.local.json）
     覆盖 ↓
-项目配置（.claude/settings.json）
+项目配置（.glaude/settings.json）
     覆盖 ↓
-全局配置（~/.claude/settings.json）
+全局配置（~/.glaude/settings.json）
     覆盖 ↓
 默认值
 ```

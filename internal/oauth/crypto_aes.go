@@ -146,7 +146,7 @@ func pbkdf2Key(password, salt []byte, iter, keyLen int) []byte {
 func machinePassword() []byte {
 	hostname, err := os.Hostname()
 	if err != nil || hostname == "" {
-		hostname = "claude-code-fallback-host"
+		hostname = "glaude-fallback-host"
 	}
-	return []byte("claude-code-token-key-v1:" + hostname)
+	return []byte("glaude-token-key-v1:" + hostname)
 }

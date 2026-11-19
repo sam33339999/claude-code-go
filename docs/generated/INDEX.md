@@ -1,6 +1,6 @@
 ---
 type: auto-generated-index
-generated_at: 2026-11-18T15:25:59Z
+generated_at: 2026-11-19T06:00:32Z
 package_count: 41
 ---
 
@@ -46,7 +46,6 @@ package_count: 41
 | `internal/tools/tasks` | Tools | Task, TaskCreateInput, TaskGetInput, TaskListInput, TaskOutputInput | [CONTEXT](../../internal/tools/tasks/CONTEXT.md) |
 | `internal/tools/web` | Tools | HTTPClient(1m), WebFetchInput, WebFetchOutput, WebSearchInput, WebSearchOutput | [CONTEXT](../../internal/tools/web/CONTEXT.md) |
 | `internal/tui` | TUI | AgentColorManager, AgentProgressMsg, AgentStatusMsg, AgentTaskState, AppModel | [CONTEXT](../../internal/tui/CONTEXT.md) |
-| `cmd/claude` | CLI | - | [CONTEXT](../../cmd/claude/CONTEXT.md) |
 | `internal/bootstrap` | CLI | AppContainer, ContainerOptions | [CONTEXT](../../internal/bootstrap/CONTEXT.md) |
 | `internal/commands` | CLI | MCPServerLister(1m), Command, CommandContext, Registry, Result | [CONTEXT](../../internal/commands/CONTEXT.md) |
 

@@ -19,7 +19,7 @@ var dangerousNames = map[string]struct{}{
 	".profile":      {},
 	".ripgreprc":    {},
 	".mcp.json":     {},
-	".claude.json":  {},
+	".glaude.json":  {},
 }
 
 // dangerousDirNames lists directory names whose contents must not be modified
@@ -28,12 +28,12 @@ var dangerousDirNames = map[string]struct{}{
 	".git":    {},
 	".vscode": {},
 	".idea":   {},
-	".claude": {},
+	".glaude": {},
 }
 
 // checkDangerousPath reports whether path targets a protected file or a path
 // inside a protected directory. Both the file base name and every parent
-// directory segment are checked, so writes inside .git/ or .claude/ are caught
+// directory segment are checked, so writes inside .git/ or .glaude/ are caught
 // regardless of depth. The comparison is case-insensitive to handle
 // case-insensitive filesystems (macOS, Windows).
 //

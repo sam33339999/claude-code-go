@@ -1,4 +1,4 @@
-// Package compact implements context compaction strategies for the claude-code-go engine.
+// Package compact implements context compaction strategies for the glaude engine.
 // Three strategies are provided:
 //   - AutoCompactor: token-threshold-based automatic compaction (LLM summarisation)
 //   - MicroCompactor: per-tool-result compaction
@@ -8,7 +8,7 @@ package compact
 import (
 	"context"
 
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // Compressor is the unified interface for context compaction.

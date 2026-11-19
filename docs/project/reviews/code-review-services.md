@@ -281,7 +281,7 @@ default:
 ```go
 func buildDefaultHeaders(version string) map[string]string {
     return map[string]string{
-        "User-Agent": "claude-code-go/" + version,
+        "User-Agent": "glaude/" + version,
     }
 }
 ```
@@ -291,7 +291,7 @@ func buildDefaultHeaders(version string) map[string]string {
 - `x-app: cli`
 
 当前实现：
-- User-Agent 格式为 `claude-code-go/0.1.0`（前缀不一致，缺少 Go 版本）；
+- User-Agent 格式为 `glaude/0.1.0`（前缀不一致，缺少 Go 版本）；
 - 完全缺少 `x-app: cli` 头。
 
 服务端可能依赖这些头进行路由/计费/遥测，格式不符会产生意外行为。建议使用 `runtime.Version()` 提供 Go 版本，并补充 `x-app` 头。
@@ -429,7 +429,7 @@ func jsonUnmarshal(data json.RawMessage, v any) error {
 
 | 设计文档规定 | 实现状态 | 差异等级 |
 |---|---|---|
-| `User-Agent: ClaudeCode/x.y.z Go/1.22` + `x-app: cli` | 实现为 `claude-code-go/0.1.0`，缺少 Go 版本和 `x-app` | P2-6 |
+| `User-Agent: ClaudeCode/x.y.z Go/1.22` + `x-app: cli` | 实现为 `glaude/0.1.0`，缺少 Go 版本和 `x-app` | P2-6 |
 | `golang.org/x/sync/singleflight` | 内联自行实现，缺少 panic recovery | P2（P1-4） |
 | 401 retry 调用 `triggerTokenRefresh()` | 仅标记 `isRetryable=true`，无回调 | P2-7 |
 | `PersistentMaxBackoff` / `PersistentResetCap` 持久重试逻辑 | 常量声明但逻辑未实现 | P2-8 |

@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tunsuy/claude-code-go/internal/mcp"
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/mcp"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
-// The `claude mcp` command tree.  The whole tree reproduces the upstream TS
+// The `glaude mcp` command tree.  The whole tree reproduces the upstream TS
 // CLI's commander.js semantics rather than cobra's: every command disables
 // flag parsing and receives the raw argv tail, which parseMCPFlags
 // (mcp_parse.go) walks with commander's rules (-h wins mid-walk, unknown
@@ -22,7 +22,7 @@ import (
 // positionals-only).  The dispatch layer below prints failures itself and
 // returns ErrSilent, so main exits 1 without prefixing anything.
 
-// newMCPCmd creates the `claude mcp` subcommand tree.
+// newMCPCmd creates the `glaude mcp` subcommand tree.
 func newMCPCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "mcp",
@@ -159,7 +159,7 @@ func runMCPParent(cmd *cobra.Command, args []string) error {
 func newMCPServeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:                "serve [options]",
-		Short:              "Start the Claude Code MCP server",
+		Short:              "Start the Glaude MCP server",
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -200,7 +200,7 @@ func runMCPServeArgs(d *mcpDeps, args []string) error {
 func newMCPAddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:                "add [options] <name> <commandOrUrl> [args...]",
-		Short:              "Add an MCP server to Claude Code.",
+		Short:              "Add an MCP server to Glaude.",
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -348,7 +348,7 @@ func runMCPServe(container *AppContainer) error {
 				ID:      req.ID,
 				Result: mustMarshalJSON(map[string]any{
 					"protocolVersion": "2024-11-05",
-					"serverInfo":      map[string]any{"name": "claude-code-go", "version": appVersion},
+					"serverInfo":      map[string]any{"name": "glaude", "version": appVersion},
 					"capabilities":    map[string]any{"tools": map[string]any{}},
 				}),
 			}

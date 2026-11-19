@@ -28,7 +28,7 @@ const (
 	// conversation context, system prompt, tool list, and model so the request
 	// prefix hits the parent's prompt cache. One-shot background execution.
 	AgentTypeFork AgentType = "fork"
-	// AgentTypeCustom is for user-defined agent types loaded from .claude/agents/.
+	// AgentTypeCustom is for user-defined agent types loaded from .glaude/agents/.
 	AgentTypeCustom AgentType = "custom"
 )
 

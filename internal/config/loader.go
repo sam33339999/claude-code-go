@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // PermissionsConfig corresponds to the permissions field in settings.json.
@@ -79,12 +79,12 @@ const (
 
 // Config directory and file name constants.
 const (
-	ClaudeDir           = ".claude"
-	ClaudeLocalDir      = ".claude.local"
+	ClaudeDir           = ".glaude"
+	ClaudeLocalDir      = ".glaude.local"
 	SettingsFile        = "settings.json"
 	ManagedSettingsFile = "managed-settings.json"
 
-	// Subdirectories under the global ~/.claude/ directory.
+	// Subdirectories under the global ~/.glaude/ directory.
 	SessionsDir = "projects" // JSONL session storage
 	TodosDir    = "todos"
 	StatsFile   = "statsig.json"

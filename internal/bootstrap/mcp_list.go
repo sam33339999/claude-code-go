@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
 // `mcp list` rendering, `mcp add-from-claude-desktop`, and the add-json field
@@ -29,7 +29,7 @@ func runMCPList(d *mcpDeps, args []string) error {
 		return nil
 	}
 	if !mcpHasVisibleServers(d.Store) {
-		fmt.Fprint(d.Stdout, "No MCP servers configured. Use `claude mcp add` to add a server.\n")
+		fmt.Fprint(d.Stdout, "No MCP servers configured. Use `glaude mcp add` to add a server.\n")
 	} else {
 		fmt.Fprint(d.Stdout, "Checking MCP server health…\n\n")
 		for _, e := range d.Store.ListMCPServers() {

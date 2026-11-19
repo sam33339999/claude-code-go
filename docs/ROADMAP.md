@@ -1,8 +1,8 @@
-# Claude Code Go — Roadmap
+# Glaude — Roadmap
 
 > 最后更新：2026-11-18
 >
-> 本文档基于与 claude-code-main（TypeScript 原版）的全面对比分析，规划 claude-code-go 项目从当前状态到生产可用的完整路径。
+> 本文档基于与 claude-code-main（TypeScript 原版）的全面对比分析，规划 glaude 项目从当前状态到生产可用的完整路径。
 >
 > **2026-08-29 状态刷新**：Phase 1 已全部完成（权限接入 + 安全增强 T-060..T-064 已合并 main，CI 含 lint + race + 覆盖率）；Phase 2 大部分完成（34 个工具注册、20 个斜杠命令、mcp/agents/update/install 子命令落地——**2026-11-18 勘误**：仅 mcp 命令组属实，agents/update/install 实为桩，工具与斜杠命令多为"注册"而非"实现"，见下方刷新）。各节标注 ✅ 已完成 / ⚠️ 部分完成 / ❌ 未开始。
 >
@@ -33,7 +33,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   claude-code-go v0.8.0                     │
+│                   glaude v0.8.0                     │
 │                                                             │
 │  ✅ 已完成（可用）          ⚠️ 部分完成            ❌ 缺失  │
 │  ─────────────────     ──────────────────     ────────────  │
@@ -114,7 +114,7 @@ v0.1.0 (当前)          v0.2.0             v0.3.0             v0.4.0           
 |---|------|------|------|
 | 1.1.6.1 | ✅ 实现危险文件/目录保护列表 | `internal/permissions/filesystem.go` | `DangerousPathResult`，防修改 `.bashrc`、`.gitconfig` 等 |
 | 1.1.6.2 | ✅ 实现 Bash 命令基础安全检查 | `internal/tools/shell/security.go` | 检测 `sudo`、`rm -rf`、`eval`、复合/管道命令分段 |
-| 1.1.6.3 | ✅ 实现权限持久化（Always Allow 生效） | `internal/permissions/persist.go` | `PersistConfig`，保存到 `.claude/settings.json` |
+| 1.1.6.3 | ✅ 实现权限持久化（Always Allow 生效） | `internal/permissions/persist.go` | `PersistConfig`，保存到 `.glaude/settings.json` |
 | 1.1.6.4 | ✅ 实现拒绝降级机制 | `internal/permissions/denial.go` | 连续 3 次/累计 20 次拒绝后改路 askUser |
 | 1.1.6.5 | ✅ 完善 Shell 规则通配符匹配 | `internal/tools/shell/matcher.go` | `git *`、`go test:*`、`:*` 前缀语义，复合命令全 stage 命中 |
 
@@ -308,7 +308,7 @@ stdio/sse/http/ws 四种可用。Pool.Connect 经 WS 完成 initialize 握手＋
 
 ### 3.4 插件系统实现 ⚠️ 部分完成（CLI 层已落地，加载引擎待做）
 
-**现状**（2026-09-05 更新）：CLI 管理层已完整落地（PR #23）——`plugin list/install/uninstall/enable/disable/update/validate` + `marketplace` 子树，持久化在 `~/.claude/plugins/`（`internal/config/pluginstore.go`），输出与 oracle 字节级一致。但 `internal/plugin/plugin.go` 的 `Manager` 仍只做配置加载/启停标记（`plugin.go:43` 标注 TODO：完整插件加载待做）——已安装插件的 skills/commands/hooks 尚不会注入会话。
+**现状**（2026-09-05 更新）：CLI 管理层已完整落地（PR #23）——`plugin list/install/uninstall/enable/disable/update/validate` + `marketplace` 子树，持久化在 `~/.glaude/plugins/`（`internal/config/pluginstore.go`），输出与 oracle 字节级一致。但 `internal/plugin/plugin.go` 的 `Manager` 仍只做配置加载/启停标记（`plugin.go:43` 标注 TODO：完整插件加载待做）——已安装插件的 skills/commands/hooks 尚不会注入会话。
 
 | # | 任务 | 状态 | 说明 |
 |---|------|------|------|
@@ -324,7 +324,7 @@ stdio/sse/http/ws 四种可用。Pool.Connect 经 WS 完成 initialize 握手＋
 | # | 任务 | 状态 | 说明 |
 |---|------|------|------|
 | 3.5.1 | ❌ 定义 Feature Flag 接口 | 未开始 | `IsEnabled(flag string) bool` |
-| 3.5.2 | ❌ 实现本地文件 Flag Store | 未开始 | 从 `~/.claude/statsig.json` 读取 |
+| 3.5.2 | ❌ 实现本地文件 Flag Store | 未开始 | 从 `~/.glaude/statsig.json` 读取 |
 | 3.5.3 | ❌ 在关键路径添加 Flag 检查 | 未开始 | 工具注册、UI 功能等 |
 
 ### 3.6 类型安全修复 🟡 P1
@@ -344,8 +344,8 @@ stdio/sse/http/ws 四种可用。Pool.Connect 经 WS 完成 initialize 握手＋
 
 ### Phase 3 完成标准
 
-- [ ] `claude --provider bedrock` 可正常调用 AWS Bedrock
-- [ ] `claude --provider vertex` 可正常调用 GCP Vertex AI
+- [ ] `glaude --provider bedrock` 可正常调用 AWS Bedrock
+- [ ] `glaude --provider vertex` 可正常调用 GCP Vertex AI
 - [ ] MCP WebSocket transport 测试通过
 - [ ] 至少 5 个 Feature Flags 生效
 - [ ] `AppState` 中无 `[]any` 类型

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // stubTool is a minimal tools.Tool implementation for testing.

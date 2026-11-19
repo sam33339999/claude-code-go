@@ -248,7 +248,7 @@ type AgentDefinition = {
   - 严格只读模式（READ-ONLY）
   - 禁止创建/修改/删除任何文件
   - 可用工具：Glob, Grep, FileRead, Bash(只读)
-  - 省略 CLAUDE.md 以节省 token
+  - 省略 GLAUDE.md 以节省 token
   - 支持并行工具调用以加速搜索
 ```
 
@@ -304,7 +304,7 @@ type AgentDefinition = {
 
 ### 4.2 自定义Agent
 
-用户可以在 `.claude/agents/` 目录下通过 Markdown 或 JSON 定义自定义 Agent：
+用户可以在 `.glaude/agents/` 目录下通过 Markdown 或 JSON 定义自定义 Agent：
 
 ```markdown
 ---
@@ -321,8 +321,8 @@ You are a code review specialist...
 ```
 
 Agent 加载优先级（从高到低）：
-1. **User agents** (`~/.claude/agents/`)
-2. **Project agents** (`.claude/agents/`)
+1. **User agents** (`~/.glaude/agents/`)
+2. **Project agents** (`.glaude/agents/`)
 3. **Local agents** (本地配置)
 4. **Managed agents** (策略配置)
 5. **Plugin agents** (插件提供)
@@ -432,7 +432,7 @@ runAsyncAgentLifecycle()  ← 不阻塞主循环
     │
     ▼ 创建团队
     │
-writeTeamFile() → 写入 ~/.claude/teams/{team_name}/team.json
+writeTeamFile() → 写入 ~/.glaude/teams/{team_name}/team.json
     │
     ├── leadAgentId: 主Agent ID
     ├── members: []
@@ -505,7 +505,7 @@ inProcessRunner.startInProcessTeammate() 或 独立进程
 这是 Swarm 模式下 Agent 间通信的核心基础设施：
 
 ```
-存储路径：~/.claude/teams/{team_name}/inboxes/{agent_name}.json
+存储路径：~/.glaude/teams/{team_name}/inboxes/{agent_name}.json
 
 消息格式：
 {
@@ -636,7 +636,7 @@ interface TeammateExecutor {
 每个 tmux pane 运行一个独立的 Claude Code 进程，通过 CLI 参数传递队友身份：
 
 ```bash
-claude --agent-id "researcher@team-1" \
+glaude --agent-id "researcher@team-1" \
        --team-name "team-1" \
        --agent-color "blue" \
        --parent-session-id "sess_xxx" \
@@ -746,9 +746,9 @@ const IN_PROCESS_TEAMMATE_ALLOWED_TOOLS = [
 // src/tools/AgentTool/agentMemory.ts
 type AgentMemoryScope = 'user' | 'project' | 'local'
 
-// 'user'    → ~/.claude/agent-memory/{agentType}/
-// 'project' → {cwd}/.claude/agent-memory/{agentType}/
-// 'local'   → {cwd}/.claude/agent-memory-local/{agentType}/
+// 'user'    → ~/.glaude/agent-memory/{agentType}/
+// 'project' → {cwd}/.glaude/agent-memory/{agentType}/
+// 'local'   → {cwd}/.glaude/agent-memory-local/{agentType}/
 ```
 
 记忆以 Markdown 文件存储在对应目录中，Agent 每次启动时自动加载相关记忆作为上下文的一部分。
@@ -768,7 +768,7 @@ initializeFromSnapshot()       // 从快照恢复
 ```typescript
 // src/utils/teamMemoryOps.ts
 // 团队成员可以共享记忆文件
-// 路径格式：.claude/teams/{team}/shared-memory/
+// 路径格式：.glaude/teams/{team}/shared-memory/
 // 支持读/写/搜索操作
 // 由 teamMemorySync 服务负责同步
 ```
@@ -777,7 +777,7 @@ initializeFromSnapshot()       // 从快照恢复
 
 ```
 每个Agent的对话历史保存在：
-~/.claude/sessions/{sessionId}/agents/{agentId}/transcript.json
+~/.glaude/sessions/{sessionId}/agents/{agentId}/transcript.json
 
 包含完整的消息列表，可用于：
 - Agent恢复（resumeAgent）
@@ -1025,7 +1025,7 @@ function getAgentContext(): AgentContext | undefined {
 没有使用任何外部消息队列或IPC机制，而是直接使用文件系统：
 - **优点**：零外部依赖、天然持久化、跨进程/跨机器兼容
 - **挑战**：并发控制通过 `lockfile` 实现
-- **路径约定**：`~/.claude/teams/{team}/inboxes/{agent}.json`
+- **路径约定**：`~/.glaude/teams/{team}/inboxes/{agent}.json`
 
 ### 12.3 Prompt Cache 感知的 Agent 设计
 

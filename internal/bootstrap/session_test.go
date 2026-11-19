@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/pkg/types"
-	utilfs "github.com/tunsuy/claude-code-go/pkg/utils/fs"
+	"github.com/tunsuy/glaude/pkg/types"
+	utilfs "github.com/tunsuy/glaude/pkg/utils/fs"
 )
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 // writeSessionJSONL creates a valid JSONL session file under
-// <projectDir>/.claude/projects/<hash>/<sessionID>.jsonl and
+// <projectDir>/.glaude/projects/<hash>/<sessionID>.jsonl and
 // returns the session ID string (stem of the file).
 func writeSessionJSONL(t *testing.T, projectDir, sessionID string, messages []types.Message) {
 	t.Helper()
@@ -23,7 +23,7 @@ func writeSessionJSONL(t *testing.T, projectDir, sessionID string, messages []ty
 	if err != nil {
 		t.Fatalf("writeSessionJSONL: project hash: %v", err)
 	}
-	dir := filepath.Join(projectDir, ".claude", "projects", hash)
+	dir := filepath.Join(projectDir, ".glaude", "projects", hash)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("writeSessionJSONL: mkdir: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestLoadSessionMessages_Continue_Happy(t *testing.T) {
 
 	// Explicitly set different mtimes to avoid sub-millisecond races.
 	hash, _ := utilfs.ProjectHash(cwd)
-	sessDir := filepath.Join(cwd, ".claude", "projects", hash)
+	sessDir := filepath.Join(cwd, ".glaude", "projects", hash)
 	olderPath := filepath.Join(sessDir, olderID+".jsonl")
 	newerPath := filepath.Join(sessDir, newerID+".jsonl")
 
@@ -199,14 +199,14 @@ func TestLoadSessionMessages_Continue_Happy(t *testing.T) {
 }
 
 // TestLoadSessionMessages_Continue_EmptyDir verifies that --continue on a
-// project dir whose .claude/projects/<hash> directory has no .jsonl files
+// project dir whose .glaude/projects/<hash> directory has no .jsonl files
 // returns a friendly error.
 func TestLoadSessionMessages_Continue_EmptyDir(t *testing.T) {
 	cwd := t.TempDir()
 
 	// Create the sessions dir but leave it empty.
 	hash, _ := utilfs.ProjectHash(cwd)
-	sessDir := filepath.Join(cwd, ".claude", "projects", hash)
+	sessDir := filepath.Join(cwd, ".glaude", "projects", hash)
 	os.MkdirAll(sessDir, 0o755) //nolint:errcheck
 
 	f := &rootFlags{continueSession: true}

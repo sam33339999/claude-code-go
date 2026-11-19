@@ -8,7 +8,7 @@
 
 ## 背景
 
-Claude Code Go 项目采用多 Agent 并行开发模式完成了全量交付（M0–M3），26/26 测试通过，综合覆盖率 69.4%。在实际执行过程中暴露了六类协调问题，本次讨论旨在为下一个多 Agent 项目设计可复用的 Harness（脚手架基础设施）。
+Glaude 项目采用多 Agent 并行开发模式完成了全量交付（M0–M3），26/26 测试通过，综合覆盖率 69.4%。在实际执行过程中暴露了六类协调问题，本次讨论旨在为下一个多 Agent 项目设计可复用的 Harness（脚手架基础设施）。
 
 ---
 
@@ -81,11 +81,11 @@ Claude Code Go 项目采用多 Agent 并行开发模式完成了全量交付（M
 ```
 ┌─────────────────────────────────────────────────┐
 │ Layer 5: 上下文持久化                             │
-│  .claude/harness/state.json                      │
+│  .glaude/harness/state.json                      │
 │  → 机器可读项目状态，跨会话快速恢复               │
 ├─────────────────────────────────────────────────┤
 │ Layer 4: 自动化钩子                              │
-│  .claude/hooks/update-state.sh                   │
+│  .glaude/hooks/update-state.sh                   │
 │  → PostToolUse 触发，自动更新 last_updated        │
 ├─────────────────────────────────────────────────┤
 │ Layer 3: 输出协议                                │
@@ -209,9 +209,9 @@ Claude Code Go 项目采用多 Agent 并行开发模式完成了全量交付（M
 | 角色约束（追加） | `docs/project/agents/tech-lead-agent.md` | Tech Lead Harness Integration 章节 |
 | 任务注册表 | `docs/project/harness/tasks/task-registry.yaml` | 所有历史任务结构化记录 |
 | 输出协议 | `docs/project/harness/protocols/agent-output.md` | Agent 标准输出格式 |
-| 状态快照 | `.claude/harness/state.json` | 机器可读项目状态（Claude Code 运行时文件） |
-| 钩子脚本 | `.claude/hooks/update-state.sh` | PostToolUse 自动更新（Claude Code 运行时文件） |
-| 配置更新 | `.claude/settings.local.json` | 添加 hooks 配置 |
-| 上下文注入 | `.claude/CLAUDE.md` | 添加 Multi-Agent Session Start Checklist |
+| 状态快照 | `.glaude/harness/state.json` | 机器可读项目状态（Claude Code 运行时文件） |
+| 钩子脚本 | `.glaude/hooks/update-state.sh` | PostToolUse 自动更新（Claude Code 运行时文件） |
+| 配置更新 | `.glaude/settings.local.json` | 添加 hooks 配置 |
+| 上下文注入 | `.glaude/GLAUDE.md` | 添加 Multi-Agent Session Start Checklist |
 
-> **设计说明**：Harness 文档（角色约束、任务注册表、输出协议）存放在 `docs/project/` 下，而非 `.claude/` 下，以确保非 Claude Code CLI 工具（Cursor、Windsurf 等）的用户也能访问这些协作规范。只有 Claude Code 运行时文件（`state.json`、hooks、`settings.local.json`）保留在 `.claude/` 下。
+> **设计说明**：Harness 文档（角色约束、任务注册表、输出协议）存放在 `docs/project/` 下，而非 `.glaude/` 下，以确保非 Claude Code CLI 工具（Cursor、Windsurf 等）的用户也能访问这些协作规范。只有 Claude Code 运行时文件（`state.json`、hooks、`settings.local.json`）保留在 `.glaude/` 下。

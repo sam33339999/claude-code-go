@@ -13,15 +13,15 @@ import (
 
 // MCP configuration scopes, matching the oracle TS CLI's storage layout.
 const (
-	MCPScopeLocal   = "local"   // ~/.claude.json → projects.<cwd>.mcpServers
-	MCPScopeUser    = "user"    // ~/.claude.json → top-level mcpServers
+	MCPScopeLocal   = "local"   // ~/.glaude.json → projects.<cwd>.mcpServers
+	MCPScopeUser    = "user"    // ~/.glaude.json → top-level mcpServers
 	MCPScopeProject = "project" // <cwd>/.mcp.json → mcpServers
 )
 
-// ClaudeJsonPath returns the path of the ~/.claude.json state file that holds
+// ClaudeJsonPath returns the path of the ~/.glaude.json state file that holds
 // user-scope and local-scope MCP server configuration.
 func ClaudeJsonPath(homeDir string) string {
-	return filepath.Join(homeDir, ".claude.json")
+	return filepath.Join(homeDir, ".glaude.json")
 }
 
 // McpJsonPath returns the path of the project-scope .mcp.json file.
@@ -191,7 +191,7 @@ func (s *MCPStore) ProjectKey() string {
 	return resolved
 }
 
-// ScopePath returns the file backing a scope: ~/.claude.json for local and
+// ScopePath returns the file backing a scope: ~/.glaude.json for local and
 // user, <project>/.mcp.json for project.
 func (s *MCPStore) ScopePath(scope string) string {
 	if scope == MCPScopeProject {
@@ -227,8 +227,8 @@ func shortScopeLabel(scope string) string {
 	return scope
 }
 
-// claudeJsonDoc loads ~/.claude.json (empty when missing).
-func (s *MCPStore) claudeJsonDoc() (*OrderedMap, error) {
+// glaudeJsonDoc loads ~/.glaude.json (empty when missing).
+func (s *MCPStore) glaudeJsonDoc() (*OrderedMap, error) {
 	return LoadOrderedJSON(ClaudeJsonPath(s.homeDir))
 }
 
@@ -242,7 +242,7 @@ func (s *MCPStore) docForScope(scope string) (*OrderedMap, error) {
 	if scope == MCPScopeProject {
 		return s.mcpJsonDoc()
 	}
-	return s.claudeJsonDoc()
+	return s.glaudeJsonDoc()
 }
 
 // ensureScopeMap extracts (creating if needed, wired into the document) the
@@ -477,7 +477,7 @@ func (s *MCPStore) ListMCPServers() []MCPServerEntry {
 	return result
 }
 
-// SettingsLocalPath returns the project's .claude/settings.local.json — the
+// SettingsLocalPath returns the project's .glaude/settings.local.json — the
 // file the oracle's interactive .mcp.json approval flow writes choices to.
 func SettingsLocalPath(projectDir string) string {
 	return filepath.Join(projectDir, ClaudeDir, "settings.local.json")
@@ -604,9 +604,9 @@ func (s *MCPStore) HasPendingProjectServers() bool {
 // ProjectApprovalState reports the .mcp.json approval state of a project-scope
 // server: "rejected" or "pending".  Rejection is membership in the
 // disabledMcpjsonServers list of the layered settings files (union across
-// project .claude/settings.local.json, project .claude/settings.json and user
-// ~/.claude/settings.json — verified by capture: the oracle records choices in
-// settings.local.json, not in the ~/.claude.json project entry).
+// project .glaude/settings.local.json, project .glaude/settings.json and user
+// ~/.glaude/settings.json — verified by capture: the oracle records choices in
+// settings.local.json, not in the ~/.glaude.json project entry).
 // Membership in enabledMcpjsonServers does NOT count as approved — the oracle
 // still renders such servers as ⏸ Pending.
 func (s *MCPStore) ProjectApprovalState(name string) string {
@@ -617,8 +617,8 @@ func (s *MCPStore) ProjectApprovalState(name string) string {
 }
 
 // ResetProjectChoices deletes the enabledMcpjsonServers and
-// disabledMcpjsonServers keys from the project's .claude/settings.local.json
-// and from the ~/.claude.json project entry (both locations verified by
+// disabledMcpjsonServers keys from the project's .glaude/settings.local.json
+// and from the ~/.glaude.json project entry (both locations verified by
 // capture: `mcp add` seeds the arrays in the project entry, and
 // `mcp reset-project-choices` removes them again).  Every other key is
 // preserved.  Each location is a no-op (no file created, no rewrite) when its
@@ -631,7 +631,7 @@ func (s *MCPStore) ResetProjectChoices() error {
 }
 
 // resetApprovalKeysIn strips the two .mcp.json approval keys from the JSON
-// file at path — either a settings file (top-level keys) or ~/.claude.json
+// file at path — either a settings file (top-level keys) or ~/.glaude.json
 // (keys inside projects.<key>).  The file is left untouched when missing or
 // when it holds neither key.
 func (s *MCPStore) resetApprovalKeysIn(path string) error {

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
 // Install / uninstall tests, byte-pinned against the oracle captures
@@ -46,7 +46,7 @@ func TestPluginInstall(t *testing.T) {
 			recs[0].LastUpdated != "2026-09-05T03:06:53.301Z" {
 			t.Fatalf("record = %+v", recs[0])
 		}
-		if _, err := os.Stat(filepath.Join(wantPath, ".claude-plugin", "plugin.json")); err != nil {
+		if _, err := os.Stat(filepath.Join(wantPath, ".glaude-plugin", "plugin.json")); err != nil {
 			t.Fatalf("cache copy missing: %v", err)
 		}
 		enabled, err := store.EnabledPlugins(config.PluginScopeUser)
@@ -121,7 +121,7 @@ func TestPluginInstall(t *testing.T) {
 		if out.String() != "Installing plugin \"nosuch@mp\"...\n" {
 			t.Fatalf("stdout = %q", out.String())
 		}
-		want := "✘ Failed to install plugin \"nosuch@mp\": Plugin \"nosuch\" not found in marketplace \"mp\". Your local copy may be out of date — try `claude plugin marketplace update mp`.\n"
+		want := "✘ Failed to install plugin \"nosuch@mp\": Plugin \"nosuch\" not found in marketplace \"mp\". Your local copy may be out of date — try `glaude plugin marketplace update mp`.\n"
 		if errb.String() != want {
 			t.Fatalf("stderr = %q, want %q", errb.String(), want)
 		}

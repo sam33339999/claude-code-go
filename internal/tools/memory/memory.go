@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/memdir"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // ── MemoryReadTool ───────────────────────────────────────────────────────────
@@ -217,7 +217,7 @@ func (t *memoryWriteTool) IsConcurrencySafe(_ tools.Input) bool { return false }
 func (t *memoryWriteTool) IsReadOnly(_ tools.Input) bool { return false }
 
 // CheckPermissions allows memory writes without asking — memories are stored in
-// the user's own ~/.claude/ directory and pose no security risk.
+// the user's own ~/.glaude/ directory and pose no security risk.
 func (t *memoryWriteTool) CheckPermissions(_ tools.Input, _ *tools.UseContext) (tools.PermissionResult, error) {
 	return tools.PermissionResult{Behavior: tools.PermissionAllow}, nil
 }
@@ -330,7 +330,7 @@ func (t *memoryDeleteTool) IsConcurrencySafe(_ tools.Input) bool { return false 
 func (t *memoryDeleteTool) IsReadOnly(_ tools.Input) bool { return false }
 
 // CheckPermissions allows memory deletions without asking — memories are stored in
-// the user's own ~/.claude/ directory and pose no security risk.
+// the user's own ~/.glaude/ directory and pose no security risk.
 func (t *memoryDeleteTool) CheckPermissions(_ tools.Input, _ *tools.UseContext) (tools.PermissionResult, error) {
 	return tools.PermissionResult{Behavior: tools.PermissionAllow}, nil
 }

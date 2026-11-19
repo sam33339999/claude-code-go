@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/engine"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/engine"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 const sessionMemoryQuerySource = "session_memory"
@@ -20,7 +20,7 @@ type SessionMemoryConfig struct {
 	HomeDir   string
 }
 
-// SaveSessionMemory writes a compact session summary to ~/.claude/session-memory/.
+// SaveSessionMemory writes a compact session summary to ~/.glaude/session-memory/.
 func SaveSessionMemory(messages []types.Message, summary string, cfg SessionMemoryConfig) (string, error) {
 	if strings.TrimSpace(summary) == "" {
 		summary = buildConversationSummary(messages, defaultMaxSummaryMessages)

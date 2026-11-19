@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/session"
-	"github.com/tunsuy/claude-code-go/pkg/types"
-	utilfs "github.com/tunsuy/claude-code-go/pkg/utils/fs"
+	"github.com/tunsuy/glaude/internal/session"
+	"github.com/tunsuy/glaude/pkg/types"
+	utilfs "github.com/tunsuy/glaude/pkg/utils/fs"
 )
 
 const (
@@ -129,13 +129,13 @@ func validSessionID(id string) bool {
 }
 
 // sessionDir returns the JSONL session directory for the project rooted at cwd:
-// <cwd>/.claude/projects/<projectHash> (same layout as the CLI --resume path).
+// <cwd>/.glaude/projects/<projectHash> (same layout as the CLI --resume path).
 func sessionDir(cwd string) (string, error) {
 	hash, err := utilfs.ProjectHash(cwd)
 	if err != nil {
 		return "", fmt.Errorf("compute project hash: %w", err)
 	}
-	return filepath.Join(cwd, ".claude", "projects", hash), nil
+	return filepath.Join(cwd, ".glaude", "projects", hash), nil
 }
 
 // extractSessionMessages decodes user/assistant entries into messages,

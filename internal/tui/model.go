@@ -8,16 +8,16 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/glamour"
-	"github.com/tunsuy/claude-code-go/internal/commands"
-	"github.com/tunsuy/claude-code-go/internal/coordinator"
-	"github.com/tunsuy/claude-code-go/internal/engine"
-	"github.com/tunsuy/claude-code-go/internal/memdir"
-	"github.com/tunsuy/claude-code-go/internal/msgqueue"
-	"github.com/tunsuy/claude-code-go/internal/permissions"
-	"github.com/tunsuy/claude-code-go/internal/state"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/internal/transcript"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/commands"
+	"github.com/tunsuy/glaude/internal/coordinator"
+	"github.com/tunsuy/glaude/internal/engine"
+	"github.com/tunsuy/glaude/internal/memdir"
+	"github.com/tunsuy/glaude/internal/msgqueue"
+	"github.com/tunsuy/glaude/internal/permissions"
+	"github.com/tunsuy/glaude/internal/state"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/internal/transcript"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // dialogKind enumerates active modal dialogs.
@@ -131,10 +131,10 @@ type AppModel struct {
 	// --- Active stream channel (for pull-loop) ---
 	streamCh <-chan engine.Msg
 
-	// --- CLAUDE.md memory ---
-	// memdirPaths holds the discovered CLAUDE.md file paths (set by MemdirLoadedMsg).
+	// --- GLAUDE.md memory ---
+	// memdirPaths holds the discovered GLAUDE.md file paths (set by MemdirLoadedMsg).
 	memdirPaths []string
-	// memdirPrompt is the concatenated text of all CLAUDE.md files.
+	// memdirPrompt is the concatenated text of all GLAUDE.md files.
 	memdirPrompt string
 	// memoryStore is the project's memory store for relevance queries.
 	memoryStore *memdir.MemoryStore

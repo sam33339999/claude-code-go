@@ -33,8 +33,8 @@ package tui
 
 import (
     "github.com/charmbracelet/bubbletea"
-    "claude-code-go/internal/state"
-    "claude-code-go/pkg/types"
+    "glaude/internal/state"
+    "glaude/pkg/types"
 )
 
 // AppModel 是整个 TUI 应用的根 Model，对应 TS 中 REPL.tsx 的组件状态聚合。
@@ -276,7 +276,7 @@ internal/tui/
 ```go
 func (m AppModel) Init() tea.Cmd {
     return tea.Batch(
-        m.loadMemdirCmd(),       // 异步加载 CLAUDE.md
+        m.loadMemdirCmd(),       // 异步加载 GLAUDE.md
         tea.EnterAltScreen,      // 进入备用屏幕（全屏模式）
         tickCmd(),               // 启动 1s 周期 tick
         listenWindowSize(),      // 监听终端 resize
@@ -491,7 +491,7 @@ package tui
 
 import (
     "context"
-    "claude-code-go/pkg/types"
+    "glaude/pkg/types"
 )
 
 // QueryEngine 是 TUI 层对 Core 层的唯一依赖接口。
@@ -631,7 +631,7 @@ func (r *Registry) CompletePrefix(prefix string) []*Command { ... }
 | `/config` | `commands/config/` | 打开配置交互界面 |
 | `/help` | `commands/help/` | 展示所有可用命令列表 |
 | `/exit` | `commands/exit/` | 退出程序（弹出确认对话框）|
-| `/memory` | `commands/memory/` | 管理 CLAUDE.md 记忆文件 |
+| `/memory` | `commands/memory/` | 管理 GLAUDE.md 记忆文件 |
 | `/model` | `commands/model/` | 切换 LLM 模型 |
 | `/theme` | `commands/theme/` | 切换 TUI 配色主题 |
 | `/vim` | `commands/vim/` | 切换 Vim 键位模式 |
@@ -641,7 +641,7 @@ func (r *Registry) CompletePrefix(prefix string) []*Command { ... }
 | `/mcp` | `commands/mcp/` | MCP 服务器管理 |
 | `/resume` | `commands/resume/` | 恢复上一个会话 |
 | `/diff` | `commands/diff/` | 展示当前会话文件修改 diff |
-| `/init` | `commands/init.ts` | 初始化项目（生成 CLAUDE.md）|
+| `/init` | `commands/init.ts` | 初始化项目（生成 GLAUDE.md）|
 | `/review` | `commands/review.ts` | 代码 review 模式 |
 | `/commit` | `commands/commit.ts` | 生成 commit message 并提交 |
 | `/terminal-setup` | `commands/terminalSetup/` | 终端环境配置检测 |
@@ -705,7 +705,7 @@ Update() 中 case CommandResultMsg: → 更新 m.commandResult → View() 展示
 
 **/resume（列表 + 按 ID 恢复）**：
 
-- 裸 `/resume`：`listSessions(cwd, 10)` 扫描 `<cwd>/.claude/projects/<ProjectHash>/*.jsonl`
+- 裸 `/resume`：`listSessions(cwd, 10)` 扫描 `<cwd>/.glaude/projects/<ProjectHash>/*.jsonl`
   （与 CLI `--continue` 同一布局，agtkeel `session`/`utils/fs` 直接复用），按 mtime 倒序取前 10，
   每行展示 id、修改时间、消息数、首条用户消息片段（60 rune 截断），并提示 `/resume <id>`。
 - `/resume <id>`：`loadSessionMessages` 经 `session.Resume` + `ReadAll` 提取 user/assistant
@@ -733,7 +733,7 @@ Update() 中 case CommandResultMsg: → 更新 m.commandResult → View() 展示
 - `cmdConfig` 返回 `Result{OpenDialog: "config"}`（既有 wiring），TUI 打开 `dialogConfig`，
   `renderConfigDialog` 渲染当前设置：Model（AppState.MainLoopModel）、Theme（dark/light）、
   Vim mode、Effort、Working dir、Session ID。Esc 关闭（既有 keys.go 处理）。
-- **只读**：编辑经既有 /model /theme /vim /effort 命令与持久化设置文件（~/.claude/settings.json）；
+- **只读**：编辑经既有 /model /theme /vim /effort 命令与持久化设置文件（~/.glaude/settings.json）；
   面板内交互编辑为文档化的后续项（与原版 /config 的可编辑面板有差距，属已知局限）。
 - 纯展示：不触碰引擎历史与工具 schema（cache-first 闸门三问全否，有 DeepEqual 守护测试）。
 
@@ -743,7 +743,7 @@ Update() 中 case CommandResultMsg: → 更新 m.commandResult → View() 展示
   Ghostty/Windows Terminal/Konsole/GNOME/tmux/screen/generic/unknown）与 shell（SHELL basename）；
   lookup 注入（生产 os.Getenv），测试不改进程环境。未知环境诚实报告，不猜测。
 - `FormatTerminalSetup` 输出检测报告＋非侵入指引：多行输入 Ctrl+J 提示、
-  `claude completion <shell>` 补全安装指引（cobra 内建命令）。**不写任何文件、不改终端设置**——
+  `glaude completion <shell>` 补全安装指引（cobra 内建命令）。**不写任何文件、不改终端设置**——
   与原版「安装 Shift+Enter 键绑定」有差距，设计规格（§命令表「终端环境配置检测」）以检测为准，
   键绑定自动安装列为后续项。
 
@@ -837,9 +837,9 @@ func (p CoordinatorPanel) View(width int) string {
 
 对应 TS `src/memdir/` 目录（`memdir.ts`、`paths.ts`、`memoryScan.ts` 等）。
 
-### CLAUDE.md 文件发现逻辑（向上遍历目录树）
+### GLAUDE.md 文件发现逻辑（向上遍历目录树）
 
-TS 原版通过 `getMemoryFiles()` / `loadMemoryPrompt()` 从当前目录向上遍历，收集所有 `CLAUDE.md` 文件：
+TS 原版通过 `getMemoryFiles()` / `loadMemoryPrompt()` 从当前目录向上遍历，收集所有 `GLAUDE.md` 文件：
 
 ```go
 // internal/memdir/discover.go
@@ -852,14 +852,14 @@ import (
 )
 
 const (
-    MemoryFileName    = "CLAUDE.md"
+    MemoryFileName    = "GLAUDE.md"
     AutoMemFileName   = "MEMORY.md"
     MaxEntrypointLines = 200
     MaxEntrypointBytes = 25_000
 )
 
 // DiscoverClaudeMd 从 startDir 向上遍历到 root（home 目录或 git root），
-// 收集沿途所有 CLAUDE.md 的路径，顺序为：从最内层→最外层（inner-first）。
+// 收集沿途所有 GLAUDE.md 的路径，顺序为：从最内层→最外层（inner-first）。
 // 对应 TS claudemd.ts getMemoryFiles()。
 func DiscoverClaudeMd(startDir string) ([]string, error) {
     var files []string
@@ -885,8 +885,8 @@ func DiscoverClaudeMd(startDir string) ([]string, error) {
         dir = parent
     }
 
-    // 全局配置目录：~/.claude/CLAUDE.md（如果不在遍历路径上）
-    globalMem := filepath.Join(home, ".claude", MemoryFileName)
+    // 全局配置目录：~/.glaude/GLAUDE.md（如果不在遍历路径上）
+    globalMem := filepath.Join(home, ".glaude", MemoryFileName)
     if !contains(files, globalMem) {
         if _, err := os.Stat(globalMem); err == nil {
             files = append(files, globalMem)
@@ -972,7 +972,7 @@ Core 层将 memoryPrompt 拼接到 system prompt
 ```
 
 **TUI 触发时机对应 TS 行为**：
-- `Init()` 时：首次加载，显示已加载的 CLAUDE.md 列表（`/memory show` 效果）
+- `Init()` 时：首次加载，显示已加载的 GLAUDE.md 列表（`/memory show` 效果）
 - 每次 `Submit` 前：重新加载（支持实时编辑后生效）
 - `/memory` 命令：交互式编辑/刷新记忆文件
 
@@ -1063,7 +1063,7 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 | v1.6 | 2026-11-18 | 主会话 | BF-07 Todo 面板：View 于输入区上方渲染 AppState.Todos（[x]/[>]/[ ] 状态标记），列表空则不渲染；纯展示不触引擎历史（cache gate）。无接口签名变更（读既有 appState）。 |
 | v1.7 | 2026-11-18 | 主会话 | BF-08 AskUserQuestion 对话框：tui.New/newAppModel 新增 questionAskCh/questionRespCh 参数（bootstrap 传 container.QuestionAskCh/RespCh）；listenForQuestionRequest listener（权限 listener 同构，RespFn callback）；dialogQuestion＋handleQuestionKey（1-9 选项、自由文本、Enter 提交、Esc dismiss）＋renderQuestionDialog。QuestionRequestMsg 新增。 |
 | v2.3 | 2026-11-18 | 主会话 | CM-03：PermissionRequestMsg +FromCodeMode；CodeMode 来源的批准对话框改提供「always allow <tool> inside CodeMode」（CodeMode-scoped，不落项目规则）；RespFn 映射 AlwaysInCodeMode。 |
-| v2.4 | 2026-11-18 | 主会话 | 常駐 coordinator 系統提示注入：startQueryCmd 於 coordinatorMode 時將 GetCoordinatorSystemPrompt(false) 加入穩定 system 前綴（CLAUDE.md 之後）；單一 cache 斷點掛穩定段末尾（動態記憶 reminder 挂 turn 尾部、不進前綴）。此前 GetCoordinatorSystemPrompt 僅測試使用、未接生產。無接口簽名變更（讀既有 coordinatorMode 旗標）。 |
+| v2.4 | 2026-11-18 | 主会话 | 常駐 coordinator 系統提示注入：startQueryCmd 於 coordinatorMode 時將 GetCoordinatorSystemPrompt(false) 加入穩定 system 前綴（GLAUDE.md 之後）；單一 cache 斷點掛穩定段末尾（動態記憶 reminder 挂 turn 尾部、不進前綴）。此前 GetCoordinatorSystemPrompt 僅測試使用、未接生產。無接口簽名變更（讀既有 coordinatorMode 旗標）。 |
 | v2.5 | 2026-11-19 | 主会话 | feat/coordinator-completion-wake：AgentStatusMsg completed/failed 注入 <task-notification>（FormatTaskNotification）至 msgQueue ModeExternalPrompt 唤醒主 loop（idle 立即起 query；running 待 between-turn drain）——修背景 agent 完成後協調者停擺。AgentStatusMsg +Result/Summary；+coordinatorStatus 反向映射。CoordinatorPanel.View 上限 5 rows（running 優先＋"+N more"）＋viewport 下限 5 行——修面板擠輸出。守護測試×5。 |
 | v2.6 | 2026-11-19 | 主会话 | fix/subagent-result-layout：View 高度分配重寫保證總高≤termHeight（修底部遮罩）——topAvailable=termHeight-reservedLines-todo-dialog；panel truncateToLines(panelBudget=topAvailable-minViewportLines)；todo 可截（display-only 譲位 dialog）；優先序 dialog＞todo＞viewport(軟底5)＞panel。+truncateToLines helper。修 v2.5 minViewportLines 硬底反致溢出。守護測試×2（24/12/10 行 fit）＋既有 dialog_visibility 全綠。 |
 | v2.2 | 2026-11-18 | 主会话 | EV-01：processQueueCmd 支持 ModeExternalPrompt（MCP 通知等外部事件）——drain 点附加 display 訊息＋startQueryCmd 唤醒代理。事件驱动待命模式（零轮询）。 |

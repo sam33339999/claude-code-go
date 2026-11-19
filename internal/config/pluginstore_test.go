@@ -33,25 +33,25 @@ func installRec(scope string) *InstalledPluginRecord {
 func TestPluginStorePaths(t *testing.T) {
 	t.Parallel()
 	s := NewPluginStore("/home/u", "/proj/wd")
-	if got := s.PluginsDir(); got != filepath.Join("/home/u", ".claude", "plugins") {
+	if got := s.PluginsDir(); got != filepath.Join("/home/u", ".glaude", "plugins") {
 		t.Fatalf("PluginsDir = %q", got)
 	}
-	if got := s.CacheDir(); got != filepath.Join("/home/u", ".claude", "plugins", "cache") {
+	if got := s.CacheDir(); got != filepath.Join("/home/u", ".glaude", "plugins", "cache") {
 		t.Fatalf("CacheDir = %q", got)
 	}
-	if got := s.InstalledPluginsPath(); got != filepath.Join("/home/u", ".claude", "plugins", "installed_plugins.json") {
+	if got := s.InstalledPluginsPath(); got != filepath.Join("/home/u", ".glaude", "plugins", "installed_plugins.json") {
 		t.Fatalf("InstalledPluginsPath = %q", got)
 	}
-	if got := s.KnownMarketplacesPath(); got != filepath.Join("/home/u", ".claude", "plugins", "known_marketplaces.json") {
+	if got := s.KnownMarketplacesPath(); got != filepath.Join("/home/u", ".glaude", "plugins", "known_marketplaces.json") {
 		t.Fatalf("KnownMarketplacesPath = %q", got)
 	}
 	// The plugin settings trio: user home, project shared, project local.
-	// Note the local path is .claude/settings.local.json (the oracle's plugin
-	// settings file), not the loader's legacy .claude.local path.
+	// Note the local path is .glaude/settings.local.json (the oracle's plugin
+	// settings file), not the loader's legacy .glaude.local path.
 	cases := map[string]string{
-		PluginScopeUser:    filepath.Join("/home/u", ".claude", "settings.json"),
-		PluginScopeProject: filepath.Join("/proj/wd", ".claude", "settings.json"),
-		PluginScopeLocal:   filepath.Join("/proj/wd", ".claude", "settings.local.json"),
+		PluginScopeUser:    filepath.Join("/home/u", ".glaude", "settings.json"),
+		PluginScopeProject: filepath.Join("/proj/wd", ".glaude", "settings.json"),
+		PluginScopeLocal:   filepath.Join("/proj/wd", ".glaude", "settings.local.json"),
 	}
 	for scope, want := range cases {
 		if got := s.SettingsPath(scope); got != want {
@@ -221,7 +221,7 @@ func TestKnownMarketplacesRoundTrip(t *testing.T) {
 	})
 	km.Set("mpfile", &KnownMarketplace{
 		SourceType:      "file",
-		SourcePath:      "/tmp/ccg/mp1/.claude-plugin/marketplace.json",
+		SourcePath:      "/tmp/ccg/mp1/.glaude-plugin/marketplace.json",
 		InstallLocation: "/tmp/ccg/mp1",
 		LastUpdated:     "2026-09-05T03:16:38.020Z",
 	})
@@ -244,7 +244,7 @@ func TestKnownMarketplacesRoundTrip(t *testing.T) {
   "mpfile": {
     "source": {
       "source": "file",
-      "path": "/tmp/ccg/mp1/.claude-plugin/marketplace.json"
+      "path": "/tmp/ccg/mp1/.glaude-plugin/marketplace.json"
     },
     "installLocation": "/tmp/ccg/mp1",
     "lastUpdated": "2026-09-05T03:16:38.020Z"
@@ -265,11 +265,11 @@ func TestKnownMarketplacesRoundTrip(t *testing.T) {
 	if rec == nil || rec.SourceType != "directory" || rec.InstallLocation != "/tmp/ccg/mp1" {
 		t.Fatalf("Get(mp1) = %+v", rec)
 	}
-	if got := rec.ManifestPathFor(); got != filepath.Join("/tmp/ccg/mp1", ".claude-plugin", "marketplace.json") {
+	if got := rec.ManifestPathFor(); got != filepath.Join("/tmp/ccg/mp1", ".glaude-plugin", "marketplace.json") {
 		t.Fatalf("directory ManifestPathFor = %q", got)
 	}
 	recF := km2.Get("mpfile")
-	if got := recF.ManifestPathFor(); got != "/tmp/ccg/mp1/.claude-plugin/marketplace.json" {
+	if got := recF.ManifestPathFor(); got != "/tmp/ccg/mp1/.glaude-plugin/marketplace.json" {
 		t.Fatalf("file ManifestPathFor = %q", got)
 	}
 	if km2.Get("ghost") != nil {
@@ -406,7 +406,7 @@ func TestLoadPluginManifest(t *testing.T) {
 	if err != nil || m != nil {
 		t.Fatalf("missing manifest = (%+v, %v)", m, err)
 	}
-	writeTestJSON(t, filepath.Join(dir, ".claude-plugin", "plugin.json"),
+	writeTestJSON(t, filepath.Join(dir, ".glaude-plugin", "plugin.json"),
 		`{"name":"myplugin","version":"9.9.9","description":"A probe plugin"}`)
 	m, err = LoadPluginManifest(dir)
 	if err != nil {
@@ -425,7 +425,7 @@ func TestLoadMarketplaceManifest(t *testing.T) {
 	if err != nil || m != nil {
 		t.Fatalf("missing manifest = (%+v, %v)", m, err)
 	}
-	writeTestJSON(t, filepath.Join(root, ".claude-plugin", "marketplace.json"),
+	writeTestJSON(t, filepath.Join(root, ".glaude-plugin", "marketplace.json"),
 		`{"name":"mp1","owner":{"name":"probe"},"description":"Probe marketplace",
 		  "plugins":[{"name":"myplugin","source":"./plugins/myplugin","version":"2.0.0","description":"A probe plugin"}]}`)
 	m, err = LoadMarketplaceManifest(root)
@@ -444,8 +444,8 @@ func TestLoadMarketplaceManifest(t *testing.T) {
 		t.Fatalf("PluginDir = %q", got)
 	}
 
-	// File-path load: root is the dir containing the .claude-plugin dir.
-	fm, err := LoadMarketplaceManifestFile(filepath.Join(root, ".claude-plugin", "marketplace.json"))
+	// File-path load: root is the dir containing the .glaude-plugin dir.
+	fm, err := LoadMarketplaceManifestFile(filepath.Join(root, ".glaude-plugin", "marketplace.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -458,7 +458,7 @@ func TestInstallToCacheAndOrphan(t *testing.T) {
 	t.Parallel()
 	s := newTestPluginStore(t)
 	src := t.TempDir()
-	writeTestJSON(t, filepath.Join(src, ".claude-plugin", "plugin.json"), `{"name":"p"}`)
+	writeTestJSON(t, filepath.Join(src, ".glaude-plugin", "plugin.json"), `{"name":"p"}`)
 	if err := os.WriteFile(filepath.Join(src, "run.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -470,7 +470,7 @@ func TestInstallToCacheAndOrphan(t *testing.T) {
 	if dst != filepath.Join(s.CacheDir(), "mp1", "p", "1.0.0") {
 		t.Fatalf("dst = %q", dst)
 	}
-	data, err := os.ReadFile(filepath.Join(dst, ".claude-plugin", "plugin.json"))
+	data, err := os.ReadFile(filepath.Join(dst, ".glaude-plugin", "plugin.json"))
 	if err != nil || string(data) != `{"name":"p"}` {
 		t.Fatalf("cached manifest = (%q, %v)", data, err)
 	}

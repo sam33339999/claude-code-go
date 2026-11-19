@@ -118,7 +118,7 @@
 ## Go 项目骨架结构（草案）
 
 ```
-claude-code-go/
+glaude/
 ├── go.mod
 ├── go.sum
 ├── main.go                      # 入口，cobra 根命令

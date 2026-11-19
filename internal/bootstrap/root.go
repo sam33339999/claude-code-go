@@ -9,7 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/tunsuy/claude-code-go/internal/tui"
+	"github.com/tunsuy/glaude/internal/tui"
 )
 
 // rootFlags groups all flags declared on the root cobra command.
@@ -65,12 +65,12 @@ func newRootCmd() *cobra.Command {
 	f := &rootFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "claude",
-		Short: "Claude Code — AI coding assistant",
+		Use:   "glaude",
+		Short: "Glaude — AI coding assistant",
 		Long: longDesc(`
-Claude Code is an AI-powered coding assistant that runs in your terminal.
+Glaude is an AI-powered coding assistant that runs in your terminal.
 
-Without any sub-command, claude opens an interactive REPL session in the
+Without any sub-command, glaude opens an interactive REPL session in the
 current directory.  Use -p / --print for non-interactive single-shot mode.
 `),
 		// SilenceUsage suppresses the usage message on error (cleaner UX).

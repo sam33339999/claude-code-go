@@ -26,7 +26,7 @@ TUI 设计在架构上非常出色。BubbleTea MVU 从 React/Ink 的映射论证
 
 6. **斜杠命令注册表与 Tab 补全** — `Registry.CompletePrefix(partial)` 用于内联补全，`SlashCommandSuggestions` 在输入框上方以弹窗形式渲染。所有 19 个斜杠命令均被枚举并映射到 TS 源码（§4）。
 
-7. **`memdir` 常量精确** — `MemoryFileName="CLAUDE.md"`、`MaxEntrypointLines=200`、`MaxEntrypointBytes=25_000` 与 TS 一致（§6）。由内向外的遍历在主目录处停止的规则指定正确。
+7. **`memdir` 常量精确** — `MemoryFileName="GLAUDE.md"`、`MaxEntrypointLines=200`、`MaxEntrypointBytes=25_000` 与 TS 一致（§6）。由内向外的遍历在主目录处停止的规则指定正确。
 
 8. **`LoadAndTruncate` 双重截断顺序** — 先按行数截断，再按最后换行处截断字节数。与 TS 的 `truncateEntrypointContent` 语义一致（§6）。
 
@@ -71,7 +71,7 @@ TUI 设计在架构上非常出色。BubbleTea MVU 从 React/Ink 的映射论证
 
 2. **为 `RespondCh` 发送添加超时** — 在 `sendPermissionResponseCmd` 中使用 `select { case respondCh <- decision: case <-ctx.Done(): }` 防止流已取消时的协程泄漏。
 
-3. **修复 `DiscoverClaudeMd` 遍历** — 重写循环，预先将父目录收集到切片（包含 home），然后遍历，对已访问路径去重。`~/.claude/CLAUDE.md` 全局回退应在去重检查后追加。
+3. **修复 `DiscoverClaudeMd` 遍历** — 重写循环，预先将父目录收集到切片（包含 home），然后遍历，对已访问路径去重。`~/.glaude/GLAUDE.md` 全局回退应在去重检查后追加。
 
 4. **在 `StreamDoneMsg` 和 `StreamErrorMsg` 处理中将 `abortFn` 重置为 `nil`** — 在两种情况下添加 `m.abortFn = nil`。在 `startQueryCmd` 中添加守卫：`if m.abortFn != nil { m.abortFn() }`，然后再创建新上下文。
 
@@ -85,7 +85,7 @@ TUI 设计在架构上非常出色。BubbleTea MVU 从 React/Ink 的映射论证
 
 - `AppModel` 在 `Update(msg tea.Msg) (tea.Model, tea.Cmd)` 中是值传递。随着 `messages []types.Message` 增长到数百条，切片头部的复制会带来显著的 GC 压力。考虑将 `messages` 存储为 `*[]types.Message`（指向切片的指针），或作为独立的不可变日志结构。也可以先做基准测试，若 BubbleTea 自身的复制语义使此问题不可避免，则接受现状。
 - `AppModel` 中持有指针的 `permReq *PermissionRequest` 字段在值复制的 Model 中是正确的：指针在复制间保持稳定，因此 `respondCh` 保持有效。请在文档中明确说明，避免未来重构时天真地深拷贝模型。
-- `memdir.LoadMemoryPrompt` 在每次 `Submit` 时调用。对于含有多个 `CLAUDE.md` 文件的仓库，这是重复的文件系统遍历。考虑使用文件监视失效（`fsnotify`）来缓存结果，而非每次提交都重新遍历。
+- `memdir.LoadMemoryPrompt` 在每次 `Submit` 时调用。对于含有多个 `GLAUDE.md` 文件的仓库，这是重复的文件系统遍历。考虑使用文件监视失效（`fsnotify`）来缓存结果，而非每次提交都重新遍历。
 - `glamour` 渲染器配置应根据当前终端背景色（通过 `$COLORFGBG` 或 `termenv` 检测明/暗）选择合适的 glamour 样式，而非仅依赖用户的 `/theme` 选择。
 - 明确说明 `PromptInput` 嵌套模型委托模式：`AppModel.Update()` 应调用 `m.input, inputCmd = m.input.Update(msg)`，并将 `inputCmd` 与 AppModel 自身的 Cmd 一起批处理。请在 §2（input.go）中明确记录，防止重新实现为普通 `View()` 函数（这会丢失 Vim 模式状态）。
 - `startQueryCmd` 当前将 `context.Background()` 传递给 `Submit`。这意味着中止完全依赖 `QueryEngine.Abort()` 而非上下文取消。请明确记录此选择，并确保 `QueryEngine.Abort()` 保证关闭返回的 channel；否则拉取循环将无限期挂起。

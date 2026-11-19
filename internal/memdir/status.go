@@ -18,7 +18,7 @@ func FormatMemoryStatus(workingDir string, store *MemoryStore) string {
 		sb.WriteString("Status: disabled (set CLAUDE_CODE_DISABLE_AUTO_MEMORY or autoMemoryEnabled=false)\n\n")
 	}
 
-	sb.WriteString("## CLAUDE.md Files\n")
+	sb.WriteString("## GLAUDE.md Files\n")
 	scoped, err := DiscoverAll(workingDir)
 	if err != nil || len(scoped) == 0 {
 		paths := DiscoverClaudeMd(workingDir)

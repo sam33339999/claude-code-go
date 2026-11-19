@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/engine"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/engine"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // --- hasMemoryWritesSince tests ---

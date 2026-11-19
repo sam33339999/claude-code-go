@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // ── SkillTool ─────────────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ type SkillInput struct {
 }
 
 // NewSkillTool constructs the Skill tool (BF-13). dirsFn supplies the skill
-// search directories live (user ~/.claude/skills + project .claude/skills,
+// search directories live (user ~/.glaude/skills + project .glaude/skills,
 // project wins on name collision); wired by bootstrap to home + the session
 // WorkingDir so worktree switches are respected.
 //
@@ -100,7 +100,7 @@ func (t *skillTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgr
 		if len(available) > 0 {
 			msg += " Available skills: " + strings.Join(available, ", ")
 		} else {
-			msg += " No skills are installed (add markdown skills under ~/.claude/skills or .claude/skills)."
+			msg += " No skills are installed (add markdown skills under ~/.glaude/skills or .glaude/skills)."
 		}
 		return &tools.Result{IsError: true, Content: msg}, nil
 	}

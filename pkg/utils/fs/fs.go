@@ -1,4 +1,4 @@
-// Package fs provides filesystem utilities for claude-code-go.
+// Package fs provides filesystem utilities for glaude.
 package fs
 
 import (

@@ -12,7 +12,7 @@
 **Do not open a public GitHub issue for security bugs.**
 
 Email [security@anthropic.com](mailto:security@anthropic.com) with subject:
-**[claude-code-go] Security Vulnerability Report**
+**[glaude] Security Vulnerability Report**
 
 Include:
 - Description of the vulnerability and its impact

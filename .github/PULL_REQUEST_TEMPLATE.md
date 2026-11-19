@@ -17,7 +17,7 @@ Closes #(issue number)
 
 ## Layer Affected (if applicable)
 
-- [ ] CLI (`cmd/claude`, `internal/bootstrap`)
+- [ ] CLI (`cmd/glaude`, `internal/bootstrap`)
 - [ ] TUI (`internal/tui`, `internal/commands`)
 - [ ] Tools (`internal/tools`, `internal/permissions`)
 - [ ] Engine (`internal/engine`, `internal/coordinator`)

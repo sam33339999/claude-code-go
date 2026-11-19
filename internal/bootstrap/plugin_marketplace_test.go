@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
 // Marketplace subcommand tests, byte-pinned against the oracle captures
@@ -70,7 +70,7 @@ func TestPluginMPAdd(t *testing.T) {
 	t.Run("file-source", func(t *testing.T) {
 		out, errb, store := swapPluginDeps(t)
 		root := writeMarketplaceFixture(t, t.TempDir())
-		manifestPath := filepath.Join(root, ".claude-plugin", "marketplace.json")
+		manifestPath := filepath.Join(root, ".glaude-plugin", "marketplace.json")
 		if err := runPlugin(t, out, errb, "plugin", "marketplace", "add", manifestPath); err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +142,7 @@ func TestPluginMPAdd(t *testing.T) {
 		if out.String() != "Adding marketplace…" {
 			t.Fatalf("stdout = %q", out.String())
 		}
-		want := "✘ Failed to add marketplace: Marketplace file not found at " + empty + "/.claude-plugin/marketplace.json\n"
+		want := "✘ Failed to add marketplace: Marketplace file not found at " + empty + "/.glaude-plugin/marketplace.json\n"
 		if errb.String() != want {
 			t.Fatalf("stderr = %q, want %q", errb.String(), want)
 		}

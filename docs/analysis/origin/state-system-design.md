@@ -531,7 +531,7 @@ export function useRegisterOverlay(id: string, enabled = true) {
 ### 7.1 文件系统存储结构
 
 ```
-~/.claude/tasks/<task-list-id>/
+~/.glaude/tasks/<task-list-id>/
 ├── 1.json              # Task 1 的 JSON 数据
 ├── 2.json              # Task 2 的 JSON 数据
 ├── .highwatermark      # 已分配的最大 ID，防止重用

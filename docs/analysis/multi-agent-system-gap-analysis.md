@@ -143,14 +143,14 @@ type AgentInput struct {
 
 ---
 
-### 2.2 ❌ 自定义 Agent 定义（.claude/agents/）
+### 2.2 ❌ 自定义 Agent 定义（.glaude/agents/）
 
 **原版实现**：
 ```typescript
 // src/tools/AgentTool/loadAgentsDir.ts
 // 从7个来源加载Agent定义（优先级从高到低）:
-// 1. User agents:    ~/.claude/agents/
-// 2. Project agents: .claude/agents/
+// 1. User agents:    ~/.glaude/agents/
+// 2. Project agents: .glaude/agents/
 // 3. Local agents:   本地配置
 // 4. Managed agents: 策略配置
 // 5. Plugin agents:  插件提供
@@ -179,7 +179,7 @@ type AgentDefinition = {
 - **完全没有实现**
 - 没有 `loadAgentsDir` 等效函数
 - 没有 Agent 定义的 Markdown/JSON 加载
-- 没有 `.claude/agents/` 目录支持
+- 没有 `.glaude/agents/` 目录支持
 
 **建议优先级**：🟡 P2（扩展性功能）
 
@@ -239,7 +239,7 @@ func (t *agentTool) Call(...) (*tools.Result, error) {
 
 ```typescript
 // TeamCreateTool — 创建团队配置文件
-writeTeamFile(`~/.claude/teams/{team_name}/team.json`)
+writeTeamFile(`~/.glaude/teams/{team_name}/team.json`)
 
 // AgentTool(team_name=...) — 将Agent加入团队
 detectAndGetBackend() → 选择执行后端:
@@ -254,7 +254,7 @@ detectAndGetBackend() → 选择执行后端:
 
 **当前 Go 实现**：
 - ❌ 没有 `TeamCreateTool` / `TeamDeleteTool`
-- ❌ 没有团队配置文件（`~/.claude/teams/`）
+- ❌ 没有团队配置文件（`~/.glaude/teams/`）
 - ❌ 没有多进程/多上下文执行后端
 - ❌ `AgentTool` 不支持 `team_name` 参数
 - ❌ `SendMessageTool` 只支持 `agent_id` 路由，不支持名称路由或广播
@@ -326,7 +326,7 @@ Leader 在其 UI 中展示给用户；响应通过邮箱返回。
 
 **原版实现**：
 ```
-存储路径：~/.claude/teams/{team_name}/inboxes/{agent_name}.json
+存储路径：~/.glaude/teams/{team_name}/inboxes/{agent_name}.json
 
 消息类型（7种）:
   普通消息           → { from, text, timestamp, read, color, summary }
@@ -518,9 +518,9 @@ export function getAgentModel(agentModel, parentModel, toolSpecifiedModel, permi
 type AgentMemoryScope = 'user' | 'project' | 'local'
 
 // 每种Agent类型有独立记忆目录
-// 'user'    → ~/.claude/agent-memory/{agentType}/
-// 'project' → {cwd}/.claude/agent-memory/{agentType}/
-// 'local'   → {cwd}/.claude/agent-memory-local/{agentType}/
+// 'user'    → ~/.glaude/agent-memory/{agentType}/
+// 'project' → {cwd}/.glaude/agent-memory/{agentType}/
+// 'local'   → {cwd}/.glaude/agent-memory-local/{agentType}/
 
 // agentMemorySnapshot.ts — 跨会话记忆快照保存/恢复
 checkAgentMemorySnapshot()   // 检查可恢复快照
@@ -581,7 +581,7 @@ type SendMessageInput struct {
 ```typescript
 // src/tools/AgentTool/resumeAgent.ts
 // 允许从历史对话记录中恢复并续接一个Agent
-// 对话历史保存于: ~/.claude/sessions/{sessionId}/agents/{agentId}/transcript.json
+// 对话历史保存于: ~/.glaude/sessions/{sessionId}/agents/{agentId}/transcript.json
 // 用途：长时间任务中断后继续，避免从头开始
 ```
 
@@ -709,7 +709,7 @@ AgentsList / AgentsMenu   — Agent列表和管理菜单
 | **Coordinator 基础设施** | coordinatorMode + AppState | coordinator.go + RWMutex | ✅ 75% |
 | **Task 工具集** | TaskCreate/Get/List/Update/Stop/Output | 全部实现 | ✅ 90% |
 | **内置 Agent 类型（5种）** | Explore/Plan/Verification/General/Guide | 无类型区分 | ❌ 0% |
-| **自定义 Agent 定义** | .claude/agents/（7层优先级） | 无 | ❌ 0% |
+| **自定义 Agent 定义** | .glaude/agents/（7层优先级） | 无 | ❌ 0% |
 | **异步后台 Agent（Layer 2）** | background: true + 独立生命周期 | 无（Call始终阻塞） | ❌ 10% |
 | **Swarm/团队模式（Layer 3）** | TeamCreate + 多后端 + 邮箱 | 无 | ❌ 0% |
 | **执行后端（tmux/iTerm/in-proc）** | 3种后端 + 自动选择 | 仅goroutine（无抽象） | ❌ 5% |
@@ -758,7 +758,7 @@ AgentsList / AgentsMenu   — Agent列表和管理菜单
 
 | # | 功能 | 工作量估算 |
 |---|------|-----------|
-| 7 | **自定义Agent定义（.claude/agents/）** | 3 天 |
+| 7 | **自定义Agent定义（.glaude/agents/）** | 3 天 |
 | 8 | **CacheSafeParams / StopHooks** | 3 天 |
 | 9 | **模型选择策略（per-agent）** | 1.5 天 |
 | 10 | **Agent摘要生成** | 2 天 |

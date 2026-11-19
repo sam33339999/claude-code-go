@@ -5,10 +5,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
-// Renderers for `claude mcp` output.  Every string here is byte-exact against
+// Renderers for `glaude mcp` output.  Every string here is byte-exact against
 // the oracle (claude v2.1.261) — including the unicode glyphs (✔ ✘ ⏸ ⚠ — …),
 // the double space in empty-arg command joins, and the redaction set.
 
@@ -61,8 +61,8 @@ func mcpProjectConfigPath(s *config.MCPStore) string {
 }
 
 // mcpLocationPath renders the "Location:" path used by diagnostics and the
-// multi-scope remove hint: user → ~/.claude.json, project → resolved
-// .mcp.json, local → ~/.claude.json [project: <key>].
+// multi-scope remove hint: user → ~/.glaude.json, project → resolved
+// .mcp.json, local → ~/.glaude.json [project: <key>].
 func mcpLocationPath(s *config.MCPStore, scope string) string {
 	switch scope {
 	case config.MCPScopeProject:
@@ -115,8 +115,8 @@ func mcpRenderHeaders(w io.Writer, pairs []config.EnvPair) {
 // prints when the command looks like a URL and --transport was not given.
 func mcpRenderURLWarning(w io.Writer, name, command string) {
 	fmt.Fprintf(w, "\nWarning: The command \"%s\" looks like a URL, but is being interpreted as a stdio server as --transport was not specified.\n", command)
-	fmt.Fprintf(w, "If this is an HTTP server, use: claude mcp add --transport http %s %s\n", name, command)
-	fmt.Fprintf(w, "If this is an SSE server, use: claude mcp add --transport sse %s %s\n", name, command)
+	fmt.Fprintf(w, "If this is an HTTP server, use: glaude mcp add --transport http %s %s\n", name, command)
+	fmt.Fprintf(w, "If this is an SSE server, use: glaude mcp add --transport sse %s %s\n", name, command)
 }
 
 // mcpStatusConnected / failed / pending / rejected are the status strings used
@@ -182,7 +182,7 @@ func mcpRenderGet(w io.Writer, name, scope string, e config.MCPServerEntry, stat
 			fmt.Fprintf(w, "  OAuth: %s\n", strings.Join(parts, ", "))
 		}
 	}
-	fmt.Fprintf(w, "\nTo remove this server, run: claude mcp remove %s -s %s\n", name, scope)
+	fmt.Fprintf(w, "\nTo remove this server, run: glaude mcp remove %s -s %s\n", name, scope)
 }
 
 // mcpOAuthParts renders the OAuth detail parts of `get`: "client_id
@@ -219,9 +219,9 @@ func mcpRenderMiss(w io.Writer, name, suggestion string, all []string, forGet, h
 	}
 	switch {
 	case suggestion != "":
-		fmt.Fprintf(w, "No MCP server named \"%s\". Did you mean \"%s\"? Run `claude mcp list` to see all.", name, suggestion)
+		fmt.Fprintf(w, "No MCP server named \"%s\". Did you mean \"%s\"? Run `glaude mcp list` to see all.", name, suggestion)
 	case len(all) == 0:
-		fmt.Fprintf(w, "No MCP server named \"%s\". Run `claude mcp add` to add one.", name)
+		fmt.Fprintf(w, "No MCP server named \"%s\". Run `glaude mcp add` to add one.", name)
 	default:
 		shown := all
 		if len(shown) > 8 {
@@ -229,7 +229,7 @@ func mcpRenderMiss(w io.Writer, name, suggestion string, all []string, forGet, h
 		}
 		fmt.Fprintf(w, "No MCP server named \"%s\". Configured servers: %s", name, strings.Join(shown, ", "))
 		if len(all) > 8 {
-			fmt.Fprintf(w, " (and %d more — run `claude mcp list` to see all)", len(all)-8)
+			fmt.Fprintf(w, " (and %d more — run `glaude mcp list` to see all)", len(all)-8)
 		}
 	}
 	if forGet && hasPending {
@@ -246,7 +246,7 @@ func mcpRenderRemoveMulti(w io.Writer, name string, scopes []string, s *config.M
 	}
 	fmt.Fprint(w, "\nTo remove from a specific scope, use:\n")
 	for _, scope := range scopes {
-		fmt.Fprintf(w, "  claude mcp remove %s -s %s\n", name, scope)
+		fmt.Fprintf(w, "  glaude mcp remove %s -s %s\n", name, scope)
 	}
 }
 
@@ -258,7 +258,7 @@ func mcpRenderRemoveMulti(w io.Writer, name string, scopes []string, s *config.M
 // participating scope listed even when its endpoint equals another's).
 func mcpRenderDiagnostics(w io.Writer, s *config.MCPStore) {
 	fmt.Fprint(w, "\nMCP config diagnostics ⚠\n\n")
-	fmt.Fprint(w, "For help configuring MCP servers, see: https://code.claude.com/docs/en/mcp\n\n")
+	fmt.Fprint(w, "For help configuring MCP servers, see: https://code.glaude.com/docs/en/mcp\n\n")
 	for _, scope := range config.ListScopeOrder {
 		entries, err := mcpUnknownTypeEntries(s, scope)
 		if err != nil || len(entries) == 0 {
@@ -282,7 +282,7 @@ func mcpRenderDiagnostics(w io.Writer, s *config.MCPStore) {
 		removes := make([]string, len(c.Scopes))
 		for j, scope := range c.Scopes {
 			parts[j] = fmt.Sprintf("%s (%s)", scope, c.Endpoints[j])
-			removes[j] = fmt.Sprintf("`claude mcp remove %s -s %s`", c.Name, scope)
+			removes[j] = fmt.Sprintf("`glaude mcp remove %s -s %s`", c.Name, scope)
 		}
 		fmt.Fprintf(w, "├ Server %q is defined in multiple scopes with different endpoints: %s. OAuth tokens are stored per endpoint, so authenticating in one context will not carry over.\n",
 			c.Name, strings.Join(parts, ", "))

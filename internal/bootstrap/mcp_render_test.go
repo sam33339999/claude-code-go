@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
 // Byte-exact render tests against oracle fixtures (claude v2.1.261), captured
@@ -99,8 +99,8 @@ func TestMCPRenderURLWarning(t *testing.T) {
 	mcpRenderURLWarning(&b, "warn", "http://example.com/api")
 	want := "\nWarning: The command \"http://example.com/api\" looks like a URL, " +
 		"but is being interpreted as a stdio server as --transport was not specified.\n" +
-		"If this is an HTTP server, use: claude mcp add --transport http warn http://example.com/api\n" +
-		"If this is an SSE server, use: claude mcp add --transport sse warn http://example.com/api\n"
+		"If this is an HTTP server, use: glaude mcp add --transport http warn http://example.com/api\n" +
+		"If this is an SSE server, use: glaude mcp add --transport sse warn http://example.com/api\n"
 	if b.String() != want {
 		t.Fatalf("got %q, want %q", b.String(), want)
 	}
@@ -148,7 +148,7 @@ func TestMCPRenderGetStdio(t *testing.T) {
 		"  Command: echo\n" +
 		"  Args: hello world\n" +
 		"  Environment:\n" +
-		"\nTo remove this server, run: claude mcp remove alpha -s local\n"
+		"\nTo remove this server, run: glaude mcp remove alpha -s local\n"
 	if b.String() != want {
 		t.Fatalf("got %q, want %q", b.String(), want)
 	}
@@ -176,7 +176,7 @@ func TestMCPRenderGetHTTPOAuth(t *testing.T) {
 		"  Headers:\n" +
 		"    Authorization: Bearer x\n" +
 		"  OAuth: client_id configured, callback_port 8080\n" +
-		"\nTo remove this server, run: claude mcp remove oa -s local\n"
+		"\nTo remove this server, run: glaude mcp remove oa -s local\n"
 	if b.String() != want {
 		t.Fatalf("got %q, want %q", b.String(), want)
 	}
@@ -206,7 +206,7 @@ func TestMCPRenderGetNoDetailBlock(t *testing.T) {
 				"  Scope: Local config (private to you in this project)\n" +
 				"  Status: ✘ Failed to connect\n" +
 				"  Issue: " + tc.issue + "\n" +
-				"\nTo remove this server, run: claude mcp remove x -s local\n"
+				"\nTo remove this server, run: glaude mcp remove x -s local\n"
 			if b.String() != want {
 				t.Fatalf("got %q, want %q", b.String(), want)
 			}
@@ -225,9 +225,9 @@ func TestMCPRenderMiss(t *testing.T) {
 		want       string
 	}{
 		{"suggestion", "alpga", "alpha", nil, false, false,
-			"No MCP server named \"alpga\". Did you mean \"alpha\"? Run `claude mcp list` to see all.\n"},
+			"No MCP server named \"alpga\". Did you mean \"alpha\"? Run `glaude mcp list` to see all.\n"},
 		{"empty", "ghost", "", nil, false, false,
-			"No MCP server named \"ghost\". Run `claude mcp add` to add one.\n"},
+			"No MCP server named \"ghost\". Run `glaude mcp add` to add one.\n"},
 		{"configured", "ghost", "", []string{"alpha", "beta"}, false, false,
 			"No MCP server named \"ghost\". Configured servers: alpha, beta\n"},
 		// qat: with nothing else to list, the pending hint replaces the whole
@@ -237,12 +237,12 @@ func TestMCPRenderMiss(t *testing.T) {
 		// …but a suggestion still wins the Ltn branch, with the pending note
 		// appended (capture: get alpga with alpha local + pp pending).
 		{"suggestion-plus-pending", "alpga", "alpha", []string{"alpha"}, true, true,
-			"No MCP server named \"alpga\". Did you mean \"alpha\"? Run `claude mcp list` to see all." +
+			"No MCP server named \"alpga\". Did you mean \"alpha\"? Run `glaude mcp list` to see all." +
 				" (.mcp.json servers are awaiting approval — run `claude` in this directory to review them.)\n"},
 		// remove never carries pending hints, even with pending servers
 		// present (capture: rm-sugg while a .mcp.json server was pending).
 		{"remove-ignores-pending", "alpga", "alpha", nil, false, true,
-			"No MCP server named \"alpga\". Did you mean \"alpha\"? Run `claude mcp list` to see all.\n"},
+			"No MCP server named \"alpga\". Did you mean \"alpha\"? Run `glaude mcp list` to see all.\n"},
 		{"remove-pending-only-store", "ghost", "", []string{"pp"}, false, true,
 			"No MCP server named \"ghost\". Configured servers: pp\n"},
 	}
@@ -262,7 +262,7 @@ func TestMCPRenderMissListCap(t *testing.T) {
 	var b bytes.Buffer
 	mcpRenderMiss(&b, "x", "", all, false, false)
 	want := "No MCP server named \"x\". Configured servers: a, b, c, d, e, f, g, h" +
-		" (and 3 more — run `claude mcp list` to see all)\n"
+		" (and 3 more — run `glaude mcp list` to see all)\n"
 	if b.String() != want {
 		t.Fatalf("got %q, want %q", b.String(), want)
 	}
@@ -271,7 +271,7 @@ func TestMCPRenderMissListCap(t *testing.T) {
 	b.Reset()
 	mcpRenderMiss(&b, "x", "", all, true, true)
 	want = "No MCP server named \"x\". Configured servers: a, b, c, d, e, f, g, h" +
-		" (and 3 more — run `claude mcp list` to see all)" +
+		" (and 3 more — run `glaude mcp list` to see all)" +
 		" (.mcp.json servers are awaiting approval — run `claude` in this directory to review them.)\n"
 	if b.String() != want {
 		t.Fatalf("got %q, want %q", b.String(), want)
@@ -286,8 +286,8 @@ func TestMCPRenderRemoveMulti(t *testing.T) {
 		"  - Project config (shared via .mcp.json) (" + s.ProjectKey() + "/.mcp.json)\n" +
 		"  - User config (available in all your projects) (" + config.ClaudeJsonPath(s.HomeDir()) + ")\n" +
 		"\nTo remove from a specific scope, use:\n" +
-		"  claude mcp remove multi -s project\n" +
-		"  claude mcp remove multi -s user\n"
+		"  glaude mcp remove multi -s project\n" +
+		"  glaude mcp remove multi -s user\n"
 	if b.String() != want {
 		t.Fatalf("got %q, want %q", b.String(), want)
 	}
@@ -300,7 +300,7 @@ func TestMCPRenderDiagnostics(t *testing.T) {
 		var b bytes.Buffer
 		mcpRenderDiagnostics(&b, s)
 		want := "\nMCP config diagnostics ⚠\n\n" +
-			"For help configuring MCP servers, see: https://code.claude.com/docs/en/mcp\n\n" +
+			"For help configuring MCP servers, see: https://code.glaude.com/docs/en/mcp\n\n" +
 			"[Contains warnings] Local config (private to you in this project)\n" +
 			"Location: " + config.ClaudeJsonPath(s.HomeDir()) + " [project: " + s.ProjectKey() + "]\n" +
 			" └ [Warning] [bad] mcpServers.bad: Skipped — unknown MCP server type \"bogus\" for server \"bad\"\n\n"
@@ -315,13 +315,13 @@ func TestMCPRenderDiagnostics(t *testing.T) {
 		var b bytes.Buffer
 		mcpRenderDiagnostics(&b, s)
 		want := "\nMCP config diagnostics ⚠\n\n" +
-			"For help configuring MCP servers, see: https://code.claude.com/docs/en/mcp\n\n" +
+			"For help configuring MCP servers, see: https://code.glaude.com/docs/en/mcp\n\n" +
 			"[Conflicting scopes]\n" +
 			"├ Server \"multi\" is defined in multiple scopes with different endpoints: " +
 			"user (echo3), project (echo2). OAuth tokens are stored per endpoint, " +
 			"so authenticating in one context will not carry over.\n" +
 			"└ Keep the correct endpoint and remove the others: " +
-			"`claude mcp remove multi -s user` or `claude mcp remove multi -s project`\n\n"
+			"`glaude mcp remove multi -s user` or `glaude mcp remove multi -s project`\n\n"
 		if b.String() != want {
 			t.Fatalf("got %q, want %q", b.String(), want)
 		}
@@ -341,7 +341,7 @@ func TestMCPRenderDiagnostics(t *testing.T) {
 		if strings.Count(got, "├ Keep") != 1 || strings.Count(got, "└ Keep") != 1 {
 			t.Fatalf("last group's Keep must use └: %q", got)
 		}
-		if !strings.HasSuffix(got, "└ Keep the correct endpoint and remove the others: `claude mcp remove m2 -s user` or `claude mcp remove m2 -s local`\n\n") {
+		if !strings.HasSuffix(got, "└ Keep the correct endpoint and remove the others: `glaude mcp remove m2 -s user` or `glaude mcp remove m2 -s local`\n\n") {
 			t.Fatalf("tail = %q", got)
 		}
 	})

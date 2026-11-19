@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/glaude/internal/memdir"
 )
 
 func TestScanSecrets_BlocksAPIKey(t *testing.T) {

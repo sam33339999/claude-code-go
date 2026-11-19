@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Claude Code Go Logo" width="200">
+  <img src="assets/logo.png" alt="Glaude Logo" width="200">
 </p>
 
-<h1 align="center">Claude Code Go</h1>
+<h1 align="center">Glaude</h1>
 
 <p align="center">
   <strong>🤖 Réimplémentation en Go de Claude Code — Assistant de programmation IA dans votre terminal</strong>
@@ -10,13 +10,13 @@
 
 <p align="center">
   <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Version Go"></a>
-  <a href="https://goreportcard.com/report/github.com/tunsuy/claude-code-go"><img src="https://goreportcard.com/badge/github.com/tunsuy/claude-code-go?style=flat-square" alt="Go Report Card"></a>
-  <a href="https://codecov.io/gh/tunsuy/claude-code-go"><img src="https://codecov.io/gh/tunsuy/claude-code-go/branch/main/graph/badge.svg?style=flat-square" alt="Couverture"></a>
-  <a href="https://pkg.go.dev/github.com/tunsuy/claude-code-go"><img src="https://pkg.go.dev/badge/github.com/tunsuy/claude-code-go.svg" alt="Go Reference"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/claude-code-go/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/releases"><img src="https://img.shields.io/github/v/release/tunsuy/claude-code-go?style=flat-square&logo=github" alt="Release"></a>
+  <a href="https://goreportcard.com/report/github.com/tunsuy/glaude"><img src="https://goreportcard.com/badge/github.com/tunsuy/glaude?style=flat-square" alt="Go Report Card"></a>
+  <a href="https://codecov.io/gh/tunsuy/glaude"><img src="https://codecov.io/gh/tunsuy/glaude/branch/main/graph/badge.svg?style=flat-square" alt="Couverture"></a>
+  <a href="https://pkg.go.dev/github.com/tunsuy/glaude"><img src="https://pkg.go.dev/badge/github.com/tunsuy/glaude.svg" alt="Go Reference"></a>
+  <a href="https://github.com/tunsuy/glaude/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/glaude/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
+  <a href="https://github.com/tunsuy/glaude/releases"><img src="https://img.shields.io/github/v/release/tunsuy/glaude?style=flat-square&logo=github" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="Licence"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
+  <a href="https://github.com/tunsuy/glaude/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
 </p>
 
 <p align="center">
@@ -32,13 +32,13 @@
 ---
 
 <p align="center">
-  <img src="assets/image.png" alt="Claude Code Go - Session Interactive" width="800">
+  <img src="assets/image.png" alt="Glaude - Session Interactive" width="800">
   <br>
   <em>TUI interactive avec lecture de fichiers et affichage de la réflexion en temps réel</em>
 </p>
 
 <p align="center">
-  <img src="assets/image1.png" alt="Claude Code Go - Analyse de Projet" width="800">
+  <img src="assets/image1.png" alt="Glaude - Analyse de Projet" width="800">
   <br>
   <em>Analyse complète du projet avec détails de l'architecture</em>
 </p>
@@ -58,7 +58,7 @@ Ce projet est une **réimplémentation complète en Go de [Claude Code](https://
 <table>
   <tr>
     <td width="180"><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075"><img src="assets/sponsors/orcarouter.png" alt="OrcaRouter" width="150"></a></td>
-    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> — une passerelle, tous les modèles. OrcaRouter route chaque requête vers le modèle le plus adapté parmi plus de 200 (de pointe et open source), aux prix des fournisseurs, avec basculement et journaux de requêtes. Compatible OpenAI, il se branche directement dans Claude Code Go — la configuration exacte se trouve dans la section <a href="#fournisseurs-dapi">Fournisseurs d'API</a>.</td>
+    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> — une passerelle, tous les modèles. OrcaRouter route chaque requête vers le modèle le plus adapté parmi plus de 200 (de pointe et open source), aux prix des fournisseurs, avec basculement et journaux de requêtes. Compatible OpenAI, il se branche directement dans Glaude — la configuration exacte se trouve dans la section <a href="#fournisseurs-dapi">Fournisseurs d'API</a>.</td>
   </tr>
 </table>
 
@@ -67,24 +67,24 @@ Ce projet est une **réimplémentation complète en Go de [Claude Code](https://
 - **TUI interactive** — Interface terminal complète construite avec [Bubble Tea](https://github.com/charmbracelet/bubbletea), avec thèmes sombre/clair
 - **Utilisation d'outils agentiques** — 35 outils intégrés (fichier, shell, recherche, web, tâches, sous-agents, …), tous médiés par un pipeline de permissions à 9 couches
 - **Code Mode** — Le modèle écrit du JavaScript/TypeScript qui compose plusieurs appels d'outils en UNE exécution en sandbox (moteur [moejs](https://github.com/MoeForge/moejs) en Go pur) : replay, snippets réutilisables, audit des écritures, approbations par lot — voir [Code Mode](#code-mode)
-- **Sous-commandes CLI** — `claude mcp …`, `claude plugin …`, `claude auth …`, `claude doctor`, `claude update` ; les groupes `mcp` et `plugin` produisent une sortie identique octet par octet à celle du CLI TypeScript
-- **Gestion des plugins** — Installation/activation/désactivation de plugins depuis des marketplaces locaux, avec validation complète des manifestes (`claude plugin validate`)
+- **Sous-commandes CLI** — `glaude mcp …`, `glaude plugin …`, `glaude auth …`, `glaude doctor`, `glaude update` ; les groupes `mcp` et `plugin` produisent une sortie identique octet par octet à celle du CLI TypeScript
+- **Gestion des plugins** — Installation/activation/désactivation de plugins depuis des marketplaces locaux, avec validation complète des manifestes (`glaude plugin validate`)
 - **Coordination multi-agents** — Lance des sous-agents en arrière-plan pour des tâches parallèles
 - **Support MCP** — Connecte des outils externes via le [Model Context Protocol](https://modelcontextprotocol.io) (transports stdio + HTTP + WebSocket), importables depuis Claude Desktop ; les notifications push du serveur réveillent l'agent de façon événementielle (zéro polling)
-- **Mémoire CLAUDE.md** — Charge automatiquement le contexte du projet depuis les fichiers `CLAUDE.md` tout au long de l'arborescence
+- **Mémoire GLAUDE.md** — Charge automatiquement le contexte du projet depuis les fichiers `GLAUDE.md` tout au long de l'arborescence
 - **Gestion des sessions** — Reprend les conversations précédentes ; compacte automatiquement les historiques longs
 - **Mode Vim** — Raccourcis clavier Vim optionnels dans la zone de saisie
-- **Authentification OAuth + clé API** — Connectez-vous avec OAuth Anthropic (`claude auth login`) ou fournissez une `ANTHROPIC_API_KEY`
+- **Authentification OAuth + clé API** — Connectez-vous avec OAuth Anthropic (`glaude auth login`) ou fournissez une `ANTHROPIC_API_KEY`
 - **Commandes slash intégrées** — `/compact`, `/commit`, `/review`, `/model`, `/theme`, et plus (voir ci-dessous)
 - **Réponses en streaming** — Streaming de tokens en temps réel avec affichage des blocs de réflexion
 
 ## Architecture
 
-Claude Code Go est organisé en six couches :
+Glaude est organisé en six couches :
 
 ```
 ┌─────────────────────────────────────┐
-│  CLI (cmd/claude)                   │  point d'entrée Cobra
+│  CLI (cmd/glaude)                   │  point d'entrée Cobra
 ├─────────────────────────────────────┤
 │  TUI (internal/tui)                 │  interface Bubble Tea MVU
 ├─────────────────────────────────────┤
@@ -112,10 +112,10 @@ Voir [`docs/project/architecture.md`](docs/project/architecture.md) pour une des
 ### Depuis les sources
 
 ```bash
-git clone https://github.com/tunsuy/claude-code-go.git
-cd claude-code-go
+git clone https://github.com/tunsuy/glaude.git
+cd glaude
 make build
-# Le binaire est placé dans ./bin/claude
+# Le binaire est placé dans ./bin/glaude
 ```
 
 Ajouter à votre `PATH` :
@@ -127,7 +127,7 @@ export PATH="$PATH:$(pwd)/bin"
 ### Avec `go install`
 
 ```bash
-go install github.com/tunsuy/claude-code-go/cmd/claude@latest
+go install github.com/tunsuy/glaude/cmd/glaude@latest
 ```
 
 ## Démarrage rapide
@@ -140,10 +140,10 @@ export ANTHROPIC_API_KEY=sk-ant-...
 claude
 
 # Posez une question unique et quittez
-claude -p "Expliquez le point d'entrée principal de ce projet"
+glaude -p "Expliquez le point d'entrée principal de ce projet"
 
 # Reprenez la session la plus récente
-claude --resume
+glaude --resume
 ```
 
 ## Authentification
@@ -153,19 +153,19 @@ claude --resume
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 # ou stockez-la de façon persistante :
-claude auth login --api-key sk-ant-...
+glaude auth login --api-key sk-ant-...
 ```
 
 **OAuth (recommandé pour une utilisation interactive) :**
 
 ```bash
-claude auth login    # ouvre le flux OAuth dans votre navigateur
-claude auth status   # vérifie avec quel compte vous êtes connecté
+glaude auth login    # ouvre le flux OAuth dans votre navigateur
+glaude auth status   # vérifie avec quel compte vous êtes connecté
 ```
 
 ## Fournisseurs d'API
 
-Claude Code Go prend en charge plusieurs fournisseurs d'API, vous permettant d'utiliser non seulement l'API d'Anthropic, mais aussi des APIs compatibles OpenAI.
+Glaude prend en charge plusieurs fournisseurs d'API, vous permettant d'utiliser non seulement l'API d'Anthropic, mais aussi des APIs compatibles OpenAI.
 
 ### Fournisseurs pris en charge
 
@@ -278,7 +278,7 @@ export OPENAI_MODEL=orcarouter/auto   # laisse OrcaRouter choisir le modèle pou
 ### Mode interactif
 
 ```
-claude [flags]
+glaude [flags]
 ```
 
 | Flag | Description |
@@ -296,17 +296,17 @@ Commandes de gestion non interactives. Les groupes `mcp` et `plugin` sont compat
 
 | Commande | Description |
 |----------|-------------|
-| `claude mcp add <nom> -- <commande> [args…]` | Enregistrer un serveur MCP stdio (`--transport http <nom> <url>` pour un serveur distant, `-e KEY=VAL` pour les variables d'environnement) |
-| `claude mcp list` / `claude mcp get <nom>` | Lister les serveurs configurés / vérifier l'état de l'un d'entre eux |
-| `claude mcp add-json <nom> <json>` | Enregistrer un serveur à partir d'un JSON brut |
-| `claude mcp add-from-claude-desktop` | Importer les serveurs depuis la configuration de Claude Desktop |
-| `claude mcp remove <nom>` / `reset-project-choices` | Supprimer un serveur / réinitialiser les choix propres au projet |
-| `claude plugin install <plugin>` | Installer un plugin depuis un marketplace configuré |
-| `claude plugin list` / `enable` / `disable` / `uninstall` / `update` | Gérer les plugins installés |
-| `claude plugin validate <chemin>` | Valider un manifeste de plugin ou de marketplace (`--strict`, `--json`) |
-| `claude plugin marketplace add/list/remove/update` | Gérer les marketplaces de plugins (chemins locaux) |
-| `claude auth login` / `logout` / `status` | Authentification OAuth ou par clé API |
-| `claude doctor` | Vérification de l'état de l'environnement |
+| `glaude mcp add <nom> -- <commande> [args…]` | Enregistrer un serveur MCP stdio (`--transport http <nom> <url>` pour un serveur distant, `-e KEY=VAL` pour les variables d'environnement) |
+| `glaude mcp list` / `glaude mcp get <nom>` | Lister les serveurs configurés / vérifier l'état de l'un d'entre eux |
+| `glaude mcp add-json <nom> <json>` | Enregistrer un serveur à partir d'un JSON brut |
+| `glaude mcp add-from-claude-desktop` | Importer les serveurs depuis la configuration de Claude Desktop |
+| `glaude mcp remove <nom>` / `reset-project-choices` | Supprimer un serveur / réinitialiser les choix propres au projet |
+| `glaude plugin install <plugin>` | Installer un plugin depuis un marketplace configuré |
+| `glaude plugin list` / `enable` / `disable` / `uninstall` / `update` | Gérer les plugins installés |
+| `glaude plugin validate <chemin>` | Valider un manifeste de plugin ou de marketplace (`--strict`, `--json`) |
+| `glaude plugin marketplace add/list/remove/update` | Gérer les marketplaces de plugins (chemins locaux) |
+| `glaude auth login` / `logout` / `status` | Authentification OAuth ou par clé API |
+| `glaude doctor` | Vérification de l'état de l'environnement |
 
 ### Commandes slash
 
@@ -325,12 +325,12 @@ Tapez `/` dans la zone de saisie pour voir toutes les commandes disponibles :
 | `/status` | Afficher le statut de la session |
 | `/cost` | Afficher l'utilisation des tokens pour cette session |
 | `/session` | Afficher l'ID de la session en cours |
-| `/memory` | Afficher les fichiers mémoire CLAUDE.md chargés |
+| `/memory` | Afficher les fichiers mémoire GLAUDE.md chargés |
 | `/dream` | Déclencher manuellement la consolidation de la mémoire |
 | `/review` | Examiner le diff git courant avec Claude |
 | `/commit` | Demander à Claude de rédiger et de créer un commit git |
 | `/diff` | Afficher le diff git courant |
-| `/init` | Générer un CLAUDE.md pour ce projet |
+| `/init` | Générer un GLAUDE.md pour ce projet |
 
 `/config`, `/mcp`, `/resume` et `/terminal-setup` sont entièrement implémentées (reprise de session, statut MCP, paramètres interactifs, configuration des touches du terminal).
 
@@ -376,7 +376,7 @@ Champs d'entrée : `code`, `typescript` (compilation avec effacement des types),
 - **Snippets** : transforme les exécutions réussies en scripts réutilisables nommés (`save_as` → `codemode.run`). Les snippets stockent le code complet ; les exécutions imbriquées partagent la portée d'approbation de l'appelant (profondeur de récursion limitée à 3).
 - **Audit des écritures** : chaque appel d'écriture exécuté est enregistré (outil + résumé d'entrée) — une trace honnête de *ce qui a changé*, consultable via `codemode.audit`.
 
-Les données d'exécution vivent sous `~/.claude/codemode/` : `history.jsonl`, `spill/`, `modules/`, `snippets/`, `approvals.json`.
+Les données d'exécution vivent sous `~/.glaude/codemode/` : `history.jsonl`, `spill/`, `modules/`, `snippets/`, `approvals.json`.
 
 ### Veille événementielle (zéro polling)
 

@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/tunsuy/claude-code-go/internal/msgqueue"
-	"github.com/tunsuy/claude-code-go/internal/session"
-	"github.com/tunsuy/claude-code-go/internal/state"
-	"github.com/tunsuy/claude-code-go/internal/transcript"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/msgqueue"
+	"github.com/tunsuy/glaude/internal/session"
+	"github.com/tunsuy/glaude/internal/state"
+	"github.com/tunsuy/glaude/internal/transcript"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // runCmdFully executes a Cmd, draining tea.BatchMsg children, and returns

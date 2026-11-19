@@ -1,6 +1,6 @@
 package bootstrap
 
-// Oracle-verified help texts for the `claude plugin` command tree (claude
+// Oracle-verified help texts for the `glaude plugin` command tree (claude
 // v2.1.261, non-TTY 80-column rendering).  These are byte-exact literals —
 // including the wrapped lines and the two-space continuation indent inside the
 // Commands columns — and must not be reflowed.
@@ -10,9 +10,9 @@ package bootstrap
 // parent help (the oracle lists them).  Unknown-command suggestions likewise
 // run over the implemented names only.
 
-const pluginParentHelp = `Usage: claude plugin|plugins [options] [command]
+const pluginParentHelp = `Usage: glaude plugin|plugins [options] [command]
 
-Manage Claude Code plugins
+Manage Glaude plugins
 
 Options:
   -h, --help                           Display help for command
@@ -25,7 +25,7 @@ Commands:
                                        marketplaces (use plugin@marketplace for
                                        specific marketplace)
   list [options]                       List installed plugins
-  marketplace                          Manage Claude Code marketplaces
+  marketplace                          Manage Glaude marketplaces
   uninstall|remove [options] <plugin>  Uninstall an installed plugin
   update [options] <plugin>            Update a plugin to the latest version
                                        (restart required to apply)
@@ -34,7 +34,7 @@ Commands:
                                        commands in a directory
 `
 
-const pluginListHelp = `Usage: claude plugin list [options]
+const pluginListHelp = `Usage: glaude plugin list [options]
 
 List installed plugins
 
@@ -44,7 +44,7 @@ Options:
   --json       Output as JSON
 `
 
-const pluginInstallHelp = `Usage: claude plugin install|i [options] <plugin>
+const pluginInstallHelp = `Usage: glaude plugin install|i [options] <plugin>
 
 Install a plugin from available marketplaces (use plugin@marketplace for
 specific marketplace)
@@ -64,14 +64,14 @@ Options:
                         stdout is not a TTY)
 `
 
-const pluginUninstallHelp = `Usage: claude plugin uninstall|remove [options] <plugin>
+const pluginUninstallHelp = `Usage: glaude plugin uninstall|remove [options] <plugin>
 
 Uninstall an installed plugin
 
 Options:
   -h, --help           Display help for command
   --keep-data          Preserve the plugin's persistent data directory
-                       (~/.claude/plugins/data/{id}/)
+                       (~/.glaude/plugins/data/{id}/)
   --prune              Also remove auto-installed dependencies that are no
                        longer needed (requires -y in non-interactive contexts)
   -s, --scope <scope>  Uninstall from scope: user, project, or local (default:
@@ -80,7 +80,7 @@ Options:
                        or stdout is not a TTY)
 `
 
-const pluginEnableHelp = `Usage: claude plugin enable [options] <plugin>
+const pluginEnableHelp = `Usage: glaude plugin enable [options] <plugin>
 
 Enable a disabled plugin
 
@@ -90,7 +90,7 @@ Options:
                        auto-detect)
 `
 
-const pluginDisableHelp = `Usage: claude plugin disable [options] [plugin]
+const pluginDisableHelp = `Usage: glaude plugin disable [options] [plugin]
 
 Disable an enabled plugin
 
@@ -101,7 +101,7 @@ Options:
                        auto-detect)
 `
 
-const pluginUpdateHelp = `Usage: claude plugin update [options] <plugin>
+const pluginUpdateHelp = `Usage: glaude plugin update [options] <plugin>
 
 Update a plugin to the latest version (restart required to apply)
 
@@ -115,7 +115,7 @@ Options:
                        (required when stdin or stdout is not a TTY)
 `
 
-const pluginValidateHelp = `Usage: claude plugin validate [options] <path>
+const pluginValidateHelp = `Usage: glaude plugin validate [options] <path>
 
 Validate a plugin or marketplace manifest, or the skills, agents, and commands
 in a directory
@@ -128,9 +128,9 @@ Options:
               runtime tolerates.
 `
 
-const pluginMarketplaceHelp = `Usage: claude plugin marketplace [options] [command]
+const pluginMarketplaceHelp = `Usage: glaude plugin marketplace [options] [command]
 
-Manage Claude Code marketplaces
+Manage Glaude marketplaces
 
 Options:
   -h, --help                  Display help for command
@@ -144,7 +144,7 @@ Commands:
                               all if no name specified
 `
 
-const pluginMPAddHelp = `Usage: claude plugin marketplace add [options] <source>
+const pluginMPAddHelp = `Usage: glaude plugin marketplace add [options] <source>
 
 Add a marketplace from a URL, path, or GitHub repo
 
@@ -157,10 +157,10 @@ Options:
                        project, or local
   --sparse <paths...>  Limit checkout to specific directories via git
                        sparse-checkout (for monorepos). Example: --sparse
-                       .claude-plugin plugins
+                       .glaude-plugin plugins
 `
 
-const pluginMPListHelp = `Usage: claude plugin marketplace list [options]
+const pluginMPListHelp = `Usage: glaude plugin marketplace list [options]
 
 List all configured marketplaces
 
@@ -169,7 +169,7 @@ Options:
   --json      Output as JSON
 `
 
-const pluginMPRemoveHelp = `Usage: claude plugin marketplace remove|rm [options] <name>
+const pluginMPRemoveHelp = `Usage: glaude plugin marketplace remove|rm [options] <name>
 
 Remove a configured marketplace
 
@@ -180,7 +180,7 @@ Options:
                    scope.
 `
 
-const pluginMPUpdateHelp = `Usage: claude plugin marketplace update [options] [name]
+const pluginMPUpdateHelp = `Usage: glaude plugin marketplace update [options] [name]
 
 Update marketplace(s) from their source - updates all if no name specified
 

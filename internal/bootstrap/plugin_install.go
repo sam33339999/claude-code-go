@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
-// `claude plugin install` and `claude plugin uninstall`.  Both resolve the
+// `glaude plugin install` and `glaude plugin uninstall`.  Both resolve the
 // plugin through the configured marketplaces (install) or the installed
 // registry (uninstall), manage the cache copy, and keep the settings trio in
 // sync — all byte-pinned against the oracle (claude v2.1.261).
@@ -98,7 +98,7 @@ func runPluginInstall(d *pluginDeps, args []string) error {
 		manifest, entry = pluginFindMarketplaceEntry(d, input)
 		if manifest == nil || entry == nil {
 			name := config.PluginNamePart(input)
-			return pluginInstallFail(d, input, fmt.Sprintf("Plugin %q not found in marketplace %q. Your local copy may be out of date — try `claude plugin marketplace update %s`.", name, mp, mp))
+			return pluginInstallFail(d, input, fmt.Sprintf("Plugin %q not found in marketplace %q. Your local copy may be out of date — try `glaude plugin marketplace update %s`.", name, mp, mp))
 		}
 	} else {
 		manifest, entry, err = pluginSearchMarketplaces(d, input)

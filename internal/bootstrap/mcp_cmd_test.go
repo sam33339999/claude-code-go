@@ -9,10 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
-// End-to-end cobra execution tests for the `claude mcp` tree.  The global
+// End-to-end cobra execution tests for the `glaude mcp` tree.  The global
 // mcpDepsBuilder is swapped to pin home/project dirs; the bootstrap package
 // runs tests sequentially (no t.Parallel anywhere), so the swap is safe with
 // a t.Cleanup restore.
@@ -40,12 +40,12 @@ func swapMCPDeps(t *testing.T) (*bytes.Buffer, *bytes.Buffer, *config.MCPStore) 
 // runMCP executes argv against the mcp tree and returns the resulting error.
 // The mcp command must run as a child of a root: cobra's legacyArgs rejects
 // positional args on a root command that has subcommands, while the real tree
-// (bootstrap.buildRootCmd) always mounts mcp under the claude root.  The
+// (bootstrap.buildRootCmd) always mounts mcp under the glaude root.  The
 // wrapper mirrors production's SilenceErrors/SilenceUsage so ErrSilent and
 // render-then-exit paths print nothing extra.
 func runMCP(t *testing.T, out, errb *bytes.Buffer, argv ...string) error {
 	t.Helper()
-	root := &cobra.Command{Use: "claude", SilenceErrors: true, SilenceUsage: true}
+	root := &cobra.Command{Use: "glaude", SilenceErrors: true, SilenceUsage: true}
 	root.AddCommand(newMCPCmd())
 	root.SetOut(out)
 	root.SetErr(errb)
@@ -334,7 +334,7 @@ func TestMCPCmdMissSilent(t *testing.T) {
 	if !errors.Is(err, ErrSilent) {
 		t.Fatalf("err = %v, want ErrSilent", err)
 	}
-	want := "No MCP server named \"alpga\". Did you mean \"alpha\"? Run `claude mcp list` to see all.\n"
+	want := "No MCP server named \"alpga\". Did you mean \"alpha\"? Run `glaude mcp list` to see all.\n"
 	if errb.String() != want {
 		t.Fatalf("stderr = %q, want %q", errb.String(), want)
 	}

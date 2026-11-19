@@ -34,9 +34,9 @@ var ErrSilent = errors.New("bootstrap: silent error")
 var appVersion = "0.1.0"
 
 // appVersionString formats the version for user-facing output.
-// Matches the TS original: "2.1.251 (Claude Code)" — parity case A1.
+// Rebranded: output "%s (Glaude)". Diverges from TS original "2.1.251 (Claude Code)" (parity A1).
 func appVersionString() string {
-	return fmt.Sprintf("%s (Claude Code)", appVersion)
+	return fmt.Sprintf("%s (Glaude)", appVersion)
 }
 
 // HandleFastPath inspects raw os.Args and handles zero-dependency flags

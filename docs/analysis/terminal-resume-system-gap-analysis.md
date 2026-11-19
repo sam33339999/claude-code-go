@@ -42,7 +42,7 @@
 | `SessionStorer` 接口 | ✅ 完成 | `internal/session/store.go:27` |
 | `SessionManager` 生命周期管理 | ✅ 完成 | `internal/session/store.go:122` |
 
-**路径格式与 TS 原版一致**：`<projectDir>/.claude/projects/<hash>/<sessionId>.jsonl`
+**路径格式与 TS 原版一致**：`<projectDir>/.glaude/projects/<hash>/<sessionId>.jsonl`
 
 ```go
 // internal/session/store.go
@@ -321,7 +321,7 @@ func cmdResume() *Command {
 async function backupFileForEdit(sessionId, path, content) {
     const hash = sha256(path);
     const version = getNextVersion(sessionId, hash);
-    const backupPath = `~/.claude/file-history/${sessionId}/${hash}@v${version}`;
+    const backupPath = `~/.glaude/file-history/${sessionId}/${hash}@v${version}`;
     await writeFile(backupPath, content);
     
     // 记录 file-history-snapshot 条目到 JSONL
@@ -351,7 +351,7 @@ async function undoLastEdit(sessionId) {
 
 **差距分析**：
 - 无编辑前文件备份
-- 无 `~/.claude/file-history/` 目录结构
+- 无 `~/.glaude/file-history/` 目录结构
 - 无版本号管理（`@v<n>` 命名）
 - 无 `/undo` 命令实现
 - `file-history-snapshot` Entry 类型未定义
@@ -564,7 +564,7 @@ onKeypress('ctrl+k', () => {
 onKeypress('ctrl+b', async () => {
     const taskId = await backgroundCurrentQuery();
     printMessage(`Query running in background. Task ID: ${taskId}`);
-    printMessage(`Resume with: claude --resume ${sessionId}`);
+    printMessage(`Resume with: glaude --resume ${sessionId}`);
     process.exit(0); // 前台退出，后台继续
 });
 ```
@@ -579,7 +579,7 @@ onKeypress('ctrl+b', async () => {
 **差距分析**：
 - 无 Ctrl+B 键绑定
 - 无前台查询转后台的机制
-- 无恢复提示打印（`claude --resume <id>`）
+- 无恢复提示打印（`glaude --resume <id>`）
 
 ---
 
@@ -630,9 +630,9 @@ async function resumeSubAgent(agentId: string) {
 // 检测 worktree vs 不同 repo
 function buildCrossProjectResumeCmd(sessionInfo) {
     if (isSameRepo(sessionInfo.projectDir)) {
-        return `cd ${sessionInfo.projectDir} && claude --resume ${sessionInfo.id}`;
+        return `cd ${sessionInfo.projectDir} && glaude --resume ${sessionInfo.id}`;
     } else {
-        return `claude --resume ${sessionInfo.id} --project ${sessionInfo.projectDir}`;
+        return `glaude --resume ${sessionInfo.id} --project ${sessionInfo.projectDir}`;
     }
 }
 ```
@@ -646,7 +646,7 @@ function buildCrossProjectResumeCmd(sessionInfo) {
 
 **差距分析**：
 - 无跨项目会话发现
-- 无恢复命令生成（`cd ... && claude --resume <id>`）
+- 无恢复命令生成（`cd ... && glaude --resume <id>`）
 - `sessionPath` 强绑定 `projectDir`，无全局会话注册表
 
 ---
@@ -797,7 +797,7 @@ onExit(() => {}); // 永不取消
 | **会话元数据** | 退出时尾部重写，Lite 读取可见 | 无元数据管理 | 0% |
 | **CLI --resume/--continue** | fuzzy picker + 预览 + cross-project | 基础文件查找 + 注入 | 40% |
 | **/resume 命令** | 交互式选择器，完整实现 | 存根（"not yet implemented"）| 5% |
-| **文件历史备份** | ~/.claude/file-history/ + /undo | 无 | 0% |
+| **文件历史备份** | ~/.glaude/file-history/ + /undo | 无 | 0% |
 | **工具结果卸载** | 50K 阈值 + 磁盘外存 + 恢复 | 无，全内联 | 0% |
 | **孤儿进程检测** | macOS 30s TTY 检测 | 无 | 0% |
 | **子 Agent 恢复** | 独立 JSONL + .meta.json | 无持久化 | 0% |
@@ -867,8 +867,8 @@ import (
     "os"
     "time"
 
-    "github.com/tunsuy/claude-code-go/internal/lifecycle"
-    "github.com/tunsuy/claude-code-go/internal/session"
+    "github.com/tunsuy/glaude/internal/lifecycle"
+    "github.com/tunsuy/glaude/internal/session"
 )
 
 // GracefulShutdown executes the 6-step ordered shutdown pipeline.
@@ -880,7 +880,7 @@ func GracefulShutdown(container *AppContainer, exitCode int) {
     // Step 2: Print resume hint (synchronous)
     if container.SessionManager != nil {
         sid := container.SessionManager.SessionId
-        fmt.Fprintf(os.Stderr, "\n\nTo resume: claude --resume %s\n", sid)
+        fmt.Fprintf(os.Stderr, "\n\nTo resume: glaude --resume %s\n", sid)
     }
 
     // Step 3: Flush session data (2s timeout)
@@ -909,7 +909,7 @@ func GracefulShutdown(container *AppContainer, exitCode int) {
 // internal/session/recovery.go
 package session
 
-import "github.com/tunsuy/claude-code-go/pkg/types"
+import "github.com/tunsuy/glaude/pkg/types"
 
 // InterruptState describes how a prior session ended.
 type InterruptState int
@@ -1002,7 +1002,7 @@ func RunCleanupFunctions() {
 // internal/session/chain.go
 package session
 
-import "github.com/tunsuy/claude-code-go/pkg/types"
+import "github.com/tunsuy/glaude/pkg/types"
 
 // BuildConversationChain traverses the parentUuid DAG from the leaf entry
 // to the root, returning entries in root→leaf order.

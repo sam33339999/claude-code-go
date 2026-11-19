@@ -49,7 +49,7 @@ export CLAUDE_CODE_API_MAX_CONCURRENT=2
 若仍踩 429 再加 `CLAUDE_CODE_API_RPM=<provider 上限的 80%>`。被動 retry 會吃
 retry-after header 自動退避，雙保險。
 
-## 實機驗證（bin/claude @ 2f1baf8，qwen4-max）
+## 實機驗證（bin/glaude @ 2f1baf8，qwen4-max）
 
 兩-turn prompt（Bash tool），request-start 間距 = 60/RPM：
 

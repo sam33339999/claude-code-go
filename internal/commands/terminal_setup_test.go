@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/commands"
+	"github.com/tunsuy/glaude/internal/commands"
 )
 
 // envFrom builds a pure lookup function over a canned environment map.
@@ -48,14 +48,14 @@ func TestDetectTerminal(t *testing.T) {
 
 func TestFormatTerminalSetup_CompletionHint(t *testing.T) {
 	out := commands.FormatTerminalSetup(commands.TerminalInfo{Terminal: "iTerm2", Shell: "zsh", Term: "xterm-256color"})
-	for _, want := range []string{"Terminal setup", "iTerm2", "zsh", "xterm-256color", "claude completion zsh", "Ctrl+J"} {
+	for _, want := range []string{"Terminal setup", "iTerm2", "zsh", "xterm-256color", "glaude completion zsh", "Ctrl+J"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q in report, got:\n%s", want, out)
 		}
 	}
 	// pwsh maps to the cobra powershell completion target.
 	out = commands.FormatTerminalSetup(commands.TerminalInfo{Terminal: "Windows Terminal", Shell: "pwsh"})
-	if !strings.Contains(out, "claude completion powershell") {
+	if !strings.Contains(out, "glaude completion powershell") {
 		t.Errorf("pwsh should map to powershell completion, got:\n%s", out)
 	}
 	// Unknown shell gets the generic hint, never a broken specific one.

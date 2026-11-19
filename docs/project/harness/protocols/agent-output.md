@@ -1,7 +1,7 @@
 # Agent Output Protocol
 
 > 版本：1.0
-> 适用范围：所有 Claude Code Go 项目的 Agent 角色
+> 适用范围：所有 Glaude 项目的 Agent 角色
 
 ## 规范目的
 

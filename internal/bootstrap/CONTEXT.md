@@ -2,7 +2,7 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-19T05:38:34Z
+generated_at: 2026-11-19T06:00:32Z
 source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, update_cmd.go, wire.go]
 ---
 
@@ -30,7 +30,7 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 
 **Imports:** `internal/agentctx`, `internal/agenttype`, `internal/api`, `internal/codemode`, `internal/config`, `internal/coordinator`, `internal/engine`, `internal/hooks`, `internal/mcp`, `internal/memdir`, `internal/msgqueue`, `internal/oauth`, `internal/permissions`, `internal/session`, `internal/state`, `internal/tools`, `internal/tools/agent`, `internal/tools/codemode`, `internal/tools/fileops`, `internal/tools/interact`, `internal/tools/mcp`, `internal/tools/memory`, `internal/tools/misc`, `internal/tools/shell`, `internal/tools/tasks`, `internal/tools/web`, `internal/transcript`, `internal/tui`, `pkg/types`, `pkg/utils/fs`
 
-**Imported by:** `cmd/claude`
+**Imported by:** `cmd/glaude`
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->
@@ -38,7 +38,7 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 ## Design Notes
 
 - **版本输出格式对齐 oracle（2026-08-30，parity A1）**：`--version` 输出从
-  `claude 0.1.0` 改为 `0.1.0 (Claude Code)`。为什么：原版 TS 的格式是
+  `glaude 0.1.0` 改为 `0.1.0 (Claude Code)`。为什么：原版 TS 的格式是
   `<semver> (Claude Code)`（无二进制名前缀、带产品后缀），parity Tier-2
   对齐要求两版格式一致（版本号本身允许不同，由测试归一化处理）。
   `appVersionString()` 单独成函数而非内联，是因为 doctor / update 等
@@ -95,7 +95,7 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
   回归测试：慢握手 bounded+drained、caller-cancel drain、慢 list 非致命（原超时分支 0% 覆盖已补）。
 - **2026-11-18 BF-03（Agent-TUI 最小接线）**：`runInteractive` 的 `tui.New(...)` 调用追加传入 `container.MCPPool`，对应 TUI 层新增的 `mcpPool commands.MCPServerLister` 注入参数（/mcp 斜杠命令展示真实连接状态所需）。本包仅此一行变更，无其他逻辑改动；接口变更详情见 `docs/project/design/tui.md` §4.1。
 - **2026-11-18 BF-18 持久化接线**：openTranscript（session.go）统一建立 recorder——resume/continue 以已加载历史为基线，否则新建；失败非致命（stderr 警告＋nil）。runInteractive 经 tui.New 注入并于退出 Close；runHeadless 于 headlessRun 返回后 Record 完整对话再 Close。loadSessionMessages/resumeSessionByID/continueMostRecentSession 签名改为返回 (sessionID, messages, error)（内部函数，测试已同步）。
-- **2026-11-18 BF-06 CLI 三命令（oracle 形态对齐）**：agents 单一列表命令＋--setting-sources（User/Project/Built-in 分组＋shadow 标记，对齐 oracle main.tsx；local 源接受但无目录——分歧文档化）；update＋upgrade 别名经 GitHub releases 检查版本（endpoint vars 可注入，compareVersions 数值比较），v1 不自安装（提示 claude install）；install [target] 下载 goreleaser archive 解压原子安装 ~/.local/bin（--force、PATH 提示、tar.gz/zip 双格式）。releaseSource vars 为测试注入点。misc.go 仅留 doctor。
+- **2026-11-18 BF-06 CLI 三命令（oracle 形态对齐）**：agents 单一列表命令＋--setting-sources（User/Project/Built-in 分组＋shadow 标记，对齐 oracle main.tsx；local 源接受但无目录——分歧文档化）；update＋upgrade 别名经 GitHub releases 检查版本（endpoint vars 可注入，compareVersions 数值比较），v1 不自安装（提示 glaude install）；install [target] 下载 goreleaser archive 解压原子安装 ~/.local/bin（--force、PATH 提示、tar.gz/zip 双格式）。releaseSource vars 为测试注入点。misc.go 仅留 doctor。
 - **2026-11-18 BF-07 TodoWrite 注册点变更**：TodoWrite 移出 RegisterBuiltinTools（余 33），wire.go 两条路径于 store 建立后 reg.Register(interact.NewTodoWriteTool(store))——工具需 live store，注册顺序约束文档化。
 - **2026-11-18 BF-08 AskUserQuestion 接线**：ContainerOptions.Headless（runHeadless 设 true）；Phase 7 question channel 对（headless nil→tool 诚实报错）＋注册；AppContainer.QuestionAskCh/RespCh；RegisterBuiltinTools 余 32（TodoWrite/AskUserQuestion 均 wire.go 注册）。
 - **2026-11-18 BF-09/BF-21**：plan-mode 工具 store 后注册（RegisterBuiltinTools 余 30）；CheckerConfig.ModeFn 接 store.GetState().ToolPermissionContext.Mode（两条路径）。

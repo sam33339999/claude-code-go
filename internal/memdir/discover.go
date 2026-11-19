@@ -1,4 +1,4 @@
-// Package memdir handles discovery and loading of CLAUDE.md memory files.
+// Package memdir handles discovery and loading of GLAUDE.md memory files.
 package memdir
 
 import (
@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-// DiscoverClaudeMd finds all readable CLAUDE.md files starting from startDir
+// DiscoverClaudeMd finds all readable GLAUDE.md files starting from startDir
 // and walking up to the filesystem root, then appending the user's home
 // directory (if not already visited).
 //
@@ -42,10 +42,10 @@ func DiscoverClaudeMd(startDir string) []string {
 		}
 	}
 
-	// Now scan each directory for a readable CLAUDE.md.
+	// Now scan each directory for a readable GLAUDE.md.
 	var paths []string
 	for _, d := range dirs {
-		p := filepath.Join(d, "CLAUDE.md")
+		p := filepath.Join(d, "GLAUDE.md")
 		if isReadableFile(p) {
 			paths = append(paths, p)
 		}

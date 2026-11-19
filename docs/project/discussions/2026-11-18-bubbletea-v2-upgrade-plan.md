@@ -60,7 +60,7 @@
 | P3 | bubbles v2：viewport New(opts)/SetWidth/Width()、textarea 微调 | `go build ./...` ✓ |
 | P4 | glamour v1.0.0：import 路径不变，版本升；渲染 smoke | markdown 渲染测试 ✓ |
 | P5 | 测试迁移（KeyMsg 构造式×29）＋全量门控＋TUI 视觉 smoke | 全仓 -race ✓＋docs-check ✓＋debt-check ✓ |
-| P6 | 文档：design/tui.md v2.0（依赖版本＋API 变更）、AGENTS.md/CLAUDE.md Key Dependencies、CONTRIBUTING Go 要求、CONTEXT Notes；commit＋merge feat/impl | 三层门控＋人类 PR 确认 |
+| P6 | 文档：design/tui.md v2.0（依赖版本＋API 变更）、AGENTS.md/GLAUDE.md Key Dependencies、CONTRIBUTING Go 要求、CONTEXT Notes；commit＋merge feat/impl | 三层门控＋人类 PR 确认 |
 
 > P1/P2 可合并执行（lipgloss 与 bubbletea 型别互相牵连，分开会有中间态编译失败）。
 
@@ -71,7 +71,7 @@
   `{Type: tea.KeyRunes, Runes: []rune("x")}` → `{Code: 'x', Text: "x"}`
 - 新增：View() 回传 tea.View 且 AltScreen/MouseMode 正确设置之断言
 - 新增：KeyPressMsg 与 KeyReleaseMsg 分流（release 应被忽略，不误触发）
-- 视觉 smoke：实际终端跑 ./bin/claude，验证 alt-screen、滚轮、Shift+Tab、对话框、spinner
+- 视觉 smoke：实际终端跑 ./bin/glaude，验证 alt-screen、滚轮、Shift+Tab、对话框、spinner
 - glamour 渲染对比：同一段 markdown v0.8 vs v1.0.0 输出差异记录（可接受则过）
 
 ## 6. 风险与缓解
@@ -88,7 +88,7 @@
 ## 7. 验收标准
 
 - [ ] 全仓 `CGO_ENABLED=1 go test -race -count=1 ./...` 绿
-- [ ] `make build` ✓；`./bin/claude` 互动 smoke（alt-screen/滚轮/Shift+Tab/对话框/markdown）
+- [ ] `make build` ✓；`./bin/glaude` 互动 smoke（alt-screen/滚轮/Shift+Tab/对话框/markdown）
 - [ ] `make docs-check` ✓；debt-check ✓（基线不升）
 - [ ] gofmt 全仓 0；golangci-lint 绿
 - [ ] CI（升 Go 1.25 后）全绿

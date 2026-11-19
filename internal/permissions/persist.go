@@ -3,13 +3,13 @@ package permissions
 import (
 	"fmt"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/config"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // PersistConfig wires the checker to the on-disk settings that hold its rules.
-// ProjectDir is the directory whose .claude/settings.json receives persisted
+// ProjectDir is the directory whose .glaude/settings.json receives persisted
 // rules; if empty, persistence falls back to in-memory updates only.
 type PersistConfig struct {
 	ProjectDir string
@@ -55,7 +55,7 @@ func (c *checker) persistAllowRule(rule string) string {
 }
 
 // SetProjectDir sets the persistence target directory (project root whose
-// .claude/settings.json receives always-allow rules).
+// .glaude/settings.json receives always-allow rules).
 func (c *checker) SetProjectDir(dir string) {
 	c.mu.Lock()
 	c.persist.ProjectDir = dir

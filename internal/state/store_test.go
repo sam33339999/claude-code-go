@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/state"
+	"github.com/tunsuy/glaude/internal/state"
 )
 
 // TestStore_GetSetBasic verifies that SetState updates visible via GetState.

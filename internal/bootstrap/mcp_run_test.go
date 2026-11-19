@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
 // Shared fixtures for the mcp_*_test.go files: a canned health checker, a
@@ -322,8 +322,8 @@ func TestRunMCPAddURLWarning(t *testing.T) {
 	}
 	want := "\nWarning: The command \"http://example.com/api\" looks like a URL, " +
 		"but is being interpreted as a stdio server as --transport was not specified.\n" +
-		"If this is an HTTP server, use: claude mcp add --transport http warn http://example.com/api\n" +
-		"If this is an SSE server, use: claude mcp add --transport sse warn http://example.com/api\n"
+		"If this is an HTTP server, use: glaude mcp add --transport http warn http://example.com/api\n" +
+		"If this is an SSE server, use: glaude mcp add --transport sse warn http://example.com/api\n"
 	if errb.String() != want {
 		t.Fatalf("stderr =\n%q\nwant\n%q", errb.String(), want)
 	}
@@ -339,8 +339,8 @@ func TestRunMCPAddStdioOAuthFlagsWarning(t *testing.T) {
 	want := "Warning: --client-id, --client-secret, --callback-port, and --xaa are only supported for HTTP/SSE transports and will be ignored for stdio.\n" +
 		"\nWarning: The command \"http://x.test\" looks like a URL, " +
 		"but is being interpreted as a stdio server as --transport was not specified.\n" +
-		"If this is an HTTP server, use: claude mcp add --transport http o4 http://x.test\n" +
-		"If this is an SSE server, use: claude mcp add --transport sse o4 http://x.test\n"
+		"If this is an HTTP server, use: glaude mcp add --transport http o4 http://x.test\n" +
+		"If this is an SSE server, use: glaude mcp add --transport sse o4 http://x.test\n"
 	if errb.String() != want {
 		t.Fatalf("stderr =\n%q\nwant\n%q", errb.String(), want)
 	}
@@ -474,7 +474,7 @@ func TestRunMCPGet(t *testing.T) {
 			"  Environment:\n" +
 			"    K1=v1\n" +
 			"    K2=v2\n" +
-			"\nTo remove this server, run: claude mcp remove beta -s local\n"
+			"\nTo remove this server, run: glaude mcp remove beta -s local\n"
 		if out != want {
 			t.Fatalf("stdout =\n%q\nwant\n%q", out, want)
 		}
@@ -517,7 +517,7 @@ func TestRunMCPGet(t *testing.T) {
 			"  Command: echo\n" +
 			"  Args:\n" +
 			"  Environment:\n" +
-			"\nTo remove this server, run: claude mcp remove pp -s project\n"
+			"\nTo remove this server, run: glaude mcp remove pp -s project\n"
 		if out != want {
 			t.Fatalf("stdout =\n%q\nwant\n%q", out, want)
 		}
@@ -549,7 +549,7 @@ func TestRunMCPGetMiss(t *testing.T) {
 		if !errors.As(err, &miser) {
 			t.Fatalf("err = %v (%T)", err, err)
 		}
-		want := "No MCP server named \"alpga\". Did you mean \"alpha\"? Run `claude mcp list` to see all." +
+		want := "No MCP server named \"alpga\". Did you mean \"alpha\"? Run `glaude mcp list` to see all." +
 			" (.mcp.json servers are awaiting approval — run `claude` in this directory to review them.)\n"
 		if miser.msg != want {
 			t.Fatalf("msg =\n%q\nwant\n%q", miser.msg, want)
@@ -569,7 +569,7 @@ func TestRunMCPGetMiss(t *testing.T) {
 			t.Fatalf("err = %v", err)
 		}
 		want := "No MCP server named \"ghost\". Configured servers: a1, a10, a2, a3, a4, a5, a6, a7" +
-			" (and 2 more — run `claude mcp list` to see all)\n"
+			" (and 2 more — run `glaude mcp list` to see all)\n"
 		if miser.msg != want {
 			t.Fatalf("msg =\n%q\nwant\n%q", miser.msg, want)
 		}
@@ -581,7 +581,7 @@ func TestRunMCPGetMiss(t *testing.T) {
 		if !errors.As(err, &miser) {
 			t.Fatalf("err = %v", err)
 		}
-		if miser.msg != "No MCP server named \"ghost\". Run `claude mcp add` to add one.\n" {
+		if miser.msg != "No MCP server named \"ghost\". Run `glaude mcp add` to add one.\n" {
 			t.Fatalf("msg = %q", miser.msg)
 		}
 	})
@@ -671,8 +671,8 @@ func TestRunMCPRemove(t *testing.T) {
 			"  - Project config (shared via .mcp.json) (" + d.Store.ProjectKey() + "/.mcp.json)\n" +
 			"  - User config (available in all your projects) (" + config.ClaudeJsonPath(d.Store.HomeDir()) + ")\n" +
 			"\nTo remove from a specific scope, use:\n" +
-			"  claude mcp remove multi -s project\n" +
-			"  claude mcp remove multi -s user\n"
+			"  glaude mcp remove multi -s project\n" +
+			"  glaude mcp remove multi -s user\n"
 		if errb != want {
 			t.Fatalf("stderr =\n%q\nwant\n%q", errb, want)
 		}
@@ -690,7 +690,7 @@ func TestRunMCPRemove(t *testing.T) {
 		if !errors.As(err, &miser) {
 			t.Fatalf("err = %v", err)
 		}
-		want := "No MCP server named \"alpga\". Did you mean \"alpha\"? Run `claude mcp list` to see all.\n"
+		want := "No MCP server named \"alpga\". Did you mean \"alpha\"? Run `glaude mcp list` to see all.\n"
 		if miser.msg != want {
 			t.Fatalf("msg = %q, want %q", miser.msg, want)
 		}
@@ -716,7 +716,7 @@ func TestRunMCPResetProjectChoices(t *testing.T) {
 			t.Fatal(err)
 		}
 		want := "Project-scoped (.mcp.json) server approvals and rejections stored for this project have been reset.\n" +
-			"You will be prompted for approval next time you start Claude Code.\n"
+			"You will be prompted for approval next time you start Glaude.\n"
 		if out.String() != want {
 			t.Fatalf("stdout =\n%q\nwant\n%q", out.String(), want)
 		}

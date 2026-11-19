@@ -75,9 +75,9 @@ func FormatTerminalSetup(info TerminalInfo) string {
 	}
 	switch shell {
 	case "bash", "zsh", "fish", "powershell":
-		sb.WriteString(fmt.Sprintf("Shell completions: run `claude completion %s` and follow the printed instructions.\n", shell))
+		sb.WriteString(fmt.Sprintf("Shell completions: run `glaude completion %s` and follow the printed instructions.\n", shell))
 	default:
-		sb.WriteString("Shell completions: run `claude completion bash|zsh|fish` and follow the printed instructions.\n")
+		sb.WriteString("Shell completions: run `glaude completion bash|zsh|fish` and follow the printed instructions.\n")
 	}
 	return sb.String()
 }

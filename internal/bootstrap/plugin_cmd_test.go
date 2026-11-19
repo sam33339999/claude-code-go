@@ -11,10 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
-// End-to-end cobra execution tests for the `claude plugin` tree.  The global
+// End-to-end cobra execution tests for the `glaude plugin` tree.  The global
 // pluginDepsBuilder is swapped to pin home/project dirs; the bootstrap
 // package runs tests sequentially (no t.Parallel anywhere), so the swap is
 // safe with a t.Cleanup restore.
@@ -38,7 +38,7 @@ func swapPluginDeps(t *testing.T) (*bytes.Buffer, *bytes.Buffer, *config.PluginS
 // cobra's legacyArgs would reject positionals on a bare root.
 func runPlugin(t *testing.T, out, errb *bytes.Buffer, argv ...string) error {
 	t.Helper()
-	root := &cobra.Command{Use: "claude", SilenceErrors: true, SilenceUsage: true}
+	root := &cobra.Command{Use: "glaude", SilenceErrors: true, SilenceUsage: true}
 	root.AddCommand(newPluginCmd())
 	root.SetOut(out)
 	root.SetErr(errb)
@@ -63,16 +63,16 @@ func writeMarketplaceFixture(t *testing.T, base string) string {
 	t.Helper()
 	root := filepath.Join(base, "mp")
 	for _, d := range []string{
-		filepath.Join(root, ".claude-plugin"),
-		filepath.Join(root, "plugins", "hello", ".claude-plugin"),
-		filepath.Join(root, "plugins", "world", ".claude-plugin"),
+		filepath.Join(root, ".glaude-plugin"),
+		filepath.Join(root, "plugins", "hello", ".glaude-plugin"),
+		filepath.Join(root, "plugins", "world", ".glaude-plugin"),
 	} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
 	files := map[string]string{
-		filepath.Join(root, ".claude-plugin", "marketplace.json"): `{
+		filepath.Join(root, ".glaude-plugin", "marketplace.json"): `{
   "name": "mp",
   "owner": {"name": "probe"},
   "description": "Probe marketplace",
@@ -81,8 +81,8 @@ func writeMarketplaceFixture(t *testing.T, base string) string {
     {"name": "world", "source": "./plugins/world", "version": "2.0.0", "description": "World plugin"}
   ]
 }`,
-		filepath.Join(root, "plugins", "hello", ".claude-plugin", "plugin.json"): `{"name":"hello","version":"1.0.0","description":"Hello plugin","author":{"name":"probe"}}`,
-		filepath.Join(root, "plugins", "world", ".claude-plugin", "plugin.json"): `{"name":"world","version":"2.0.0","description":"World plugin","author":{"name":"probe"}}`,
+		filepath.Join(root, "plugins", "hello", ".glaude-plugin", "plugin.json"): `{"name":"hello","version":"1.0.0","description":"Hello plugin","author":{"name":"probe"}}`,
+		filepath.Join(root, "plugins", "world", ".glaude-plugin", "plugin.json"): `{"name":"world","version":"2.0.0","description":"World plugin","author":{"name":"probe"}}`,
 	}
 	for path, content := range files {
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -168,7 +168,7 @@ func TestPluginCmdParentSemantics(t *testing.T) {
 		if err := runPlugin(t, out, errb, "plugin", "--", "list"); err != nil {
 			t.Fatal(err)
 		}
-		if out.String() != "No plugins installed. Use `claude plugin install` to install a plugin.\n" {
+		if out.String() != "No plugins installed. Use `glaude plugin install` to install a plugin.\n" {
 			t.Fatalf("stdout = %q", out.String())
 		}
 	})

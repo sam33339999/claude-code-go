@@ -1,16 +1,16 @@
 package bootstrap
 
 import (
-	agtmcp "github.com/tunsuy/claude-code-go/internal/mcp"
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/internal/tools/agent"
-	"github.com/tunsuy/claude-code-go/internal/tools/fileops"
-	"github.com/tunsuy/claude-code-go/internal/tools/mcp"
-	"github.com/tunsuy/claude-code-go/internal/tools/memory"
-	"github.com/tunsuy/claude-code-go/internal/tools/misc"
-	"github.com/tunsuy/claude-code-go/internal/tools/shell"
-	"github.com/tunsuy/claude-code-go/internal/tools/tasks"
-	"github.com/tunsuy/claude-code-go/internal/tools/web"
+	agtmcp "github.com/tunsuy/glaude/internal/mcp"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools/agent"
+	"github.com/tunsuy/glaude/internal/tools/fileops"
+	"github.com/tunsuy/glaude/internal/tools/mcp"
+	"github.com/tunsuy/glaude/internal/tools/memory"
+	"github.com/tunsuy/glaude/internal/tools/misc"
+	"github.com/tunsuy/glaude/internal/tools/shell"
+	"github.com/tunsuy/glaude/internal/tools/tasks"
+	"github.com/tunsuy/glaude/internal/tools/web"
 )
 
 // RegisterBuiltinTools registers all built-in tool singletons into reg.

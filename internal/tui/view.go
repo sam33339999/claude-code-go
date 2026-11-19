@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"charm.land/bubbletea/v2"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // reservedLines is the number of terminal lines reserved for non-message UI
@@ -136,7 +136,7 @@ func (m AppModel) renderActiveDialog() string {
 		)
 	case dialogExit:
 		return renderConfirmDialog(
-			"Exit Claude Code?",
+			"Exit Glaude?",
 			"Press y to confirm, n to cancel.",
 			m.termWidth, m.theme,
 		)
@@ -285,7 +285,7 @@ func (m AppModel) renderConfigDialog() string {
 	if m.sessionID != "" {
 		line("Session", m.sessionID)
 	}
-	sb.WriteString(mutedStyle(m.theme).Render("Change: /model /theme /vim /effort · persistent: ~/.claude/settings.json"))
+	sb.WriteString(mutedStyle(m.theme).Render("Change: /model /theme /vim /effort · persistent: ~/.glaude/settings.json"))
 	sb.WriteString("\n")
 	sb.WriteString(mutedStyle(m.theme).Render("(Esc to close)"))
 	return sb.String()

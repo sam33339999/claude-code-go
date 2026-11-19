@@ -9,7 +9,7 @@
 
 ## 概述
 
-本文档描述 `claude-code-go` 项目基础设施层（Infrastructure Layer）的详细设计。
+本文档描述 `glaude` 项目基础设施层（Infrastructure Layer）的详细设计。
 基础设施层是整个系统的最底层，为上层的会话管理、工具执行、API 通信等模块提供类型定义、并发安全的状态管理、三级配置加载及会话持久化能力。
 
 ---
@@ -453,7 +453,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/your-org/claude-code-go/pkg/types"
+    "github.com/your-org/glaude/pkg/types"
 )
 
 // NewSessionId 生成一个新的 SessionId（时间戳 + 随机 hex）。
@@ -551,9 +551,9 @@ func AppendLine(buf []byte, v any) ([]byte, error) {
 
 | 层级 | 路径 | 说明 | 优先级 |
 |------|------|------|--------|
-| User（全局） | `~/.claude/settings.json` | 用户级别，跨项目生效 | 最低 |
-| Project（项目） | `<cwd>/.claude/settings.json` | 项目内共享，可提交 | 中 |
-| Local（本地） | `<cwd>/.claude.local/settings.json` | 本地覆盖，不提交（.gitignore） | 最高 |
+| User（全局） | `~/.glaude/settings.json` | 用户级别，跨项目生效 | 最低 |
+| Project（项目） | `<cwd>/.glaude/settings.json` | 项目内共享，可提交 | 中 |
+| Local（本地） | `<cwd>/.glaude.local/settings.json` | 本地覆盖，不提交（.gitignore） | 最高 |
 
 额外：企业托管配置 `managed-settings.json`（策略级，优先级最高，用于企业管控）。
 
@@ -564,7 +564,7 @@ func AppendLine(buf []byte, v any) ([]byte, error) {
 ```go
 package config
 
-import "github.com/your-org/claude-code-go/pkg/types"
+import "github.com/your-org/glaude/pkg/types"
 
 // PermissionsConfig 对应 settings.json 的 permissions 字段。
 type PermissionsConfig struct {
@@ -661,10 +661,10 @@ func (l *Loader) Load() (*LayeredSettings, error) {
     ls := &LayeredSettings{}
 
     paths := map[SettingSource]string{
-        SourceUser:    filepath.Join(l.homeDir, ".claude", "settings.json"),
-        SourceProject: filepath.Join(l.projectDir, ".claude", "settings.json"),
-        SourceLocal:   filepath.Join(l.projectDir, ".claude.local", "settings.json"),
-        SourcePolicy:  filepath.Join(l.homeDir, ".claude", "managed-settings.json"),
+        SourceUser:    filepath.Join(l.homeDir, ".glaude", "settings.json"),
+        SourceProject: filepath.Join(l.projectDir, ".glaude", "settings.json"),
+        SourceLocal:   filepath.Join(l.projectDir, ".glaude.local", "settings.json"),
+        SourcePolicy:  filepath.Join(l.homeDir, ".glaude", "managed-settings.json"),
     }
 
     ptrs := map[SettingSource]**SettingsJson{
@@ -776,12 +776,12 @@ func uniqueAppend(dst []string, src ...string) []string {
 package config
 
 const (
-    ClaudeDir           = ".claude"
-    ClaudeLocalDir      = ".claude.local"
+    ClaudeDir           = ".glaude"
+    ClaudeLocalDir      = ".glaude.local"
     SettingsFile        = "settings.json"
     ManagedSettingsFile = "managed-settings.json"
 
-    // 全局 Claude 主目录（~/.claude/）中的子目录
+    // 全局 Claude 主目录（~/.glaude/）中的子目录
     SessionsDir = "projects"  // 会话 JSONL 存储
     TodosDir    = "todos"
     StatsFile   = "statsig.json"
@@ -896,8 +896,8 @@ package state
 import (
     "sync"
 
-    "github.com/your-org/claude-code-go/pkg/types"
-    "github.com/your-org/claude-code-go/internal/config"
+    "github.com/your-org/glaude/pkg/types"
+    "github.com/your-org/glaude/internal/config"
 )
 
 // ModelSetting 描述当前使用的模型配置。
@@ -1000,7 +1000,7 @@ store.SetState(func(prev AppState) AppState {
 ### 5.1 存储格式
 
 - **JSONL（JSON Lines）**：每条 `Entry` 序列化为一行 JSON，追加写入。
-- **存储路径**：`~/.claude/projects/<project-hash>/<session-id>.jsonl`
+- **存储路径**：`~/.glaude/projects/<project-hash>/<session-id>.jsonl`
 - **文件命名**：`<ISO8601时间戳>_<slug>.jsonl`
 
 ### 5.2 文件结构
@@ -1024,8 +1024,8 @@ import (
     "os"
     "sync"
 
-    "github.com/your-org/claude-code-go/pkg/types"
-    utiljson "github.com/your-org/claude-code-go/pkg/utils/json"
+    "github.com/your-org/glaude/pkg/types"
+    utiljson "github.com/your-org/glaude/pkg/utils/json"
 )
 
 // SessionStore 负责单个会话的 JSONL 文件读写。
@@ -1140,10 +1140,10 @@ internal/bootstrap/
 package bootstrap
 
 import (
-    "github.com/your-org/claude-code-go/internal/config"
-    "github.com/your-org/claude-code-go/internal/session"
-    "github.com/your-org/claude-code-go/internal/state"
-    "github.com/your-org/claude-code-go/pkg/types"
+    "github.com/your-org/glaude/internal/config"
+    "github.com/your-org/glaude/internal/session"
+    "github.com/your-org/glaude/internal/state"
+    "github.com/your-org/glaude/pkg/types"
 )
 
 // App 是启动完成后的应用根对象，持有所有核心服务引用。
@@ -1269,7 +1269,7 @@ func Bootstrap(flags CLIFlags) (*App, error) {
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        cmd/claude-code/                         │
+│                        cmd/glaude-code/                         │
 │                    (main 入口，CLI 解析)                         │
 └──────────────────────────────┬──────────────────────────────────┘
                                │

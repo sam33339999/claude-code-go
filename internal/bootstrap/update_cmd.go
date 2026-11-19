@@ -12,20 +12,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// releaseSource locates Claude Code releases. Bases are vars so tests can
+// releaseSource locates Glaude releases. Bases are vars so tests can
 // point them at httptest servers; production uses GitHub.
 var (
 	releasesAPIBase      = "https://api.github.com"
 	releasesDownloadBase = "https://github.com"
-	releasesRepo         = "tunsuy/claude-code-go"
+	releasesRepo         = "tunsuy/glaude"
 )
 
-// newUpdateCmd creates the `claude update` command (alias `upgrade`, oracle
+// newUpdateCmd creates the `glaude update` command (alias `upgrade`, oracle
 // parity). It checks the latest GitHub release and reports availability.
 //
 // Documented divergence (cases.md B8): the oracle auto-installs via its
 // npm/native installer; the Go build is distributed as GitHub release
-// archives, so update reports the new version and points at `claude install`
+// archives, so update reports the new version and points at `glaude install`
 // (BF-06) instead of silently replacing the running binary.
 func newUpdateCmd() *cobra.Command {
 	var check bool
@@ -57,7 +57,7 @@ func runUpdate(checkOnly bool, out io.Writer) error {
 	fmt.Fprintf(out, "New version available: %s (current %s)\n", latest, appVersion)
 	fmt.Fprintf(out, "Release: %s/%s/releases/tag/v%s\n", releasesDownloadBase, releasesRepo, latest)
 	if !checkOnly {
-		fmt.Fprintf(out, "To install: claude install %s\n", latest)
+		fmt.Fprintf(out, "To install: glaude install %s\n", latest)
 	}
 	return nil
 }

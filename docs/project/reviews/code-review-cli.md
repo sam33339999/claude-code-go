@@ -105,11 +105,11 @@ func isPrintMode(args []string) bool {
 }
 ```
 
-**问题**：该扫描不感知其他 flag 的参数消耗。例如 `claude --model -p` 会误判为 print 模式（`-p` 实际上是 `--model` 的值）；而 `claude somesubcmd -p` 在非 headless 场景下注册了子命令，但 `isPrintMode` 已导致子命令被跳过。
+**问题**：该扫描不感知其他 flag 的参数消耗。例如 `glaude --model -p` 会误判为 print 模式（`-p` 实际上是 `--model` 的值）；而 `glaude somesubcmd -p` 在非 headless 场景下注册了子命令，但 `isPrintMode` 已导致子命令被跳过。
 
 这与原 TS 实现一致（TS 同样用字符串扫描），但 Go 的强类型 cobra 环境提供了更安全的替代方案：在注册完整命令树后，先 `Parse()` flags 再决定是否需要精简路径——或在根命令的 `PersistentPreRunE` 中检查已解析的 `f.print`，然后动态跳过子命令（实际上子命令注册时机已过，此时仅影响 help text）。
 
-**短期修复建议**：在 `isPrintMode` 函数添加注释，说明已知的二义性边界，并添加针对 `claude --model -p` 场景的单元测试，明确文档化期望行为（即使是"允许误判"）。
+**短期修复建议**：在 `isPrintMode` 函数添加注释，说明已知的二义性边界，并添加针对 `glaude --model -p` 场景的单元测试，明确文档化期望行为（即使是"允许误判"）。
 
 ---
 

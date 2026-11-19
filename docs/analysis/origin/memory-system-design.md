@@ -13,7 +13,7 @@
   - [3.2 Team Memory（团队记忆）](#32-team-memory团队记忆)
   - [3.3 Session Memory（会话记忆）](#33-session-memory会话记忆)
   - [3.4 Agent Memory（代理记忆）](#34-agent-memory代理记忆)
-  - [3.5 CLAUDE.md 指令层](#35-claudemd-指令层)
+  - [3.5 GLAUDE.md 指令层](#35-claudemd-指令层)
 - [四、记忆的创建流程](#四记忆的创建流程)
   - [4.1 显式创建](#41-显式创建)
   - [4.2 后台自动提取（Extract Memories）](#42-后台自动提取extract-memories)
@@ -77,12 +77,12 @@ Claude Code 的记忆系统体现了以下核心设计理念：
 记忆按作用域分为多个层次，从个人到团队，从项目到全局，每层有不同的可见性和同步策略：
 
 ```
-全局管理层 (Managed)     → /etc/claude-code/CLAUDE.md    → 管理员控制
-用户全局层 (User)        → ~/.claude/CLAUDE.md            → 用户私有全局
-项目层 (Project)         → {project}/CLAUDE.md            → 团队共享（Git）
+全局管理层 (Managed)     → /etc/claude-code/GLAUDE.md    → 管理员控制
+用户全局层 (User)        → ~/.glaude/GLAUDE.md            → 用户私有全局
+项目层 (Project)         → {project}/GLAUDE.md            → 团队共享（Git）
 本地层 (Local)           → {project}/CLAUDE.local.md      → 个人项目偏好
-自动记忆层 (AutoMem)     → ~/.claude/projects/*/memory/   → AI 自动学习
-团队记忆层 (TeamMem)     → ~/.claude/projects/*/team/     → API 同步共享
+自动记忆层 (AutoMem)     → ~/.glaude/projects/*/memory/   → AI 自动学习
+团队记忆层 (TeamMem)     → ~/.glaude/projects/*/team/     → API 同步共享
 ```
 
 ### 1.4 「后台智能体」模式
@@ -103,10 +103,10 @@ Claude Code 的记忆系统体现了以下核心设计理念：
 │                                                                         │
 │  ┌─────────────┐    ┌──────────────┐    ┌───────────────────────────┐   │
 │  │ System      │    │ User Context │    │   Attachment System       │   │
-│  │ Prompt      │◄───┤ (CLAUDE.md)  │    │                           │   │
+│  │ Prompt      │◄───┤ (GLAUDE.md)  │    │                           │   │
 │  │             │    └──────────────┘    │  ┌─────────────────────┐  │   │
 │  │ ┌─────────┐ │                        │  │ nested_memory       │  │   │
-│  │ │ Memory  │ │    ┌──────────────┐    │  │ (CLAUDE.md 层级注入)│  │   │
+│  │ │ Memory  │ │    ┌──────────────┐    │  │ (GLAUDE.md 层级注入)│  │   │
 │  │ │ Prompt  │◄┼────┤ MEMORY.md    │    │  └─────────────────────┘  │   │
 │  │ │ Section │ │    │ (索引)       │    │  ┌─────────────────────┐  │   │
 │  │ └─────────┘ │    └──────────────┘    │  │ relevant_memories   │  │   │
@@ -132,7 +132,7 @@ Claude Code 的记忆系统体现了以下核心设计理念：
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                       文件系统 (Memory Directory)                        │
 │                                                                         │
-│  ~/.claude/projects/<project-slug>/memory/                              │
+│  ~/.glaude/projects/<project-slug>/memory/                              │
 │  ├── MEMORY.md              (索引文件)                                  │
 │  ├── user_preferences.md    (用户偏好)                                  │
 │  ├── project_architecture.md(项目架构)                                  │
@@ -177,7 +177,7 @@ function getAutoMemPath(): string {
   // 2. 设置中的自定义目录
   if (settings.autoMemoryDirectory) return resolve(cwd, settings.autoMemoryDirectory)
 
-  // 3. 默认路径: ~/.claude/projects/<sanitized-git-root>/memory/
+  // 3. 默认路径: ~/.glaude/projects/<sanitized-git-root>/memory/
   return join(memoryBase, 'projects', sanitizeProjectSlug(gitRoot), 'memory')
 }
 ```
@@ -232,8 +232,8 @@ const WHAT_NOT_TO_SAVE_SECTION = [
 当 Team Memory 启用时，系统维护两个目录：
 
 ```
-~/.claude/projects/<slug>/memory/        ← 私有记忆（仅当前用户）
-~/.claude/projects/<slug>/memory/team/   ← 团队记忆（所有协作者共享）
+~/.glaude/projects/<slug>/memory/        ← 私有记忆（仅当前用户）
+~/.glaude/projects/<slug>/memory/team/   ← 团队记忆（所有协作者共享）
 ```
 
 #### 作用域路由
@@ -258,7 +258,7 @@ Session Memory 是**当前会话的笔记本**，用于在上下文压缩（Comp
 | 生命周期 | 当前会话 | 跨会话持久 |
 | 用途 | Compact 后的上下文恢复 | 长期知识积累 |
 | 写入方式 | Compact 时自动生成 | 后台 Agent 自动提取 |
-| 存储位置 | `~/.claude/session-memory/` | `~/.claude/projects/*/memory/` |
+| 存储位置 | `~/.glaude/session-memory/` | `~/.glaude/projects/*/memory/` |
 
 #### 关键实现
 
@@ -289,20 +289,20 @@ function getAgentMemoryDir(agentType: string): string {
 
 通过 `agentMemorySnapshot.ts` 实现记忆快照的保存和恢复。
 
-### 3.5 CLAUDE.md 指令层
+### 3.5 GLAUDE.md 指令层
 
 **核心模块**：`src/utils/claudemd.ts`
 
-CLAUDE.md 不是传统意义上的「记忆」，但它是记忆系统的**指令层**——用户和团队预定义的规则和偏好。
+GLAUDE.md 不是传统意义上的「记忆」，但它是记忆系统的**指令层**——用户和团队预定义的规则和偏好。
 
 #### 加载顺序与优先级
 
 ```
-1. Managed (最低优先级)  → /etc/claude-code/CLAUDE.md    → 管理员全局指令
-2. User                 → ~/.claude/CLAUDE.md            → 用户全局指令
-3. Project              → {project}/CLAUDE.md            → 项目级指令 (Git 追踪)
-                          {project}/.claude/CLAUDE.md
-                          {project}/.claude/rules/*.md
+1. Managed (最低优先级)  → /etc/claude-code/GLAUDE.md    → 管理员全局指令
+2. User                 → ~/.glaude/GLAUDE.md            → 用户全局指令
+3. Project              → {project}/GLAUDE.md            → 项目级指令 (Git 追踪)
+                          {project}/.glaude/GLAUDE.md
+                          {project}/.glaude/rules/*.md
 4. Local (最高优先级)   → {project}/CLAUDE.local.md      → 个人项目指令 (不入 Git)
 ```
 
@@ -310,7 +310,7 @@ CLAUDE.md 不是传统意义上的「记忆」，但它是记忆系统的**指�
 
 #### @include 指令
 
-CLAUDE.md 支持文件包含指令，最大递归深度 5 层：
+GLAUDE.md 支持文件包含指令，最大递归深度 5 层：
 
 ```markdown
 @./path/to/shared-rules.md     # 相对路径
@@ -331,7 +331,7 @@ CLAUDE.md 支持文件包含指令，最大递归深度 5 层：
 
 AI 执行两步操作:
 Step 1: 写入记忆文件
-  → FileWrite: ~/.claude/projects/<slug>/memory/feedback_package_manager.md
+  → FileWrite: ~/.glaude/projects/<slug>/memory/feedback_package_manager.md
   内容:
   ---
   name: Package Manager Preference
@@ -342,7 +342,7 @@ Step 1: 写入记忆文件
   instead of npm when running install, add, or build operations.
 
 Step 2: 更新索引
-  → FileEdit: ~/.claude/projects/<slug>/memory/MEMORY.md
+  → FileEdit: ~/.glaude/projects/<slug>/memory/MEMORY.md
   添加行:
   - [Package Manager](feedback_package_manager.md) — Use pnpm, not npm
 ```
@@ -482,8 +482,8 @@ function truncateEntrypointContent(content: string) {
 ### 5.3 目录结构
 
 ```
-~/.claude/
-├── CLAUDE.md                          # 用户全局指令
+~/.glaude/
+├── GLAUDE.md                          # 用户全局指令
 ├── projects/
 │   └── <project-slug>/
 │       └── memory/                    # Auto Memory 根目录
@@ -661,7 +661,7 @@ Memory "API Architecture" was saved 12 days ago — verify before relying on it.
 
 ```typescript
 type Attachment =
-  | { type: 'nested_memory'; path: string; content: MemoryFileInfo }   // CLAUDE.md 层级
+  | { type: 'nested_memory'; path: string; content: MemoryFileInfo }   // GLAUDE.md 层级
   | { type: 'relevant_memories'; memories: RelevantMemory[] }          // 相关记忆
   | { type: 'current_session_memory'; content: string; path: string }  // 会话记忆
 ```
@@ -1013,13 +1013,13 @@ function createSubagentContext(parent: ToolUseContext): ToolUseContext {
 
 ┌── Memory ──────────────────────────────┐
 │                                         │
-│  📁 CLAUDE.md files                     │
-│    ~/.claude/CLAUDE.md                  │
-│    ./CLAUDE.md                          │
+│  📁 GLAUDE.md files                     │
+│    ~/.glaude/GLAUDE.md                  │
+│    ./GLAUDE.md                          │
 │    ./CLAUDE.local.md                    │
 │                                         │
 │  📁 Auto-memory files                   │
-│    ~/.claude/projects/.../memory/       │
+│    ~/.glaude/projects/.../memory/       │
 │      MEMORY.md                          │
 │      user_preferences.md                │
 │      feedback_testing.md                │
@@ -1036,7 +1036,7 @@ function createSubagentContext(parent: ToolUseContext): ToolUseContext {
 
 `/remember` 是一个高级记忆审计技能（仅限内部用户），它会：
 
-1. **收集所有记忆层** — 读取 CLAUDE.md、CLAUDE.local.md、Auto Memory、Team Memory
+1. **收集所有记忆层** — 读取 GLAUDE.md、CLAUDE.local.md、Auto Memory、Team Memory
 2. **分类每个条目** — 判断最佳归属位置
 3. **识别清理机会** — 找出重复、过时、冲突的条目
 4. **生成报告** — 分为 Promotions / Cleanup / Ambiguous / No Action
@@ -1045,7 +1045,7 @@ function createSubagentContext(parent: ToolUseContext): ToolUseContext {
 
 | 目标位置 | 适合内容 | 示例 |
 |---------|---------|------|
-| CLAUDE.md | 所有贡献者应遵循的项目规范 | "用 bun 不用 npm" |
+| GLAUDE.md | 所有贡献者应遵循的项目规范 | "用 bun 不用 npm" |
 | CLAUDE.local.md | 个人指令，不适用他人 | "我偏好简洁回复" |
 | Team Memory | 跨仓库的组织知识 | "staging 在 staging.internal" |
 | 留在 Auto Memory | 临时笔记或不确定归属 | 会话观察 |
@@ -1073,7 +1073,7 @@ Compact 触发
     ↓
 生成 Session Memory（保存关键上下文到文件）
     ↓
-清除 getUserContext 缓存（CLAUDE.md 层）
+清除 getUserContext 缓存（GLAUDE.md 层）
     ↓
 重置 getMemoryFiles 缓存
     ↓
@@ -1241,11 +1241,11 @@ const MEMORY_CORRECTION_HINT =
 ```typescript
 // utils/memory/types.ts
 type MemoryType = 
-  | 'User'       // ~/.claude/CLAUDE.md
-  | 'Project'    // {project}/CLAUDE.md, .claude/CLAUDE.md, .claude/rules/*.md
+  | 'User'       // ~/.glaude/GLAUDE.md
+  | 'Project'    // {project}/GLAUDE.md, .glaude/GLAUDE.md, .glaude/rules/*.md
   | 'Local'      // {project}/CLAUDE.local.md
-  | 'Managed'    // /etc/claude-code/CLAUDE.md
-  | 'AutoMem'    // ~/.claude/projects/*/memory/
+  | 'Managed'    // /etc/claude-code/GLAUDE.md
+  | 'AutoMem'    // ~/.glaude/projects/*/memory/
   | 'TeamMem'    // (feature flag 控制)
 
 // memdir/memoryTypes.ts - 记忆内容类型

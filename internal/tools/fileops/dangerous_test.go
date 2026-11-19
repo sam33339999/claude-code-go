@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 func TestCheckDangerousPathFiles(t *testing.T) {
@@ -15,7 +15,7 @@ func TestCheckDangerousPathFiles(t *testing.T) {
 		"/home/bob/project/.zshrc",
 		"~/.zprofile",
 		"/repo/.mcp.json",
-		"/repo/.claude.json",
+		"/repo/.glaude.json",
 		"/repo/.gitmodules",
 	}
 	for _, p := range dangerous {
@@ -37,8 +37,8 @@ func TestCheckDangerousPathDirectories(t *testing.T) {
 		"/repo/.git/hooks/pre-commit",
 		"/repo/.vscode/settings.json",
 		"/repo/.idea/workspace.xml",
-		"/repo/.claude/settings.json",
-		"/repo/.claude/settings/local.json",
+		"/repo/.glaude/settings.json",
+		"/repo/.glaude/settings/local.json",
 	}
 	for _, p := range dangerous {
 		if _, _, dangerous := checkDangerousPath(p); !dangerous {
@@ -69,7 +69,7 @@ func TestCheckDangerousPathSafePaths(t *testing.T) {
 
 func TestCheckDangerousPathCaseInsensitive(t *testing.T) {
 	t.Parallel()
-	for _, p := range []string{"/repo/.GIT/config", "/repo/.BASHRC", "/repo/.Claude/settings.json"} {
+	for _, p := range []string{"/repo/.GIT/config", "/repo/.BASHRC", "/repo/.Glaude/settings.json"} {
 		if _, _, dangerous := checkDangerousPath(p); !dangerous {
 			t.Errorf("checkDangerousPath(%q) not dangerous, want dangerous (case-insensitive)", p)
 		}
@@ -125,14 +125,14 @@ func TestWriteToolsDenyDangerousPaths(t *testing.T) {
 			input: mustJSON(FileWriteInput{FilePath: "/repo/.git/config", Content: "evil"}),
 		},
 		{
-			name:  "Edit .claude.json",
+			name:  "Edit .glaude.json",
 			tool:  FileEditTool,
-			input: mustJSON(FileEditInput{FilePath: "/Users/alice/.claude.json", OldString: "a", NewString: "b"}),
+			input: mustJSON(FileEditInput{FilePath: "/Users/alice/.glaude.json", OldString: "a", NewString: "b"}),
 		},
 		{
-			name:  "Edit inside .claude",
+			name:  "Edit inside .glaude",
 			tool:  FileEditTool,
-			input: mustJSON(FileEditInput{FilePath: "/repo/.claude/settings.json", OldString: "a", NewString: "b"}),
+			input: mustJSON(FileEditInput{FilePath: "/repo/.glaude/settings.json", OldString: "a", NewString: "b"}),
 		},
 	}
 	for _, tt := range tests {

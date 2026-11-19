@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tunsuy/claude-code-go/internal/bootstrap"
+	"github.com/tunsuy/glaude/internal/bootstrap"
 )
 
 func main() {

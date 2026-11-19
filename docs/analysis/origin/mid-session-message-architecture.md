@@ -1037,7 +1037,7 @@ const queuedCommandsSnapshot = getCommandsByMaxPriority(...).filter(cmd => {
 
 ### 13.1 Print 模式的特殊性
 
-Print 模式（`claude -p "prompt"`）没有交互式 REPL，不渲染 React 组件。但它仍然需要：
+Print 模式（`glaude -p "prompt"`）没有交互式 REPL，不渲染 React 组件。但它仍然需要：
 - 监听队列中的高优先级中断
 - 在回合之间 drain 待处理命令
 - 支持后台 Agent 的任务通知

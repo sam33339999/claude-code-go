@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Claude Code Go Logo" width="200">
+  <img src="assets/logo.png" alt="Glaude Logo" width="200">
 </p>
 
-<h1 align="center">Claude Code Go</h1>
+<h1 align="center">Glaude</h1>
 
 <p align="center">
   <strong>🤖 Claude Code の Go 実装 — ターミナルで動く AI コーディングアシスタント</strong>
@@ -10,13 +10,13 @@
 
 <p align="center">
   <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version"></a>
-  <a href="https://goreportcard.com/report/github.com/tunsuy/claude-code-go"><img src="https://goreportcard.com/badge/github.com/tunsuy/claude-code-go?style=flat-square" alt="Go Report Card"></a>
-  <a href="https://codecov.io/gh/tunsuy/claude-code-go"><img src="https://codecov.io/gh/tunsuy/claude-code-go/branch/main/graph/badge.svg?style=flat-square" alt="カバレッジ"></a>
-  <a href="https://pkg.go.dev/github.com/tunsuy/claude-code-go"><img src="https://pkg.go.dev/badge/github.com/tunsuy/claude-code-go.svg" alt="Go Reference"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/claude-code-go/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/releases"><img src="https://img.shields.io/github/v/release/tunsuy/claude-code-go?style=flat-square&logo=github" alt="Release"></a>
+  <a href="https://goreportcard.com/report/github.com/tunsuy/glaude"><img src="https://goreportcard.com/badge/github.com/tunsuy/glaude?style=flat-square" alt="Go Report Card"></a>
+  <a href="https://codecov.io/gh/tunsuy/glaude"><img src="https://codecov.io/gh/tunsuy/glaude/branch/main/graph/badge.svg?style=flat-square" alt="カバレッジ"></a>
+  <a href="https://pkg.go.dev/github.com/tunsuy/glaude"><img src="https://pkg.go.dev/badge/github.com/tunsuy/glaude.svg" alt="Go Reference"></a>
+  <a href="https://github.com/tunsuy/glaude/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/glaude/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
+  <a href="https://github.com/tunsuy/glaude/releases"><img src="https://img.shields.io/github/v/release/tunsuy/glaude?style=flat-square&logo=github" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
+  <a href="https://github.com/tunsuy/glaude/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
 </p>
 
 <p align="center">
@@ -32,13 +32,13 @@
 ---
 
 <p align="center">
-  <img src="assets/image.png" alt="Claude Code Go - インタラクティブセッション" width="800">
+  <img src="assets/image.png" alt="Glaude - インタラクティブセッション" width="800">
   <br>
   <em>ファイル読み込みとリアルタイム思考表示を備えたインタラクティブ TUI</em>
 </p>
 
 <p align="center">
-  <img src="assets/image1.png" alt="Claude Code Go - プロジェクト分析" width="800">
+  <img src="assets/image1.png" alt="Glaude - プロジェクト分析" width="800">
   <br>
   <em>アーキテクチャの詳細を含む包括的なプロジェクト分析</em>
 </p>
@@ -60,7 +60,7 @@
 <table>
   <tr>
     <td width="180"><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075"><img src="assets/sponsors/orcarouter.png" alt="OrcaRouter" width="150"></a></td>
-    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> — 1 つのゲートウェイで、すべてのモデルへ。OrcaRouter は各リクエストを 200 以上のモデル（フロンティアおよびオープンソース）から最適なものへルーティングし、料金は各プロバイダー価格のまま、フェイルオーバーとリクエストログも備えます。OpenAI 互換のため Claude Code Go にそのまま接続できます — 具体的な設定は <a href="#api-プロバイダー">API プロバイダー</a> を参照してください。</td>
+    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> — 1 つのゲートウェイで、すべてのモデルへ。OrcaRouter は各リクエストを 200 以上のモデル（フロンティアおよびオープンソース）から最適なものへルーティングし、料金は各プロバイダー価格のまま、フェイルオーバーとリクエストログも備えます。OpenAI 互換のため Glaude にそのまま接続できます — 具体的な設定は <a href="#api-プロバイダー">API プロバイダー</a> を参照してください。</td>
   </tr>
 </table>
 
@@ -69,24 +69,24 @@
 - **インタラクティブ TUI** — [Bubble Tea](https://github.com/charmbracelet/bubbletea) で構築されたフル機能のターミナル UI、ダーク/ライトテーマ対応
 - **エージェントツール使用** — 35 の組み込みツール（ファイル、シェル、検索、Web、タスク、サブエージェントなど）、すべて 9 層の権限パイプラインを通じて制御
 - **Code Mode** — モデルが JavaScript/TypeScript を書き、1 回のサンドボックス実行で複数のツール呼び出しを合成（pure Go [moejs](https://github.com/MoeForge/moejs) エンジン）：replay、再利用スニペット、書き込み監査、バッチ承認——[Code Mode](#code-mode) 参照
-- **CLI サブコマンド** — `claude mcp …`、`claude plugin …`、`claude auth …`、`claude doctor`、`claude update`。`mcp` と `plugin` グループは TypeScript CLI とバイト単位で同一の出力を生成
-- **プラグイン管理** — ローカルマーケットプレイスからプラグインをインストール/有効化/無効化、マニフェストの完全検証付き（`claude plugin validate`）
+- **CLI サブコマンド** — `glaude mcp …`、`glaude plugin …`、`glaude auth …`、`glaude doctor`、`glaude update`。`mcp` と `plugin` グループは TypeScript CLI とバイト単位で同一の出力を生成
+- **プラグイン管理** — ローカルマーケットプレイスからプラグインをインストール/有効化/無効化、マニフェストの完全検証付き（`glaude plugin validate`）
 - **マルチエージェント連携** — 並列タスク用のバックグラウンドサブエージェントを起動
 - **MCP サポート** — [Model Context Protocol](https://modelcontextprotocol.io) 経由で外部ツールを接続（stdio + HTTP + WebSocket トランスポート）、Claude Desktop からインポート可能；サーバープッシュ通知がイベント駆動でエージェントを起動（ゼロポーリング）
-- **CLAUDE.md メモリ** — ディレクトリツリー上の `CLAUDE.md` ファイルからプロジェクトコンテキストを自動読み込み
+- **GLAUDE.md メモリ** — ディレクトリツリー上の `GLAUDE.md` ファイルからプロジェクトコンテキストを自動読み込み
 - **セッション管理** — 以前の会話を再開；長い履歴は自動圧縮
 - **Vim モード** — 入力エリアでオプションの Vim キーバインディング
-- **OAuth + API キー認証** — Anthropic OAuth でサインイン（`claude auth login`）または `ANTHROPIC_API_KEY` を提供
+- **OAuth + API キー認証** — Anthropic OAuth でサインイン（`glaude auth login`）または `ANTHROPIC_API_KEY` を提供
 - **組み込みスラッシュコマンド** — `/compact`、`/commit`、`/review`、`/model`、`/theme` など（下記参照）
 - **ストリーミングレスポンス** — thinking ブロック表示付きのリアルタイムトークンストリーミング
 
 ## アーキテクチャ
 
-Claude Code Go は 6 層構造で構成されています：
+Glaude は 6 層構造で構成されています：
 
 ```
 ┌─────────────────────────────────────┐
-│  CLI (cmd/claude)                   │  Cobra エントリポイント
+│  CLI (cmd/glaude)                   │  Cobra エントリポイント
 ├─────────────────────────────────────┤
 │  TUI (internal/tui)                 │  Bubble Tea MVU インターフェース
 ├─────────────────────────────────────┤
@@ -114,10 +114,10 @@ Claude Code Go は 6 層構造で構成されています：
 ### ソースからビルド
 
 ```bash
-git clone https://github.com/tunsuy/claude-code-go.git
-cd claude-code-go
+git clone https://github.com/tunsuy/glaude.git
+cd glaude
 make build
-# バイナリは ./bin/claude に配置されます
+# バイナリは ./bin/glaude に配置されます
 ```
 
 `PATH` に追加：
@@ -129,7 +129,7 @@ export PATH="$PATH:$(pwd)/bin"
 ### `go install` を使用
 
 ```bash
-go install github.com/tunsuy/claude-code-go/cmd/claude@latest
+go install github.com/tunsuy/glaude/cmd/glaude@latest
 ```
 
 ## クイックスタート
@@ -142,10 +142,10 @@ export ANTHROPIC_API_KEY=sk-ant-...
 claude
 
 # 一度だけ質問して終了
-claude -p "このプロジェクトのメインエントリポイントを説明してください"
+glaude -p "このプロジェクトのメインエントリポイントを説明してください"
 
 # 最新のセッションを再開
-claude --resume
+glaude --resume
 ```
 
 ## 認証
@@ -155,19 +155,19 @@ claude --resume
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 # または永続的に保存：
-claude auth login --api-key sk-ant-...
+glaude auth login --api-key sk-ant-...
 ```
 
 **OAuth（インタラクティブ使用に推奨）：**
 
 ```bash
-claude auth login    # ブラウザで OAuth フローを開きます
-claude auth status   # サインイン中のアカウントを確認
+glaude auth login    # ブラウザで OAuth フローを開きます
+glaude auth status   # サインイン中のアカウントを確認
 ```
 
 ## API プロバイダー
 
-Claude Code Go は複数の API プロバイダーをサポートしており、Anthropic の API だけでなく、OpenAI 互換の API も使用できます。
+Glaude は複数の API プロバイダーをサポートしており、Anthropic の API だけでなく、OpenAI 互換の API も使用できます。
 
 ### サポートされるプロバイダー
 
@@ -280,7 +280,7 @@ export OPENAI_MODEL=orcarouter/auto   # OrcaRouter がリクエストごとに�
 ### インタラクティブモード
 
 ```
-claude [flags]
+glaude [flags]
 ```
 
 | フラグ | 説明 |
@@ -298,17 +298,17 @@ claude [flags]
 
 | コマンド | 説明 |
 |----------|------|
-| `claude mcp add <name> -- <command> [args…]` | stdio MCP サーバーを登録（リモートは `--transport http <name> <url>`、環境変数は `-e KEY=VAL`） |
-| `claude mcp list` / `claude mcp get <name>` | 設定済みサーバーの一覧表示 / ヘルスチェック |
-| `claude mcp add-json <name> <json>` | 生の JSON からサーバーを登録 |
-| `claude mcp add-from-claude-desktop` | Claude Desktop の設定からサーバーをインポート |
-| `claude mcp remove <name>` / `reset-project-choices` | サーバーを削除 / プロジェクトローカルの選択をリセット |
-| `claude plugin install <plugin>` | 設定済みマーケットプレイスからプラグインをインストール |
-| `claude plugin list` / `enable` / `disable` / `uninstall` / `update` | インストール済みプラグインを管理 |
-| `claude plugin validate <path>` | プラグインまたはマーケットプレイスのマニフェストを検証（`--strict`、`--json`） |
-| `claude plugin marketplace add/list/remove/update` | プラグインマーケットプレイスを管理（ローカルパス） |
-| `claude auth login` / `logout` / `status` | OAuth または API キー認証 |
-| `claude doctor` | 環境のヘルスチェック |
+| `glaude mcp add <name> -- <command> [args…]` | stdio MCP サーバーを登録（リモートは `--transport http <name> <url>`、環境変数は `-e KEY=VAL`） |
+| `glaude mcp list` / `glaude mcp get <name>` | 設定済みサーバーの一覧表示 / ヘルスチェック |
+| `glaude mcp add-json <name> <json>` | 生の JSON からサーバーを登録 |
+| `glaude mcp add-from-claude-desktop` | Claude Desktop の設定からサーバーをインポート |
+| `glaude mcp remove <name>` / `reset-project-choices` | サーバーを削除 / プロジェクトローカルの選択をリセット |
+| `glaude plugin install <plugin>` | 設定済みマーケットプレイスからプラグインをインストール |
+| `glaude plugin list` / `enable` / `disable` / `uninstall` / `update` | インストール済みプラグインを管理 |
+| `glaude plugin validate <path>` | プラグインまたはマーケットプレイスのマニフェストを検証（`--strict`、`--json`） |
+| `glaude plugin marketplace add/list/remove/update` | プラグインマーケットプレイスを管理（ローカルパス） |
+| `glaude auth login` / `logout` / `status` | OAuth または API キー認証 |
+| `glaude doctor` | 環境のヘルスチェック |
 
 ### スラッシュコマンド
 
@@ -327,12 +327,12 @@ claude [flags]
 | `/status` | セッションステータスを表示 |
 | `/cost` | このセッションのトークン使用量を表示 |
 | `/session` | 現在のセッション ID を表示 |
-| `/memory` | 読み込まれた CLAUDE.md メモリファイルを表示 |
+| `/memory` | 読み込まれた GLAUDE.md メモリファイルを表示 |
 | `/dream` | メモリ統合を手動で実行 |
 | `/review` | 現在の git diff を Claude でレビュー |
 | `/commit` | git コミットの作成を Claude に依頼 |
 | `/diff` | 現在の git diff を表示 |
-| `/init` | このプロジェクト用の CLAUDE.md を生成 |
+| `/init` | このプロジェクト用の GLAUDE.md を生成 |
 
 `/config`、`/mcp`、`/resume`、`/terminal-setup` はすべて完全に実装済みです（セッション再開、MCP ステータス、対話型設定、ターミナルキーバインド設定）。
 
@@ -378,7 +378,7 @@ return { count: todos.length, lines: todos };
 - **Snippets**：成功した実行を名前付き再利用スクリプトに（`save_as` → `codemode.run`）。スニペットは完全なコードを保存；ネスト実行は呼び出し元の承認スコープを共有（再帰深度上限 3）。
 - **書き込み監査**：実際に実行された各書き込み呼び出しを記録（ツール＋入力要約）——*何が変わったか*の正直な追跡、`codemode.audit` で照会。
 
-ランタイムデータは `~/.claude/codemode/` 配下：`history.jsonl`、`spill/`、`modules/`、`snippets/`、`approvals.json`。
+ランタイムデータは `~/.glaude/codemode/` 配下：`history.jsonl`、`spill/`、`modules/`、`snippets/`、`approvals.json`。
 
 ### イベント駆動スタンバイ（ゼロポーリング）
 

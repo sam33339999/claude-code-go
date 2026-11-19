@@ -341,7 +341,7 @@ Concrete structs implement these interfaces; all callers outside `internal/` dep
 | N-9 | `internal/session/store.go` | `ReadAll` silently skips corrupt lines with no observability | Log a WARN via `slog.Default()` with the line number and parse error |
 | N-10 | `internal/bootstrap/bootstrap.go` | `homeDir()` is referenced but not defined; `$HOME` may be unset in container environments | Define `homeDir()` explicitly: prefer `os.UserHomeDir()`, fall back to `$HOME`, return error if both fail |
 | N-11 | `internal/session/store.go` | `AtomicWriteFile` does not call `file.Sync()` before rename; on power loss the temp file may be empty | Call `f.Sync()` before `os.Rename` for durability |
-| N-12 | `internal/session/store.go` | No cross-process file locking on the JSONL session file; concurrent processes (e.g. two claude-code-go instances for the same session) can corrupt the file | Use `flock(2)` via `golang.org/x/sys/unix` or document the single-writer contract explicitly |
+| N-12 | `internal/session/store.go` | No cross-process file locking on the JSONL session file; concurrent processes (e.g. two glaude instances for the same session) can corrupt the file | Use `flock(2)` via `golang.org/x/sys/unix` or document the single-writer contract explicitly |
 | N-13 | `internal/bootstrap/bootstrap.go` | Project hash algorithm is undocumented; if Agent-Session and Agent-Core use different algorithms the session directory cannot be found | Document the exact algorithm (e.g. `sha256(abs(projectRoot))[0:8]`) in the design doc |
 | N-14 | `pkg/types/logs.go` | `LogOption` accumulates a `[]string` for each option; if options are read-heavy and write-rare, allocating a slice per option wastes memory | Use a plain `string` for single-value options; only use `[]string` for multi-value options |
 
@@ -412,7 +412,7 @@ No PR touching `internal/state` may be merged if the race detector reports any i
 `pkg/types` is the dependency anchor for the entire project. After Agent-Infra submits the initial implementation, treat all exported types as stable — breaking changes require a Tech Lead approval and coordinated update across all dependent packages. Add a comment block at the top of each file in `pkg/types`:
 
 ```go
-// Package types defines the shared types for claude-code-go.
+// Package types defines the shared types for glaude.
 // All types in this package are stable once reviewed; changes require
 // cross-package coordination. Do NOT add non-stdlib imports.
 ```
@@ -466,7 +466,7 @@ In `pkg/utils/ids/ids.go`, the `rand.Read` call should panic with a diagnostic m
 
 ```go
 if _, err := rand.Read(b); err != nil {
-    panic(fmt.Sprintf("claude-code-go: crypto/rand unavailable: %v", err))
+    panic(fmt.Sprintf("glaude: crypto/rand unavailable: %v", err))
 }
 ```
 

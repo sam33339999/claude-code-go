@@ -93,7 +93,7 @@ Agent-Infra
 - `internal/config/` — 三级配置加载（global/project/local）
 - `internal/state/` — 泛型状态存储（AppState）
 - `internal/session/` — 会话持久化
-- `internal/memdir/` — CLAUDE.md 发现与加载
+- `internal/memdir/` — GLAUDE.md 发现与加载
 
 ### Forbidden Actions
 

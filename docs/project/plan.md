@@ -1,4 +1,4 @@
-# Claude Code Go — 项目开发计划表
+# Glaude — 项目开发计划表
 
 > 制定时间：2026-04-02
 > 制定人：PM Agent

@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 
-	"github.com/tunsuy/claude-code-go/internal/agenttype"
+	"github.com/tunsuy/glaude/internal/agenttype"
 )
 
 // TestMain sets up the test environment.
@@ -125,8 +125,8 @@ func TestLoadCustomAgentProfiles_UserAndProjectOverride(t *testing.T) {
 	home := t.TempDir()
 	work := t.TempDir()
 
-	userAgents := filepath.Join(home, ".claude", "agents")
-	projectAgents := filepath.Join(work, ".claude", "agents")
+	userAgents := filepath.Join(home, ".glaude", "agents")
+	projectAgents := filepath.Join(work, ".glaude", "agents")
 	if err := os.MkdirAll(userAgents, 0755); err != nil {
 		t.Fatal(err)
 	}

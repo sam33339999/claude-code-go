@@ -52,7 +52,7 @@ func TestRunUpdate_NewerAvailable(t *testing.T) {
 		t.Fatalf("runUpdate: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"Current version:", "New version available: 9.9.9", "claude install 9.9.9"} {
+	for _, want := range []string{"Current version:", "New version available: 9.9.9", "glaude install 9.9.9"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q in output:\n%s", want, out)
 		}
@@ -80,7 +80,7 @@ func TestRunUpdate_CheckOnlyNoInstallHint(t *testing.T) {
 	if err := runUpdate(true, &buf); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(buf.String(), "claude install") {
+	if strings.Contains(buf.String(), "glaude install") {
 		t.Errorf("--check must not print install hint, got:\n%s", buf.String())
 	}
 }

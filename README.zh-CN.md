@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Claude Code Go Logo" width="200">
+  <img src="assets/logo.png" alt="Glaude Logo" width="200">
 </p>
 
-<h1 align="center">Claude Code Go</h1>
+<h1 align="center">Glaude</h1>
 
 <p align="center">
   <strong>🤖 Claude Code 的 Go 语言复刻版 — 终端里的 AI 编程助手</strong>
@@ -10,13 +10,13 @@
 
 <p align="center">
   <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 版本"></a>
-  <a href="https://goreportcard.com/report/github.com/tunsuy/claude-code-go"><img src="https://goreportcard.com/badge/github.com/tunsuy/claude-code-go?style=flat-square" alt="Go Report Card"></a>
-  <a href="https://codecov.io/gh/tunsuy/claude-code-go"><img src="https://codecov.io/gh/tunsuy/claude-code-go/branch/main/graph/badge.svg?style=flat-square" alt="代码覆盖率"></a>
-  <a href="https://pkg.go.dev/github.com/tunsuy/claude-code-go"><img src="https://pkg.go.dev/badge/github.com/tunsuy/claude-code-go.svg" alt="Go Reference"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/claude-code-go/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/releases"><img src="https://img.shields.io/github/v/release/tunsuy/claude-code-go?style=flat-square&logo=github" alt="Release"></a>
+  <a href="https://goreportcard.com/report/github.com/tunsuy/glaude"><img src="https://goreportcard.com/badge/github.com/tunsuy/glaude?style=flat-square" alt="Go Report Card"></a>
+  <a href="https://codecov.io/gh/tunsuy/glaude"><img src="https://codecov.io/gh/tunsuy/glaude/branch/main/graph/badge.svg?style=flat-square" alt="代码覆盖率"></a>
+  <a href="https://pkg.go.dev/github.com/tunsuy/glaude"><img src="https://pkg.go.dev/badge/github.com/tunsuy/glaude.svg" alt="Go Reference"></a>
+  <a href="https://github.com/tunsuy/glaude/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/glaude/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
+  <a href="https://github.com/tunsuy/glaude/releases"><img src="https://img.shields.io/github/v/release/tunsuy/glaude?style=flat-square&logo=github" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
+  <a href="https://github.com/tunsuy/glaude/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
 </p>
 
 <p align="center">
@@ -32,13 +32,13 @@
 ---
 
 <p align="center">
-  <img src="assets/image.png" alt="Claude Code Go - 交互式会话" width="800">
+  <img src="assets/image.png" alt="Glaude - 交互式会话" width="800">
   <br>
   <em>交互式 TUI 界面，支持文件读取和实时思考状态显示</em>
 </p>
 
 <p align="center">
-  <img src="assets/image1.png" alt="Claude Code Go - 项目分析" width="800">
+  <img src="assets/image1.png" alt="Glaude - 项目分析" width="800">
   <br>
   <em>全面的项目分析报告，包含架构层级详情</em>
 </p>
@@ -58,7 +58,7 @@
 <table>
   <tr>
     <td width="180"><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075"><img src="assets/sponsors/orcarouter.png" alt="OrcaRouter" width="150"></a></td>
-    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> —— 一个网关，所有模型。OrcaRouter 把每个请求在 200+ 个模型（前沿与开源）中路由到最合适的一个，价格与各提供商官方价格一致，并提供故障转移与请求日志。它兼容 OpenAI API，可直接接入 Claude Code Go——具体配置见 <a href="#api-提供商">API 提供商</a> 一节。</td>
+    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> —— 一个网关，所有模型。OrcaRouter 把每个请求在 200+ 个模型（前沿与开源）中路由到最合适的一个，价格与各提供商官方价格一致，并提供故障转移与请求日志。它兼容 OpenAI API，可直接接入 Glaude——具体配置见 <a href="#api-提供商">API 提供商</a> 一节。</td>
   </tr>
 </table>
 
@@ -67,24 +67,24 @@
 - **交互式 TUI** — 基于 [Bubble Tea](https://github.com/charmbracelet/bubbletea) 构建的全功能终端界面，支持深色/浅色主题
 - **智能工具调用** — 35 个内置工具（文件、命令、搜索、Web、任务、子 Agent 等），所有操作均经过 9 层权限流水线审批
 - **Code Mode** — 模型编写 JavaScript/TypeScript，在一次沙箱执行中组合多个工具调用（纯 Go [moejs](https://github.com/MoeForge/moejs) 引擎）：replay、可复用 snippet、写入审计、批次批准——见 [Code Mode](#code-mode)
-- **CLI 子命令** — `claude mcp …`、`claude plugin …`、`claude auth …`、`claude doctor`、`claude update`；`mcp` 与 `plugin` 两组输出与 TypeScript 原版**字节级一致**
-- **插件管理** — 从本地 marketplace 安装/启用/停用插件，带完整 manifest 校验（`claude plugin validate`）
+- **CLI 子命令** — `glaude mcp …`、`glaude plugin …`、`glaude auth …`、`glaude doctor`、`glaude update`；`mcp` 与 `plugin` 两组输出与 TypeScript 原版**字节级一致**
+- **插件管理** — 从本地 marketplace 安装/启用/停用插件，带完整 manifest 校验（`glaude plugin validate`）
 - **多 Agent 协作** — 可启动后台子 Agent 并行处理任务
 - **MCP 支持** — 通过 [Model Context Protocol](https://modelcontextprotocol.io) 接入外部工具（stdio + HTTP + WebSocket 传输），可从 Claude Desktop 导入；服务端推送通知事件驱动唤醒代理（零轮询）
-- **CLAUDE.md 记忆** — 自动加载项目目录树中所有 `CLAUDE.md` 文件作为上下文
+- **GLAUDE.md 记忆** — 自动加载项目目录树中所有 `GLAUDE.md` 文件作为上下文
 - **会话管理** — 恢复历史对话；自动压缩过长的上下文历史
 - **Vim 模式** — 输入框支持可选的 Vim 按键绑定
-- **OAuth + API Key 认证** — `claude auth login` 走 Anthropic OAuth，或直接配置 `ANTHROPIC_API_KEY`
+- **OAuth + API Key 认证** — `glaude auth login` 走 Anthropic OAuth，或直接配置 `ANTHROPIC_API_KEY`
 - **内置斜杠命令** — `/compact`、`/commit`、`/review`、`/model`、`/theme` 等（见下文）
 - **流式响应** — 实时 token 流式输出，支持 thinking block 展示
 
 ## 架构设计
 
-Claude Code Go 采用六层架构：
+Glaude 采用六层架构：
 
 ```
 ┌─────────────────────────────────────┐
-│  CLI (cmd/claude)                   │  Cobra 入口
+│  CLI (cmd/glaude)                   │  Cobra 入口
 ├─────────────────────────────────────┤
 │  TUI (internal/tui)                 │  Bubble Tea MVU 界面
 ├─────────────────────────────────────┤
@@ -112,10 +112,10 @@ Claude Code Go 采用六层架构：
 ### 从源码编译
 
 ```bash
-git clone https://github.com/tunsuy/claude-code-go.git
-cd claude-code-go
+git clone https://github.com/tunsuy/glaude.git
+cd glaude
 make build
-# 产物路径：./bin/claude
+# 产物路径：./bin/glaude
 ```
 
 将 `bin` 目录加入 `PATH`：
@@ -127,7 +127,7 @@ export PATH="$PATH:$(pwd)/bin"
 ### 使用 `go install`
 
 ```bash
-go install github.com/tunsuy/claude-code-go/cmd/claude@latest
+go install github.com/tunsuy/glaude/cmd/glaude@latest
 ```
 
 ## 快速开始
@@ -140,10 +140,10 @@ export ANTHROPIC_API_KEY=sk-ant-...
 claude
 
 # 单次提问后退出
-claude -p "解释一下这个项目的主入口"
+glaude -p "解释一下这个项目的主入口"
 
 # 恢复最近一次会话
-claude --resume
+glaude --resume
 ```
 
 ## 认证
@@ -153,19 +153,19 @@ claude --resume
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 # 或持久化保存：
-claude auth login --api-key sk-ant-...
+glaude auth login --api-key sk-ant-...
 ```
 
 **OAuth（推荐用于交互式使用）：**
 
 ```bash
-claude auth login    # 在浏览器中打开 OAuth 授权流程
-claude auth status   # 查看当前登录身份
+glaude auth login    # 在浏览器中打开 OAuth 授权流程
+glaude auth status   # 查看当前登录身份
 ```
 
 ## API 提供商
 
-Claude Code Go 支持多种 API 提供商，不仅可以使用 Anthropic 的 API，还可以使用 OpenAI 兼容的 API。
+Glaude 支持多种 API 提供商，不仅可以使用 Anthropic 的 API，还可以使用 OpenAI 兼容的 API。
 
 ### 支持的提供商
 
@@ -278,7 +278,7 @@ export OPENAI_MODEL=orcarouter/auto   # 让 OrcaRouter 为每个请求挑选模�
 ### 交互模式
 
 ```
-claude [flags]
+glaude [flags]
 ```
 
 | 参数 | 说明 |
@@ -296,17 +296,17 @@ claude [flags]
 
 | 命令 | 说明 |
 |------|------|
-| `claude mcp add <name> -- <command> [args…]` | 注册 stdio MCP 服务器（远程用 `--transport http <name> <url>`，环境变量用 `-e KEY=VAL`） |
-| `claude mcp list` / `claude mcp get <name>` | 列出已配置服务器 / 健康检查单个服务器 |
-| `claude mcp add-json <name> <json>` | 从原始 JSON 注册服务器 |
-| `claude mcp add-from-claude-desktop` | 从 Claude Desktop 配置导入服务器 |
-| `claude mcp remove <name>` / `reset-project-choices` | 移除服务器 / 重置项目级选择 |
-| `claude plugin install <plugin>` | 从已配置的 marketplace 安装插件 |
-| `claude plugin list` / `enable` / `disable` / `uninstall` / `update` | 管理已安装插件 |
-| `claude plugin validate <path>` | 校验插件或 marketplace manifest（`--strict`、`--json`） |
-| `claude plugin marketplace add/list/remove/update` | 管理插件 marketplace（本地路径） |
-| `claude auth login` / `logout` / `status` | OAuth 或 API Key 认证 |
-| `claude doctor` | 环境健康检查 |
+| `glaude mcp add <name> -- <command> [args…]` | 注册 stdio MCP 服务器（远程用 `--transport http <name> <url>`，环境变量用 `-e KEY=VAL`） |
+| `glaude mcp list` / `glaude mcp get <name>` | 列出已配置服务器 / 健康检查单个服务器 |
+| `glaude mcp add-json <name> <json>` | 从原始 JSON 注册服务器 |
+| `glaude mcp add-from-claude-desktop` | 从 Claude Desktop 配置导入服务器 |
+| `glaude mcp remove <name>` / `reset-project-choices` | 移除服务器 / 重置项目级选择 |
+| `glaude plugin install <plugin>` | 从已配置的 marketplace 安装插件 |
+| `glaude plugin list` / `enable` / `disable` / `uninstall` / `update` | 管理已安装插件 |
+| `glaude plugin validate <path>` | 校验插件或 marketplace manifest（`--strict`、`--json`） |
+| `glaude plugin marketplace add/list/remove/update` | 管理插件 marketplace（本地路径） |
+| `glaude auth login` / `logout` / `status` | OAuth 或 API Key 认证 |
+| `glaude doctor` | 环境健康检查 |
 
 ### 斜杠命令
 
@@ -325,12 +325,12 @@ claude [flags]
 | `/status` | 查看会话状态 |
 | `/cost` | 查看本次会话 token 用量 |
 | `/session` | 查看当前会话 ID |
-| `/memory` | 查看已加载的 CLAUDE.md 记忆文件 |
+| `/memory` | 查看已加载的 GLAUDE.md 记忆文件 |
 | `/dream` | 手动触发记忆整理 |
 | `/review` | 让 Claude 评审当前 git diff |
 | `/commit` | 让 Claude 撰写并创建 git commit |
 | `/diff` | 查看当前 git diff |
-| `/init` | 为本项目生成 CLAUDE.md |
+| `/init` | 为本项目生成 GLAUDE.md |
 
 `/config`、`/mcp`、`/resume`、`/terminal-setup` 均已完整实现（会话恢复、MCP 状态、交互式设置、终端按键配置）。
 
@@ -376,7 +376,7 @@ return { count: todos.length, lines: todos };
 - **Snippets**：把成功执行沉淀为具名可复用脚本（`save_as` → `codemode.run`）。snippet 存全量代码；嵌套执行共享调用方的批准 scope（递归深度上限 3）。
 - **写入审计**：每个实际执行的写调用都记录（工具＋输入摘要）——诚实追溯*改了什么*，`codemode.audit` 可查。
 
-运行数据位于 `~/.claude/codemode/`：`history.jsonl`、`spill/`、`modules/`、`snippets/`、`approvals.json`。
+运行数据位于 `~/.glaude/codemode/`：`history.jsonl`、`spill/`、`modules/`、`snippets/`、`approvals.json`。
 
 ### 事件驱动待命（零轮询）
 
@@ -440,8 +440,8 @@ make all
 ### 项目结构
 
 ```
-claude-code-go/
-├── cmd/claude/          # CLI 入口
+glaude/
+├── cmd/glaude/          # CLI 入口
 ├── internal/
 │   ├── api/             # Anthropic API 客户端与流式传输
 │   ├── bootstrap/       # 应用初始化
@@ -453,7 +453,7 @@ claude-code-go/
 │   ├── engine/          # 推理引擎、工具分发
 │   ├── hooks/           # 工具前/后钩子
 │   ├── mcp/             # MCP 服务器管理
-│   ├── memdir/          # CLAUDE.md 加载器
+│   ├── memdir/          # GLAUDE.md 加载器
 │   ├── oauth/           # OAuth2 流程
 │   ├── permissions/     # 工具权限层
 │   ├── plugin/          # 插件系统

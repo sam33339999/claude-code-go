@@ -45,7 +45,7 @@ func newSessionId() types.SessionId {
 - 该函数仅使用毫秒时间戳，**没有随机后缀**。在同一毫秒内连续创建两个 Session（例如并发测试、批量脚本），将产生**相同的 SessionId**，导致两个 JSONL 文件互相覆写——数据静默丢失，属严重正确性 Bug。
 - 与 `pkg/utils/ids.NewSessionId()`（格式 `<ms>-<16hex>`）不一致，破坏了"格式规范唯一"的不变量。注释中声称"replicated here to avoid a dependency"，但实际上 `internal/session` 已经依赖同模块的 `pkg/utils/fs`，没有任何技术障碍可以直接 `import pkg/utils/ids`。
 
-**修复方案**：删除本地 `newSessionId()` 函数，直接调用 `ids.NewSessionId()`（`import github.com/anthropics/claude-code-go/pkg/utils/ids`）。
+**修复方案**：删除本地 `newSessionId()` 函数，直接调用 `ids.NewSessionId()`（`import github.com/anthropics/glaude/pkg/utils/ids`）。
 
 ---
 

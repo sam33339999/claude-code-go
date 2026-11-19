@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Claude Code Go Logo" width="200">
+  <img src="assets/logo.png" alt="Glaude Logo" width="200">
 </p>
 
-<h1 align="center">Claude Code Go</h1>
+<h1 align="center">Glaude</h1>
 
 <p align="center">
   <strong>🤖 Claude Code의 Go 언어 구현 — 터미널에서 작동하는 AI 코딩 어시스턴트</strong>
@@ -10,13 +10,13 @@
 
 <p align="center">
   <a href="https://golang.org/dl/"><img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version"></a>
-  <a href="https://goreportcard.com/report/github.com/tunsuy/claude-code-go"><img src="https://goreportcard.com/badge/github.com/tunsuy/claude-code-go?style=flat-square" alt="Go Report Card"></a>
-  <a href="https://codecov.io/gh/tunsuy/claude-code-go"><img src="https://codecov.io/gh/tunsuy/claude-code-go/branch/main/graph/badge.svg?style=flat-square" alt="커버리지"></a>
-  <a href="https://pkg.go.dev/github.com/tunsuy/claude-code-go"><img src="https://pkg.go.dev/badge/github.com/tunsuy/claude-code-go.svg" alt="Go Reference"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/claude-code-go/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/releases"><img src="https://img.shields.io/github/v/release/tunsuy/claude-code-go?style=flat-square&logo=github" alt="Release"></a>
+  <a href="https://goreportcard.com/report/github.com/tunsuy/glaude"><img src="https://goreportcard.com/badge/github.com/tunsuy/glaude?style=flat-square" alt="Go Report Card"></a>
+  <a href="https://codecov.io/gh/tunsuy/glaude"><img src="https://codecov.io/gh/tunsuy/glaude/branch/main/graph/badge.svg?style=flat-square" alt="커버리지"></a>
+  <a href="https://pkg.go.dev/github.com/tunsuy/glaude"><img src="https://pkg.go.dev/badge/github.com/tunsuy/glaude.svg" alt="Go Reference"></a>
+  <a href="https://github.com/tunsuy/glaude/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/tunsuy/glaude/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
+  <a href="https://github.com/tunsuy/glaude/releases"><img src="https://img.shields.io/github/v/release/tunsuy/glaude?style=flat-square&logo=github" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
-  <a href="https://github.com/tunsuy/claude-code-go/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
+  <a href="https://github.com/tunsuy/glaude/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
 </p>
 
 <p align="center">
@@ -32,13 +32,13 @@
 ---
 
 <p align="center">
-  <img src="assets/image.png" alt="Claude Code Go - 대화형 세션" width="800">
+  <img src="assets/image.png" alt="Glaude - 대화형 세션" width="800">
   <br>
   <em>파일 읽기 및 실시간 사고 표시를 지원하는 대화형 TUI</em>
 </p>
 
 <p align="center">
-  <img src="assets/image1.png" alt="Claude Code Go - 프로젝트 분석" width="800">
+  <img src="assets/image1.png" alt="Glaude - 프로젝트 분석" width="800">
   <br>
   <em>아키텍처 세부 정보를 포함한 종합적인 프로젝트 분석</em>
 </p>
@@ -58,7 +58,7 @@
 <table>
   <tr>
     <td width="180"><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075"><img src="assets/sponsors/orcarouter.png" alt="OrcaRouter" width="150"></a></td>
-    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> — 하나의 게이트웨이로 모든 모델을. OrcaRouter는 각 요청을 200개 이상의 모델(프론티어 및 오픈소스) 중 가장 적합한 모델로 라우팅하며, 요금은 프로바이더 가격 그대로이고 페일오버와 요청 로그도 제공합니다. OpenAI 호환이므로 Claude Code Go에 바로 연결됩니다 — 구체적인 설정은 <a href="#api-프로바이더">API 프로바이더</a> 섹션을 참고하세요.</td>
+    <td><strong><a href="https://www.orcarouter.ai/ref/ref_49eee7ba2e9927450075">OrcaRouter</a></strong> — 하나의 게이트웨이로 모든 모델을. OrcaRouter는 각 요청을 200개 이상의 모델(프론티어 및 오픈소스) 중 가장 적합한 모델로 라우팅하며, 요금은 프로바이더 가격 그대로이고 페일오버와 요청 로그도 제공합니다. OpenAI 호환이므로 Glaude에 바로 연결됩니다 — 구체적인 설정은 <a href="#api-프로바이더">API 프로바이더</a> 섹션을 참고하세요.</td>
   </tr>
 </table>
 
@@ -67,24 +67,24 @@
 - **대화형 TUI** — [Bubble Tea](https://github.com/charmbracelet/bubbletea)로 구축된 완전한 터미널 UI, 다크/라이트 테마 지원
 - **에이전트 도구 사용** — 35개 내장 도구(파일, 셸, 검색, 웹, 작업, 서브 에이전트 등), 모두 9계층 권한 파이프라인을 통해 중재
 - **Code Mode** — 모델이 JavaScript/TypeScript를 작성해 한 번의 샌드박스 실행으로 여러 도구 호출을 합성(순수 Go [moejs](https://github.com/MoeForge/moejs) 엔진): replay, 재사용 스니펫, 쓰기 감사, 배치 승인 — [Code Mode](#code-mode) 참조
-- **CLI 하위 명령** — `claude mcp …`, `claude plugin …`, `claude auth …`, `claude doctor`, `claude update`; `mcp` 및 `plugin` 그룹은 TypeScript CLI와 바이트 단위까지 동일한 출력 생성
-- **플러그인 관리** — 로컬 마켓플레이스에서 플러그인 설치/활성화/비활성화, 매니페스트 완전 검증 지원(`claude plugin validate`)
+- **CLI 하위 명령** — `glaude mcp …`, `glaude plugin …`, `glaude auth …`, `glaude doctor`, `glaude update`; `mcp` 및 `plugin` 그룹은 TypeScript CLI와 바이트 단위까지 동일한 출력 생성
+- **플러그인 관리** — 로컬 마켓플레이스에서 플러그인 설치/활성화/비활성화, 매니페스트 완전 검증 지원(`glaude plugin validate`)
 - **멀티 에이전트 조정** — 병렬 작업을 위한 백그라운드 서브 에이전트 생성
 - **MCP 지원** — [Model Context Protocol](https://modelcontextprotocol.io)을 통한 외부 도구 연결(stdio + HTTP + WebSocket 전송), Claude Desktop에서 가져오기 가능; 서버 푸시 알림이 이벤트 기반으로 에이전트를 깨움(제로 폴링)
-- **CLAUDE.md 메모리** — 디렉터리 트리의 `CLAUDE.md` 파일에서 프로젝트 컨텍스트 자동 로드
+- **GLAUDE.md 메모리** — 디렉터리 트리의 `GLAUDE.md` 파일에서 프로젝트 컨텍스트 자동 로드
 - **세션 관리** — 이전 대화 재개; 긴 기록 자동 압축
 - **Vim 모드** — 입력 영역에서 선택적 Vim 키 바인딩
-- **OAuth + API 키 인증** — Anthropic OAuth로 로그인(`claude auth login`)하거나 `ANTHROPIC_API_KEY` 제공
+- **OAuth + API 키 인증** — Anthropic OAuth로 로그인(`glaude auth login`)하거나 `ANTHROPIC_API_KEY` 제공
 - **내장 슬래시 명령** — `/compact`, `/commit`, `/review`, `/model`, `/theme` 등(아래 참조)
 - **스트리밍 응답** — thinking 블록 표시와 함께 실시간 토큰 스트리밍
 
 ## 아키텍처
 
-Claude Code Go는 6개 계층으로 구성됩니다:
+Glaude는 6개 계층으로 구성됩니다:
 
 ```
 ┌─────────────────────────────────────┐
-│  CLI (cmd/claude)                   │  Cobra 진입점
+│  CLI (cmd/glaude)                   │  Cobra 진입점
 ├─────────────────────────────────────┤
 │  TUI (internal/tui)                 │  Bubble Tea MVU 인터페이스
 ├─────────────────────────────────────┤
@@ -112,10 +112,10 @@ Claude Code Go는 6개 계층으로 구성됩니다:
 ### 소스에서 빌드
 
 ```bash
-git clone https://github.com/tunsuy/claude-code-go.git
-cd claude-code-go
+git clone https://github.com/tunsuy/glaude.git
+cd glaude
 make build
-# 바이너리는 ./bin/claude에 위치합니다
+# 바이너리는 ./bin/glaude에 위치합니다
 ```
 
 `PATH`에 추가:
@@ -127,7 +127,7 @@ export PATH="$PATH:$(pwd)/bin"
 ### `go install` 사용
 
 ```bash
-go install github.com/tunsuy/claude-code-go/cmd/claude@latest
+go install github.com/tunsuy/glaude/cmd/glaude@latest
 ```
 
 ## 빠른 시작
@@ -140,10 +140,10 @@ export ANTHROPIC_API_KEY=sk-ant-...
 claude
 
 # 한 번 질문하고 종료
-claude -p "이 프로젝트의 메인 진입점을 설명해주세요"
+glaude -p "이 프로젝트의 메인 진입점을 설명해주세요"
 
 # 가장 최근 세션 재개
-claude --resume
+glaude --resume
 ```
 
 ## 인증
@@ -153,19 +153,19 @@ claude --resume
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 # 또는 영구적으로 저장:
-claude auth login --api-key sk-ant-...
+glaude auth login --api-key sk-ant-...
 ```
 
 **OAuth(대화형 사용에 권장):**
 
 ```bash
-claude auth login    # 브라우저에서 OAuth 플로우 열기
-claude auth status   # 로그인된 계정 확인
+glaude auth login    # 브라우저에서 OAuth 플로우 열기
+glaude auth status   # 로그인된 계정 확인
 ```
 
 ## API 프로바이더
 
-Claude Code Go는 여러 API 프로바이더를 지원하여 Anthropic의 API뿐만 아니라 OpenAI 호환 API도 사용할 수 있습니다.
+Glaude는 여러 API 프로바이더를 지원하여 Anthropic의 API뿐만 아니라 OpenAI 호환 API도 사용할 수 있습니다.
 
 ### 지원되는 프로바이더
 
@@ -278,7 +278,7 @@ export OPENAI_MODEL=orcarouter/auto   # OrcaRouter가 요청마다 모델을 선
 ### 대화형 모드
 
 ```
-claude [flags]
+glaude [flags]
 ```
 
 | 플래그 | 설명 |
@@ -296,17 +296,17 @@ claude [flags]
 
 | 명령 | 설명 |
 |------|------|
-| `claude mcp add <name> -- <command> [args…]` | stdio MCP 서버 등록(원격은 `--transport http <name> <url>`, 환경 변수는 `-e KEY=VAL`) |
-| `claude mcp list` / `claude mcp get <name>` | 설정된 서버 목록 조회 / 개별 서버 헬스 체크 |
-| `claude mcp add-json <name> <json>` | raw JSON으로 서버 등록 |
-| `claude mcp add-from-claude-desktop` | Claude Desktop 설정에서 서버 가져오기 |
-| `claude mcp remove <name>` / `reset-project-choices` | 서버 제거 / 프로젝트 로컬 선택 초기화 |
-| `claude plugin install <plugin>` | 구성된 마켓플레이스에서 플러그인 설치 |
-| `claude plugin list` / `enable` / `disable` / `uninstall` / `update` | 설치된 플러그인 관리 |
-| `claude plugin validate <path>` | 플러그인 또는 마켓플레이스 매니페스트 검증(`--strict`, `--json`) |
-| `claude plugin marketplace add/list/remove/update` | 플러그인 마켓플레이스 관리(로컬 경로) |
-| `claude auth login` / `logout` / `status` | OAuth 또는 API 키 인증 |
-| `claude doctor` | 환경 상태 점검 |
+| `glaude mcp add <name> -- <command> [args…]` | stdio MCP 서버 등록(원격은 `--transport http <name> <url>`, 환경 변수는 `-e KEY=VAL`) |
+| `glaude mcp list` / `glaude mcp get <name>` | 설정된 서버 목록 조회 / 개별 서버 헬스 체크 |
+| `glaude mcp add-json <name> <json>` | raw JSON으로 서버 등록 |
+| `glaude mcp add-from-claude-desktop` | Claude Desktop 설정에서 서버 가져오기 |
+| `glaude mcp remove <name>` / `reset-project-choices` | 서버 제거 / 프로젝트 로컬 선택 초기화 |
+| `glaude plugin install <plugin>` | 구성된 마켓플레이스에서 플러그인 설치 |
+| `glaude plugin list` / `enable` / `disable` / `uninstall` / `update` | 설치된 플러그인 관리 |
+| `glaude plugin validate <path>` | 플러그인 또는 마켓플레이스 매니페스트 검증(`--strict`, `--json`) |
+| `glaude plugin marketplace add/list/remove/update` | 플러그인 마켓플레이스 관리(로컬 경로) |
+| `glaude auth login` / `logout` / `status` | OAuth 또는 API 키 인증 |
+| `glaude doctor` | 환경 상태 점검 |
 
 ### 슬래시 명령
 
@@ -325,12 +325,12 @@ claude [flags]
 | `/status` | 세션 상태 표시 |
 | `/cost` | 이 세션의 토큰 사용량 표시 |
 | `/session` | 현재 세션 ID 표시 |
-| `/memory` | 로드된 CLAUDE.md 메모리 파일 표시 |
+| `/memory` | 로드된 GLAUDE.md 메모리 파일 표시 |
 | `/dream` | 메모리 통합 수동 트리거 |
 | `/review` | Claude로 현재 git diff 검토 |
 | `/commit` | Claude에게 git 커밋 작성 및 생성 요청 |
 | `/diff` | 현재 git diff 표시 |
-| `/init` | 이 프로젝트용 CLAUDE.md 생성 |
+| `/init` | 이 프로젝트용 GLAUDE.md 생성 |
 
 `/config`, `/mcp`, `/resume`, `/terminal-setup`는 모두 완전히 구현되었습니다(세션 재개, MCP 상태, 대화형 설정, 터미널 키바인딩 설정).
 
@@ -376,7 +376,7 @@ return { count: todos.length, lines: todos };
 - **Snippets**: 성공한 실행을 이름 붙은 재사용 스크립트로(`save_as` → `codemode.run`). 스니펫은 전체 코드 저장; 중첩 실행은 호출자의 승인 범위 공유(재귀 깊이 상한 3).
 - **쓰기 감사**: 실제 실행된 각 쓰기 호출 기록(도구＋입력 요약) — *무엇이 바뀌었는지*에 대한 정직한 추적, `codemode.audit`로 조회.
 
-런타임 데이터는 `~/.claude/codemode/` 아래: `history.jsonl`, `spill/`, `modules/`, `snippets/`, `approvals.json`.
+런타임 데이터는 `~/.glaude/codemode/` 아래: `history.jsonl`, `spill/`, `modules/`, `snippets/`, `approvals.json`.
 
 ### 이벤트 기반 대기(제로 폴링)
 

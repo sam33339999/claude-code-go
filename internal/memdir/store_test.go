@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/glaude/internal/memdir"
 )
 
 func TestParseMemoryFile_WithFrontmatter(t *testing.T) {
@@ -258,9 +258,9 @@ func TestMemoryStore_EmptyDir(t *testing.T) {
 func TestLoadAndTruncate_UTF8Safe(t *testing.T) {
 	dir := t.TempDir()
 
-	// Write a CLAUDE.md with multi-byte UTF-8 characters.
+	// Write a GLAUDE.md with multi-byte UTF-8 characters.
 	content := "Hello 你好世界！🌍 This is a test."
-	p := filepath.Join(dir, "CLAUDE.md")
+	p := filepath.Join(dir, "GLAUDE.md")
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -281,8 +281,8 @@ func TestLoadAndTruncate_UTF8Safe(t *testing.T) {
 func TestLoadAllMemory(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create a CLAUDE.md file.
-	claudePath := filepath.Join(dir, "CLAUDE.md")
+	// Create a GLAUDE.md file.
+	claudePath := filepath.Join(dir, "GLAUDE.md")
 	if err := os.WriteFile(claudePath, []byte("# Project Instructions"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +307,7 @@ func TestLoadAllMemory(t *testing.T) {
 	result := memdir.LoadAllMemory([]string{claudePath}, store)
 
 	if !strings.Contains(result, "Project Instructions") {
-		t.Error("expected CLAUDE.md content in result")
+		t.Error("expected GLAUDE.md content in result")
 	}
 	if !strings.Contains(result, "Auto Memory") {
 		t.Error("expected Auto Memory section in result")

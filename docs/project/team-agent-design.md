@@ -1,4 +1,4 @@
-# Claude Code Go — 多 Agent 团队方案设计
+# Glaude — 多 Agent 团队方案设计
 
 > 归档时间：2026-04-02
 > 背景：将 Claude Code（TypeScript）全量重写为 Go 语言版本，架构和模块设计完全不变，仅按 Go 语言特性重写。
@@ -7,11 +7,11 @@
 
 ## 一、项目基本信息
 
-| 项目名 | claude-code-go |
+| 项目名 | glaude |
 |-------|---------------|
 | 目标 | 将 Claude Code TypeScript 版本全量重写为 Go |
 | 原始代码规模 | ~1,900 个文件，512K+ LOC |
-| 仓库地址 | /Users/tunsuytang/ts/claude-code-go |
+| 仓库地址 | /Users/tunsuytang/ts/glaude |
 | 仓库策略 | 单一 Git 仓库 + Worktree 分支隔离（方案A） |
 | 架构原则 | 模块设计完全不变，按 Go 语言特性重写 |
 
@@ -100,7 +100,7 @@ Agent 划分与架构分层一一对应，每个层次由一个 Agent 全权负�
 **选定方案：单一 Git 仓库 + Worktree 分支隔离**
 
 ```
-claude-code-go/               ← 主仓库（main 分支，骨架+接口）
+glaude/               ← 主仓库（main 分支，骨架+接口）
 ├── feat/agent-infra          ← Agent-Infra worktree（基础设施层）
 ├── feat/agent-services       ← Agent-Services worktree（服务层）
 ├── feat/agent-core           ← Agent-Core worktree（核心层）

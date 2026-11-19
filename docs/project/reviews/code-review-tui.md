@@ -141,7 +141,7 @@ m.streamCh = nil
 
 ---
 
-#### P1-E: `MemdirLoadedMsg` 仅丢弃数据，CLAUDE.md 内容未注入引擎系统提示 (`update.go:29-31`, `init.go:37-43`)
+#### P1-E: `MemdirLoadedMsg` 仅丢弃数据，GLAUDE.md 内容未注入引擎系统提示 (`update.go:29-31`, `init.go:37-43`)
 
 **文件**: `update.go`, 第 29-31 行
 
@@ -151,7 +151,7 @@ case MemdirLoadedMsg:
     return m, nil
 ```
 
-`loadMemdirCmd` 发现了 CLAUDE.md 文件路径并打包到 `MemdirLoadedMsg.Paths`，但 `Update` 对此消息**完全不做处理**。CLAUDE.md 内容永远不会被读取并注入引擎系统提示。这是功能性遗漏——该特性在任务文档和 TS 原版中均为核心特性（项目级指令注入）。
+`loadMemdirCmd` 发现了 GLAUDE.md 文件路径并打包到 `MemdirLoadedMsg.Paths`，但 `Update` 对此消息**完全不做处理**。GLAUDE.md 内容永远不会被读取并注入引擎系统提示。这是功能性遗漏——该特性在任务文档和 TS 原版中均为核心特性（项目级指令注入）。
 
 **建议**：在 `MemdirLoadedMsg` 处理中读取文件内容，调用 `m.queryEngine.SetSystemPrompt(content)` 或等效接口。
 
@@ -259,7 +259,7 @@ func renderConfirmDialog(title, body string, width int, theme Theme) string {
 | P1 | P1-B | `/compact` 通过 magic string 硬编码拦截，设计脆弱 | `update.go`, `builtins.go` |
 | P1 | P1-C | `glamour.NewTermRenderer` 每帧 O(n) 重建，长对话卡顿 | `messagelist.go` |
 | P1 | P1-D | `doAbort` 不清零 `abortFn`/`streamCh`，状态残留风险 | `keys.go` |
-| P1 | P1-E | `MemdirLoadedMsg` 数据被完全丢弃，CLAUDE.md 未注入引擎 | `update.go`, `init.go` |
+| P1 | P1-E | `MemdirLoadedMsg` 数据被完全丢弃，GLAUDE.md 未注入引擎 | `update.go`, `init.go` |
 | P2 | P2-A | `newSystemMessage` 使用 `RoleAssistant` 混淆角色，可能污染 LLM 上下文 | `model.go` |
 | P2 | P2-B | Tab 补全不循环，`slashSuggestions` 结构体定义但未连接 | `keys.go`, `model.go` |
 | P2 | P2-C | `stripANSI` 只处理 `m` 终止符，宽度计算可能偏差 | `coordinator.go` |

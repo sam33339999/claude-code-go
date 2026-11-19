@@ -9,18 +9,18 @@ import (
 	"strings"
 )
 
-// `claude plugin validate <path>` — local-only validation of a plugin or
+// `glaude plugin validate <path>` — local-only validation of a plugin or
 // marketplace manifest plus the plugin's contents, byte-pinned against the
 // oracle (claude v2.1.261; see the probes in internal/bootstrap/CONTEXT.md).
 //
 // Rules (all oracle-verified unless noted):
-//   - A directory prefers .claude-plugin/marketplace.json over plugin.json;
+//   - A directory prefers .glaude-plugin/marketplace.json over plugin.json;
 //     neither is an error. A file target is parsed as JSON and classified by
 //     content: an "owner" key means marketplace, else plugin.
 //   - The marketplace root (what entry sources resolve against) is the parent
-//     of .claude-plugin for in-place manifests, else the manifest's own dir.
+//     of .glaude-plugin for in-place manifests, else the manifest's own dir.
 //   - Schema errors ("Invalid input") suppress the semantic warnings.
-//   - Contents are only scanned for plugin manifests at <root>/.claude-plugin/
+//   - Contents are only scanned for plugin manifests at <root>/.glaude-plugin/
 //     plugin.json: skills/*/SKILL.md (one level), then agents/**/*.md, then
 //     commands/**/*.md (both recursive), then hooks/hooks.json — in that group
 //     order, path-sorted within each group. Only files with findings appear.
@@ -148,11 +148,11 @@ func pluginValidateTarget(target string) *pluginValidateReport {
 
 	// A directory prefers the marketplace manifest; a bare manifest path
 	// that does not exist falls back to plugin.json, then to the miss error.
-	if mpPath := filepath.Join(target, ".claude-plugin", "marketplace.json"); pluginFileExists(mpPath) {
+	if mpPath := filepath.Join(target, ".glaude-plugin", "marketplace.json"); pluginFileExists(mpPath) {
 		pluginValidateManifestFile(mpPath, rep)
 		return rep
 	}
-	if pjPath := filepath.Join(target, ".claude-plugin", "plugin.json"); pluginFileExists(pjPath) {
+	if pjPath := filepath.Join(target, ".glaude-plugin", "plugin.json"); pluginFileExists(pjPath) {
 		pluginValidateManifestFile(pjPath, rep)
 		return rep
 	}
@@ -161,15 +161,15 @@ func pluginValidateTarget(target string) *pluginValidateReport {
 		Type: "plugin",
 		Errors: []pluginFinding{{
 			Path: "directory",
-			Message: "No manifest found in directory. Expected .claude-plugin/marketplace.json " +
-				"or .claude-plugin/plugin.json",
+			Message: "No manifest found in directory. Expected .glaude-plugin/marketplace.json " +
+				"or .glaude-plugin/plugin.json",
 		}},
 	}
 	return rep
 }
 
 // pluginValidateManifestFile validates one manifest file (by content) and,
-// for plugins at <root>/.claude-plugin/plugin.json, scans the contents.
+// for plugins at <root>/.glaude-plugin/plugin.json, scans the contents.
 func pluginValidateManifestFile(path string, rep *pluginValidateReport) {
 	raw, err := pluginReadJSONObject(path)
 	if err != nil {
@@ -199,7 +199,7 @@ func pluginValidateManifestFile(path string, rep *pluginValidateReport) {
 	// Contents only for the canonical layout: a bare manifest file elsewhere
 	// (e.g. a loose x.json) has no plugin root to walk.
 	dir := filepath.Dir(path)
-	if filepath.Base(dir) != ".claude-plugin" || filepath.Base(path) != "plugin.json" {
+	if filepath.Base(dir) != ".glaude-plugin" || filepath.Base(path) != "plugin.json" {
 		return
 	}
 	root := filepath.Dir(dir)
@@ -269,13 +269,13 @@ func pluginValidateMarketplace(raw map[string]any, section *pluginSectionReport)
 	for i, e := range entries {
 		source, _ := e["source"].(string)
 		srcDir := filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(source, "./")))
-		pj, err := pluginReadJSONObject(filepath.Join(srcDir, ".claude-plugin", "plugin.json"))
+		pj, err := pluginReadJSONObject(filepath.Join(srcDir, ".glaude-plugin", "plugin.json"))
 		if err != nil || pj == nil {
 			continue // unresolvable sources are skipped silently (oracle-verified)
 		}
 		entryVersion, _ := e["version"].(string)
 		pjVersion, _ := pj["version"].(string)
-		rel := strings.TrimPrefix(source, "./") + "/.claude-plugin/plugin.json"
+		rel := strings.TrimPrefix(source, "./") + "/.glaude-plugin/plugin.json"
 		if entryVersion != "" && pjVersion != "" && entryVersion != pjVersion {
 			section.Warnings = append(section.Warnings, pluginFinding{
 				Path: fmt.Sprintf("plugins[%d].version", i),
@@ -567,10 +567,10 @@ func pluginCountNoun(n int, noun string) string {
 }
 
 // marketplaceRootFor returns what a manifest's entry sources resolve against:
-// the parent of .claude-plugin when the file lives in one, else its own dir.
+// the parent of .glaude-plugin when the file lives in one, else its own dir.
 func marketplaceRootFor(manifestPath string) string {
 	dir := filepath.Dir(manifestPath)
-	if filepath.Base(dir) == ".claude-plugin" {
+	if filepath.Base(dir) == ".glaude-plugin" {
 		return filepath.Dir(dir)
 	}
 	return dir

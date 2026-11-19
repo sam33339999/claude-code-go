@@ -5,20 +5,20 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/glaude/internal/memdir"
 )
 
 func TestDiscoverClaudeMd(t *testing.T) {
-	// Create a temporary directory tree with CLAUDE.md files.
+	// Create a temporary directory tree with GLAUDE.md files.
 	root := t.TempDir()
 	sub := filepath.Join(root, "project", "src")
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a CLAUDE.md in the parent of sub.
+	// Create a GLAUDE.md in the parent of sub.
 	project := filepath.Join(root, "project")
-	claudePath := filepath.Join(project, "CLAUDE.md")
+	claudePath := filepath.Join(project, "GLAUDE.md")
 	if err := os.WriteFile(claudePath, []byte("# Memory"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestDiscoverClaudeMdNoDuplicates(t *testing.T) {
 
 func TestLoadMemoryPrompt(t *testing.T) {
 	dir := t.TempDir()
-	p1 := filepath.Join(dir, "CLAUDE.md")
+	p1 := filepath.Join(dir, "GLAUDE.md")
 	if err := os.WriteFile(p1, []byte("# Project Memory"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestLoadMemoryPrompt(t *testing.T) {
 
 func TestLoadAndTruncate(t *testing.T) {
 	dir := t.TempDir()
-	p := filepath.Join(dir, "CLAUDE.md")
+	p := filepath.Join(dir, "GLAUDE.md")
 	content := make([]byte, 200)
 	for i := range content {
 		content[i] = 'a'

@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
+	"github.com/tunsuy/glaude/internal/config"
 )
 
-// The `claude plugin marketplace` subcommands (add/list/remove/update),
+// The `glaude plugin marketplace` subcommands (add/list/remove/update),
 // byte-pinned against the oracle (claude v2.1.261).
 //
 // Documented divergence: only local marketplace sources are supported — a
@@ -86,7 +86,7 @@ func runPluginMPAdd(d *pluginDeps, args []string) error {
 		return mcpActionErrorf("✘ Failed to add marketplace: %s", err.Error())
 	}
 	if manifest == nil {
-		return mcpActionErrorf("✘ Failed to add marketplace: Marketplace file not found at %s/.claude-plugin/marketplace.json", resolved)
+		return mcpActionErrorf("✘ Failed to add marketplace: Marketplace file not found at %s/.glaude-plugin/marketplace.json", resolved)
 	}
 	name := manifest.Name
 

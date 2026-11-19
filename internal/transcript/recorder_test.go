@@ -5,9 +5,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/session"
-	"github.com/tunsuy/claude-code-go/internal/transcript"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/session"
+	"github.com/tunsuy/glaude/internal/transcript"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 func textMsg(role types.Role, text string) types.Message {

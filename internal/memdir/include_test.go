@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/memdir"
+	"github.com/tunsuy/glaude/internal/memdir"
 )
 
 func TestProcessIncludes_RelativePath(t *testing.T) {
@@ -22,7 +22,7 @@ func TestProcessIncludes_RelativePath(t *testing.T) {
 
 	// Create the main file content with an @include directive.
 	mainContent := "# Main\n@./extra.md\n# End"
-	mainPath := filepath.Join(dir, "CLAUDE.md")
+	mainPath := filepath.Join(dir, "GLAUDE.md")
 
 	result, err := memdir.ProcessIncludes(mainContent, mainPath, 0)
 	if err != nil {
@@ -49,7 +49,7 @@ func TestProcessIncludes_HomePath(t *testing.T) {
 	}
 
 	// Create a temp file in home for the test.
-	tmpFile := filepath.Join(home, ".claude-test-include-"+t.Name()+".md")
+	tmpFile := filepath.Join(home, ".glaude-test-include-"+t.Name()+".md")
 	if err := os.WriteFile(tmpFile, []byte("home content"), 0o644); err != nil {
 		t.Fatal(err)
 	}

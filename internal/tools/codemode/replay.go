@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tunsuy/claude-code-go/internal/codemode"
-	"github.com/tunsuy/claude-code-go/internal/tools"
+	"github.com/tunsuy/glaude/internal/codemode"
+	"github.com/tunsuy/glaude/internal/tools"
 )
 
 // errNoDataDir marks features disabled because the host configured no dataDir.

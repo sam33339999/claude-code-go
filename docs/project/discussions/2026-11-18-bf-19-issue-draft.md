@@ -1,6 +1,6 @@
 # BF-19 GitHub Issue 草稿（待人類建立）
 
-> 用途：直接貼到 https://github.com/sam33339999/claude-code-go/issues/new
+> 用途：直接貼到 https://github.com/sam33339999/glaude/issues/new
 > 建立後把 issue 編號回填到本檔、回填計畫台账 §5 BF-19 行、internal/mcp/CONTEXT.md。
 > 建議 labels：enhancement、technical-debt、mcp
 

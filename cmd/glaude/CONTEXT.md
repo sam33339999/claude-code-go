@@ -1,14 +1,14 @@
 ---
 package: main
-import_path: cmd/claude
-layer: cli
-generated_at: 2026-09-23T11:03:32Z
+import_path: cmd/glaude
+layer: unknown
+generated_at: 2026-11-19T06:00:32Z
 source_files: [main.go]
 ---
 
-# cmd/claude
+# cmd/glaude
 
-> Layer: **CLI** · Files: 1 · Interfaces: 0 · Structs: 0 · Functions: 0
+> Layer: **unknown** · Files: 1 · Interfaces: 0 · Structs: 0 · Functions: 0
 
 ## Dependencies
 

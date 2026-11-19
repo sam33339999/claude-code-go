@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tunsuy/claude-code-go/internal/tools"
-	"github.com/tunsuy/claude-code-go/internal/tools/agent"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/internal/tools/agent"
 )
 
 // mockCoordinator is a test double for tools.AgentCoordinator.

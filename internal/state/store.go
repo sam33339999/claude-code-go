@@ -8,8 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/tunsuy/claude-code-go/internal/config"
-	"github.com/tunsuy/claude-code-go/pkg/types"
+	"github.com/tunsuy/glaude/internal/config"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // Listener is a callback invoked when the store state changes.

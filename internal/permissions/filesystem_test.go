@@ -16,7 +16,7 @@ func TestIsDangerousPathDangerousFiles(t *testing.T) {
 		{"bashrc nested", "/home/bob/projects/.bashrc"},
 		{"zshrc", "~/.zshrc"},
 		{"mcp json", ".mcp.json"},
-		{"claude json", "/Users/alice/.claude.json"},
+		{"glaude json", "/Users/alice/.glaude.json"},
 		{"ripgreprc", "/home/bob/.ripgreprc"},
 		{"gitmodules", "/repo/.gitmodules"},
 	}
@@ -41,8 +41,8 @@ func TestIsDangerousPathDangerousDirectories(t *testing.T) {
 		{"git internals", "/repo/.git/hooks/pre-commit"},
 		{"vscode", "/repo/.vscode/settings.json"},
 		{"idea", "/repo/.idea/workspace.xml"},
-		{"claude dir", "/repo/.claude/settings.json"},
-		{"claude nested", "/repo/.claude/settings/local.json"},
+		{"glaude dir", "/repo/.glaude/settings.json"},
+		{"glaude nested", "/repo/.glaude/settings/local.json"},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -76,7 +76,7 @@ func TestIsDangerousPathSafePaths(t *testing.T) {
 
 func TestIsDangerousPathCaseInsensitive(t *testing.T) {
 	t.Parallel()
-	for _, p := range []string{"/repo/.GIT/config", "/repo/.BASHRC", "/repo/.Claude/settings.json"} {
+	for _, p := range []string{"/repo/.GIT/config", "/repo/.BASHRC", "/repo/.Glaude/settings.json"} {
 		if !IsDangerousPath(p) {
 			t.Errorf("IsDangerousPath(%q) = false, want true (case-insensitive)", p)
 		}

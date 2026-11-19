@@ -90,7 +90,7 @@ func TestAddMCPServerLocalCreatesProjectEntryWithSiblings(t *testing.T) {
 	if err := s.AddMCPServer(MCPScopeLocal, "srv", stdioEntry("echo", "hi")); err != nil {
 		t.Fatal(err)
 	}
-	doc, err := s.claudeJsonDoc()
+	doc, err := s.glaudeJsonDoc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestAddMCPServerUnwritableScope(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 	if _, err := os.Stat(ClaudeJsonPath(s.homeDir)); !os.IsNotExist(err) {
-		t.Error("unwritable-scope add must not create ~/.claude.json")
+		t.Error("unwritable-scope add must not create ~/.glaude.json")
 	}
 }
 
@@ -279,8 +279,8 @@ func TestListMCPServersOmitsRejectedAndUnknown(t *testing.T) {
 	if err := s.AddMCPServer(MCPScopeProject, "keep", stdioEntry("echo")); err != nil {
 		t.Fatal(err)
 	}
-	// Rejection lives in the project's .claude/settings.local.json (oracle
-	// v2.1.261 behavior — not the ~/.claude.json project entry).
+	// Rejection lives in the project's .glaude/settings.local.json (oracle
+	// v2.1.261 behavior — not the ~/.glaude.json project entry).
 	writeTestJSON(t, SettingsLocalPath(s.projectDir),
 		`{"other":true,"disabledMcpjsonServers":["psrv"]}`)
 	if entries := s.ListMCPServers(); len(entries) != 1 || entries[0].Name != "keep" {
@@ -327,7 +327,7 @@ func TestProjectApprovalState(t *testing.T) {
 	if err := s2.AddMCPServer(MCPScopeProject, "srv", stdioEntry("echo")); err != nil {
 		t.Fatal(err)
 	}
-	writeTestJSON(t, filepath.Join(s2.projectDir, ".claude", "settings.json"),
+	writeTestJSON(t, filepath.Join(s2.projectDir, ".glaude", "settings.json"),
 		`{"disabledMcpjsonServers":["srv"]}`)
 	if got := s2.ProjectApprovalState("srv"); got != "rejected" {
 		t.Fatalf("shared-settings rejection state = %q, want rejected", got)
@@ -446,11 +446,11 @@ func TestResetProjectChoicesAlsoCleansClaudeJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Reset with the seeded (empty) approval arrays present in the project
-	// entry: capture shows reset deletes them from ~/.claude.json too.
+	// entry: capture shows reset deletes them from ~/.glaude.json too.
 	if err := s.ResetProjectChoices(); err != nil {
 		t.Fatal(err)
 	}
-	doc, err := s.claudeJsonDoc()
+	doc, err := s.glaudeJsonDoc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -460,10 +460,10 @@ func TestResetProjectChoicesAlsoCleansClaudeJSON(t *testing.T) {
 		t.Fatal("project entry vanished")
 	}
 	if _, has := entry.Get("enabledMcpjsonServers"); has {
-		t.Error("enabledMcpjsonServers not removed from ~/.claude.json project entry")
+		t.Error("enabledMcpjsonServers not removed from ~/.glaude.json project entry")
 	}
 	if _, has := entry.Get("disabledMcpjsonServers"); has {
-		t.Error("disabledMcpjsonServers not removed from ~/.claude.json project entry")
+		t.Error("disabledMcpjsonServers not removed from ~/.glaude.json project entry")
 	}
 	// The server itself survives.
 	if _, _, ok := s.GetMCPServer("srv"); !ok {

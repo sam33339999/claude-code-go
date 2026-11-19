@@ -1,4 +1,4 @@
-# Claude Code Go — Local Development Context
+# Glaude — Local Development Context
 
 > This file provides workspace-specific context for Claude Code sessions in this project.
 
@@ -25,10 +25,10 @@
 
 ```bash
 # Required
-export ANTHROPIC_API_KEY=sk-ant-...  # or use OAuth: claude /config
+export ANTHROPIC_API_KEY=sk-ant-...  # or use OAuth: glaude /config
 
 # Build
-make build    # output: bin/claude
+make build    # output: bin/glaude
 make all      # full check: vet + test + build
 make docs     # regenerate API context docs
 make debt-check  # 欠账红线（TODO(dep) / not-yet-implemented）
@@ -46,7 +46,7 @@ make debt-check  # 欠账红线（TODO(dep) / not-yet-implemented）
 
 | What | Where |
 |------|-------|
-| CLI entry | `cmd/claude/main.go` |
+| CLI entry | `cmd/glaude/main.go` |
 | Bootstrap / DI | `internal/bootstrap/wire.go` |
 | Root command flags | `internal/bootstrap/root.go` |
 | Tool registration | `internal/bootstrap/tools.go` |
@@ -63,7 +63,7 @@ make debt-check  # 欠账红线（TODO(dep) / not-yet-implemented）
 
 ### Permission Configuration
 
-Permissions are configured in `.claude/settings.local.json`:
+Permissions are configured in `.glaude/settings.local.json`:
 ```json
 {
   "permissions": {
