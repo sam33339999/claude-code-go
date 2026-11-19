@@ -239,7 +239,7 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 		container.MemoryStore,
 		container.MCPPool,
 		tiersOrNil(container.Tiers),
-		nil, // setup backend: wired in a later task
+		container.Setup,
 		rec,
 		container.QuestionAskCh,
 		container.QuestionRespCh,
