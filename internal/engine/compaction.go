@@ -122,6 +122,9 @@ func (e *engineImpl) estimatePrompt(p QueryParams, messages []types.Message, u p
 // runCompaction runs snip → micro → auto compaction for one turn. It reports
 // whether history was rewritten (the caller then discards promptUsage).
 func (e *engineImpl) runCompaction(ctx context.Context, params QueryParams, mt MainTarget, messages []types.Message, u promptUsage) ([]types.Message, bool) {
+	if params.NoCompaction {
+		return messages, false
+	}
 	tgt := targetFor(params, mt)
 	rewritten := false
 

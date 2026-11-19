@@ -255,6 +255,17 @@ func executeOneTool(
 		}, nil
 	}
 
+	// Per-query execution filter (/btw): the schema still lists the tool,
+	// but this call is refused before any permission prompt.
+	if uctx != nil && uctx.ExecFilter != nil {
+		if ok, reason := uctx.ExecFilter(t, tc.input); !ok {
+			if reason == "" {
+				reason = fmt.Sprintf("%s is not available here", tc.name)
+			}
+			return refusedToolResult(ctx, tc, reason, msgCh), nil
+		}
+	}
+
 	// Permission check (HIL: Human-in-the-Loop).
 	if permChecker != nil {
 		permReq := permissions.PermissionRequest{
@@ -263,7 +274,17 @@ func executeOneTool(
 			Input:     tc.input,
 		}
 
-		permResult, permErr := permChecker.RequestPermission(ctx, permReq, uctx)
+		var permResult tools.PermissionResult
+		var permErr error
+		if uctx != nil && uctx.NonInteractivePermissions {
+			// Never prompt and never record a denial: Ask counts as Deny.
+			permResult, permErr = permChecker.CanUseTool(ctx, tc.name, tc.input, uctx)
+			if permErr == nil && permResult.Behavior == tools.PermissionAsk {
+				permResult = tools.PermissionResult{Behavior: tools.PermissionDeny, Reason: "needs permission; ask the main conversation instead"}
+			}
+		} else {
+			permResult, permErr = permChecker.RequestPermission(ctx, permReq, uctx)
+		}
 		if permErr != nil {
 			errMsg := fmt.Sprintf("permission check error: %v", permErr)
 			trueVal := true
@@ -366,3 +387,18 @@ func executeOneTool(
 }
 
 func strPtr(s string) *string { return &s }
+
+// refusedToolResult reports a tool call that was not executed.
+func refusedToolResult(ctx context.Context, tc toolCall, reason string, msgCh chan<- Msg) types.ContentBlock {
+	select {
+	case msgCh <- Msg{Type: MsgTypeToolResult, ToolResult: &ToolResultMsg{ToolUseID: tc.id, Content: reason, IsError: true}}:
+	case <-ctx.Done():
+	}
+	trueVal := true
+	return types.ContentBlock{
+		Type:      types.ContentTypeToolResult,
+		ToolUseID: &tc.id,
+		Content:   []types.ContentBlock{{Type: types.ContentTypeText, Text: strPtr(reason)}},
+		IsError:   &trueVal,
+	}
+}

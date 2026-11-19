@@ -60,6 +60,17 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 	messages := make([]types.Message, len(params.Messages))
 	copy(messages, params.Messages)
 
+	// Per-query execution switches reach the orchestration layer through the
+	// tool-use context (the request itself is unaffected).
+	if uctx := params.ToolUseContext; uctx != nil {
+		if params.ToolFilter != nil {
+			uctx.ExecFilter = params.ToolFilter
+		}
+		if params.NonInteractivePermissions {
+			uctx.NonInteractivePermissions = true
+		}
+	}
+
 	// Write the final message history back to the engine when the loop exits,
 	// under mu so GetMessages/SetMessages callers see a consistent snapshot.
 	// If NoWriteBack is set (forked agents), skip the write-back to avoid
