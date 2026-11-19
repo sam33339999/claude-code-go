@@ -366,3 +366,62 @@ func TestBuildRunAgentFn_AliasUsesMainLoopProvider(t *testing.T) {
 		t.Errorf("explore on openai-format main = %q, want inherit (glm), not haiku", got)
 	}
 }
+
+// Review #1: an alias / explicit model resolved without a client must still
+// freeze the dispatch-time client and limits.
+func TestBuildRunAgentFn_AliasResumeFrozen(t *testing.T) {
+	eng := exploreEngine()
+	startup := &providerClient{id: "main"}
+	eng.main = engine.MainTarget{Client: startup, ProviderID: "main", Model: "claude-haiku-4-5", MaxTokens: 32000}
+	r := newTestRouter(t, "")
+	fn := buildRunAgentFn(eng, tools.NewRegistry(), forkTestState(), nil, forkTestProfiles(), r)
+	req := coordinator.SpawnRequest{SubagentType: "explore", Prompt: "x", MaxTurns: coordinator.DefaultMaxTurns}
+	if _, err := fn(context.Background(), "a-ex10", req, nil); err != nil {
+		t.Fatal(err)
+	}
+	eng.main = engine.MainTarget{Client: &providerClient{id: "zai"}, ProviderID: "zai", Model: "glm", MaxTokens: 8192}
+	if _, err := fn(context.Background(), "a-ex10", req, nil); err != nil {
+		t.Fatal(err)
+	}
+	for i, p := range eng.calls {
+		if p.Client != startup || p.MaxOutputTokensOverride != 32000 {
+			t.Errorf("call %d: client %s max %d, want the dispatch-time startup client/limits", i, clientID(p.Client), p.MaxOutputTokensOverride)
+		}
+	}
+}
+
+// Review #4: once the main loop is on a non-startup provider, legacy aliases
+// inherit instead of sending "haiku" to that provider.
+func TestBuildRunAgentFn_AliasInheritsOnSwitchedProvider(t *testing.T) {
+	st := forkTestState()
+	st.SetState(func(s state.AppState) state.AppState {
+		s.MainLoopModel = state.ModelSetting{ModelID: "claude-x", Provider: "direct"}
+		return s
+	})
+	eng := exploreEngine()
+	eng.main = engine.MainTarget{Client: &providerClient{id: "zai-anthropic"}, ProviderID: "zai", Model: "claude-x"}
+	fn := buildRunAgentFn(eng, tools.NewRegistry(), st, nil, forkTestProfiles(), newTestRouter(t, ""))
+	if _, err := fn(context.Background(), "a-ex11", coordinator.SpawnRequest{SubagentType: "explore", Prompt: "x", MaxTurns: coordinator.DefaultMaxTurns}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := eng.calls[0].Model; got != "claude-x" {
+		t.Errorf("explore model = %q, want inherit (claude-x)", got)
+	}
+}
+
+// Review #2: forks carry the snapshot's window and max_tokens.
+func TestBuildForkQuery_CarriesSnapshotLimits(t *testing.T) {
+	x := &providerClient{id: "x"}
+	req := coordinator.SpawnRequest{SubagentType: "fork", Prompt: "p", MaxTurns: coordinator.DefaultMaxTurns,
+		CacheParams: &engine.CacheSafeParams{Model: "m1", Client: x, ContextWindow: 131072, MaxTokens: 8192}}
+	main := engine.MainTarget{Client: &providerClient{id: "cur"}, Model: "cur", ContextWindow: 1, MaxTokens: 2}
+	p, _, _ := buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "cur", "", nil, &sync.Map{}, "a-f9", nil, main)
+	if p.ContextWindow != 131072 || p.MaxOutputTokensOverride != 8192 {
+		t.Errorf("fork limits = %d/%d", p.ContextWindow, p.MaxOutputTokensOverride)
+	}
+	req.CacheParams = nil
+	p, _, _ = buildSubAgentQuery(req, tools.NewRegistry(), forkTestProfiles(), "cur", "", nil, &sync.Map{}, "a-f10", nil, main)
+	if p.ContextWindow != 1 || p.MaxOutputTokensOverride != 2 {
+		t.Errorf("fork limits without snapshot = %d/%d, want main's", p.ContextWindow, p.MaxOutputTokensOverride)
+	}
+}

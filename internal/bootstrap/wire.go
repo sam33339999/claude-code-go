@@ -561,7 +561,13 @@ func buildRunAgentFn(
 		if provider == "" {
 			provider = st.Settings.Provider
 		}
-		params, seed, err := buildSubAgentQuery(req, reg, agentProfiles, parentModel, provider, inboxCh, &runStates, agentID, router, eng.MainTarget())
+		main := eng.MainTarget()
+		if main.ProviderID != "" && main.ProviderID != engine.MainProviderID {
+			// On a provider switched to with /model, legacy aliases (haiku…)
+			// are not known to exist: treat them like the openai rules (inherit).
+			provider = string(api.ProviderOpenAI)
+		}
+		params, seed, err := buildSubAgentQuery(req, reg, agentProfiles, parentModel, provider, inboxCh, &runStates, agentID, router, main)
 		if err != nil {
 			return "", fmt.Errorf("sub-agent dispatch: %w", err)
 		}
@@ -688,6 +694,14 @@ func buildSubAgentQuery(
 		// switch never moves an already-dispatched agent (resume included).
 		target = subAgentTarget{Client: main.Client, Model: main.Model, ContextWindow: main.ContextWindow, MaxTokens: main.MaxTokens}
 	}
+	if target.Client == nil {
+		// Alias or explicit model on the main provider: freeze today's client
+		// and output cap so a resume after /model stays on this provider.
+		target.Client = main.Client
+		if target.MaxTokens == 0 {
+			target.MaxTokens = main.MaxTokens
+		}
+	}
 
 	// Build the initial user message.
 	userMsg := types.Message{
@@ -732,6 +746,7 @@ func buildForkQuery(
 	// The fork runs on exactly the client and model of the parent request it
 	// copies (cache identity); without a snapshot, on the main target now.
 	model, client := main.Model, main.Client
+	window, maxTokens := main.ContextWindow, main.MaxTokens
 	var prefix []types.Message
 	if cache, ok := req.CacheParams.(*engine.CacheSafeParams); ok && cache != nil {
 		systemPrompt = cache.SystemPrompt
@@ -741,6 +756,7 @@ func buildForkQuery(
 		}
 		if cache.Client != nil {
 			client = cache.Client
+			window, maxTokens = cache.ContextWindow, cache.MaxTokens
 		}
 	}
 
@@ -762,7 +778,10 @@ func buildForkQuery(
 		Model:        model,
 		Client:       client,
 		NoWriteBack:  true,
-		InboxCh:      inboxCh,
+
+		ContextWindow:           window,
+		MaxOutputTokensOverride: maxTokens,
+		InboxCh:                 inboxCh,
 		// ExcludeTools intentionally nil: full parent tool list (cache identity).
 	}, messages
 }

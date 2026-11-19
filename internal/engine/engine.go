@@ -278,14 +278,16 @@ func (e *engineImpl) SetMainTarget(t MainTarget) {
 	if t.MaxTokens <= 0 {
 		t.MaxTokens = 8192
 	}
+	// Lock order e.mu → mainMu (shared with the loop write-back), so the new
+	// target and the stripped history become visible together.
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.mainMu.Lock()
 	providerChanged := t.ProviderID != e.main.ProviderID
 	e.main = t
 	e.mainMu.Unlock()
 	if providerChanged {
-		e.mu.Lock()
 		e.messages = stripThinking(e.messages)
-		e.mu.Unlock()
 	}
 }
 

@@ -145,3 +145,42 @@ func TestCacheSafeParams_CarriesClient(t *testing.T) {
 		t.Errorf("snapshot = %+v", uctx.CacheParams)
 	}
 }
+
+// Review #2: the fork snapshot records the window and max_tokens of the request.
+func TestCacheSafeParams_CarriesLimits(t *testing.T) {
+	eng := New(Config{Client: &countingClient{}, Registry: tools.NewRegistry(), Model: "m", MainContextWindow: 131072, MaxTokens: 4096})
+	uctx := &tools.UseContext{Ctx: context.Background()}
+	runQuery(t, eng, QueryParams{Messages: []types.Message{userText("hi")}, ToolUseContext: uctx})
+	snap := uctx.CacheParams.(*CacheSafeParams)
+	if snap.ContextWindow != 131072 || snap.MaxTokens != 4096 {
+		t.Errorf("snapshot limits = %d/%d", snap.ContextWindow, snap.MaxTokens)
+	}
+}
+
+// Review #3: an interrupted loop writing back after a provider switch must
+// not resurrect thinking blocks.
+func TestSetMainTarget_WriteBackAfterSwitchStripsThinking(t *testing.T) {
+	release := make(chan struct{})
+	started := make(chan struct{})
+	a := &countingClient{}
+	a.streamFn = func(*api.MessageRequest) (api.StreamReader, error) {
+		close(started)
+		<-release
+		return newStaticReader(buildEndTurnEvents("done")...), nil
+	}
+	eng := New(Config{Client: a, Registry: tools.NewRegistry(), Model: "m"})
+	ch, err := eng.Query(context.Background(), QueryParams{
+		Messages:       []types.Message{userText("q"), thinkingMsg(), userText("q2")},
+		ToolUseContext: &tools.UseContext{Ctx: context.Background()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-started
+	eng.SetMainTarget(MainTarget{Client: &countingClient{}, ProviderID: "zai", Model: "glm"})
+	close(release)
+	drainMsgs(ch)
+	if hasThinking(eng.GetMessages()) {
+		t.Error("write-back of the old loop resurrected thinking blocks after a provider switch")
+	}
+}

@@ -26,6 +26,10 @@ type CacheSafeParams struct {
 	// Client is the client the parent request was sent with (nil = engine
 	// default). Forks use it so their provider matches the cached prefix.
 	Client api.Client
+	// ContextWindow and MaxTokens are the parent request's limits, so a fork
+	// (and its resumes) keep them after /model switches the main loop.
+	ContextWindow int
+	MaxTokens     int
 }
 
 // ForkedAgentConfig configures a background forked agent.

@@ -64,22 +64,33 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 	// under mu so GetMessages/SetMessages callers see a consistent snapshot.
 	// If NoWriteBack is set (forked agents), skip the write-back to avoid
 	// polluting the parent conversation.
+	// The main target is fixed for the whole loop: /model switches apply to
+	// the next query, never in the middle of one.
+	mt := e.MainTarget()
+
 	defer func() {
 		if params.NoWriteBack {
 			return
 		}
+		// Lock order e.mu → mainMu (same as SetMainTarget). If /model moved
+		// the main loop to another provider while this loop ran (e.g. right
+		// after Esc), strip thinking blocks again before writing back.
 		e.mu.Lock()
-		e.messages = make([]types.Message, len(messages))
-		copy(e.messages, messages)
+		e.mainMu.RLock()
+		switched := e.main.ProviderID != mt.ProviderID
+		e.mainMu.RUnlock()
+		out := messages
+		if switched {
+			out = stripThinking(messages)
+		}
+		e.messages = make([]types.Message, len(out))
+		copy(e.messages, out)
 		e.mu.Unlock()
 	}()
 
 	maxTurns := params.MaxTurns
 	turns := 0
 	var lastUsage promptUsage
-	// The main target is fixed for the whole loop: /model switches apply to
-	// the next query, never in the middle of one.
-	mt := e.MainTarget()
 
 	for {
 		// Check context cancellation.
@@ -119,6 +130,8 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 			snap := CreateCacheSafeParams(params, messages)
 			snap.Model = activeModel
 			snap.Client = client
+			limits := targetFor(params, mt)
+			snap.ContextWindow, snap.MaxTokens = limits.ContextWindow, limits.MaxOutputTokens
 			params.ToolUseContext.CacheParams = snap
 		}
 
