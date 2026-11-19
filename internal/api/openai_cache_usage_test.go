@@ -87,8 +87,9 @@ data: [DONE]
 		}
 	}
 	result := acc.Result()
-	if result.Usage.InputTokens != 100 {
-		t.Errorf("InputTokens = %d, want 100", result.Usage.InputTokens)
+	// Anthropic semantics: input_tokens excludes cache reads (prompt 100 − cached 80).
+	if result.Usage.InputTokens != 20 {
+		t.Errorf("InputTokens = %d, want 20 (prompt_tokens minus cached)", result.Usage.InputTokens)
 	}
 	if result.Usage.CacheReadInputTokens != 80 {
 		t.Errorf("CacheReadInputTokens = %d, want 80 (provider cache hit must be observable)", result.Usage.CacheReadInputTokens)
@@ -123,6 +124,9 @@ func TestOpenAIComplete_CacheUsage(t *testing.T) {
 	if resp.Usage.CacheReadInputTokens != 32 {
 		t.Errorf("CacheReadInputTokens = %d, want 32 (DeepSeek-style hit count)", resp.Usage.CacheReadInputTokens)
 	}
+	if resp.Usage.InputTokens != 18 {
+		t.Errorf("InputTokens = %d, want 18 (prompt 50 minus cached 32; Anthropic semantics)", resp.Usage.InputTokens)
+	}
 }
 
 // TestAccumulator_DeltaUsageMerge verifies final input/cache counts from
@@ -151,5 +155,15 @@ func TestAccumulator_DeltaUsageMerge(t *testing.T) {
 	u := acc.Result().Usage
 	if u.InputTokens != 100 || u.CacheReadInputTokens != 80 || u.OutputTokens != 7 {
 		t.Errorf("usage = %+v, want input 100 / cache read 80 / output 7", u)
+	}
+}
+
+func TestOpenAIUsage_UncachedInputClamps(t *testing.T) {
+	u := &openaiUsage{PromptTokens: 10, PromptCacheHitTokens: 64}
+	if got := u.uncachedInputTokens(); got != 0 {
+		t.Errorf("uncachedInputTokens = %d, want 0 (never negative)", got)
+	}
+	if got := (&openaiUsage{PromptTokens: 100}).uncachedInputTokens(); got != 100 {
+		t.Errorf("no cache: uncachedInputTokens = %d, want 100", got)
 	}
 }

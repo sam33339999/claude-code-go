@@ -126,6 +126,18 @@ func (u *openaiUsage) cachedTokens() int {
 	return u.PromptCacheHitTokens
 }
 
+// uncachedInputTokens converts prompt_tokens to Anthropic input_tokens
+// semantics. OpenAI-compatible prompt_tokens already include cache hits,
+// while Usage.InputTokens excludes CacheReadInputTokens; reporting both
+// unadjusted double-counts cached tokens (context meter, compaction
+// threshold, cost).
+func (u *openaiUsage) uncachedInputTokens() int {
+	if u == nil {
+		return 0
+	}
+	return max(u.PromptTokens-u.cachedTokens(), 0)
+}
+
 // OpenAI Streaming types
 
 // openaiStreamChunk represents a chunk in the streaming response.

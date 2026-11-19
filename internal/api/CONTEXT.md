@@ -2,7 +2,7 @@
 package: api
 import_path: internal/api
 layer: services
-generated_at: 2026-11-19T02:18:58Z
+generated_at: 2026-11-19T13:43:26Z
 source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, openai_client.go, openai_stream.go, openai_types.go, ratelimit.go, retry.go, stream.go, usage.go]
 ---
 
@@ -116,24 +116,24 @@ type StreamReader interface {
 - `mockClient` in `test/integration/engine_e2e_test.go`
 
 **Exported type references (files that use types from this package):**
-- `APIError` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/retry_wiring_test.go` (test)
+- `APIError` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/retry_wiring_test.go` (test), `internal/engine/tiers_test.go` (test)
 - `Accumulator` → `internal/engine/query.go`
-- `Client` → `internal/bootstrap/wire.go`, `internal/compact/auto.go`, `internal/engine/engine.go`, `internal/engine/engine_test.go` (test)
-- `ClientConfig` → `internal/bootstrap/wire.go`
-- `ContentBlock` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test)
+- `Client` → `internal/bootstrap/tiers.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/compact/target.go`, `internal/engine/compaction.go` + 3 more
+- `ClientConfig` → `internal/bootstrap/tiers.go`, `internal/bootstrap/wire.go`
+- `ContentBlock` → `internal/compact/auto_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test), `internal/engine/tiers_test.go` (test)
 - `ContentBlockDeltaData` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
 - `Delta` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
 - `MessageDeltaData` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
 - `MessageParam` → `internal/compact/auto.go`, `internal/engine/query.go`
-- `MessageRequest` → `internal/compact/auto.go`, `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/interrupt_slot_test.go` (test) + 4 more
-- `MessageResponse` → `internal/compact/auto.go`, `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test)
+- `MessageRequest` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto.go`, `internal/compact/auto_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test) + 7 more
+- `MessageResponse` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto.go`, `internal/compact/auto_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/query.go` + 2 more
 - `MessageStartData` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
 - `RetryOptions` → `internal/engine/query.go`
 - `StreamEvent` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
-- `StreamReader` → `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/interrupt_slot_test.go` (test), `internal/engine/query.go` + 3 more
+- `StreamReader` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test) + 6 more
 - `SystemBlock` → `internal/engine/query.go`
-- `ToolSchema` → `internal/engine/query.go`
-- `Usage` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test)
+- `ToolSchema` → `internal/engine/compaction.go`
+- `Usage` → `internal/engine/compaction.go`, `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test)
 
 ## Dependencies
 
