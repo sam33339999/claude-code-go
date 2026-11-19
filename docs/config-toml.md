@@ -4,7 +4,7 @@
 
 - 只讀全域這一份，沒有專案層或本地層。
 - 檔案不存在：沒有 provider、沒有等級，行為和沒有這個功能時完全一樣。
-- 格式錯誤或欄位不合法：啟動時在 stderr 印警告，忽略有問題的部分，程式照常啟動。
+- 格式錯誤或欄位不合法：啟動時印警告（stderr，並在 TUI 啟動訊息和 `/tier` 列表裡顯示），忽略有問題的部分，程式照常啟動。檔案無法解析時 `/tier` 拒絕寫檔。
 - 新增或修改 provider 要手動編輯檔案並**重新啟動**；`/tier` 只能在已註冊的 provider 之間改綁定。
 
 設計背景見 `docs/superpowers/specs/2026-11-19-provider-tiers-design.md`。
@@ -74,6 +74,8 @@ context_window = 200000
 - **`max_tokens`**：等級 > provider 模型表 > engine 預設。摘要請求的輸出上限取 `min(20000, max_tokens)`。
 
 綁到 `main:<模型>` 的等級用等級自己的值，不套用 `[main]`。
+
+自動壓縮的門檻是 `context_window − min(max_tokens, 20000, context_window/4) − min(13000, context_window/10)`。小窗口（例如 32k）的模型請務必寫上正確的 `context_window`，否則會被當成 200k，直到 API 回報超限才出錯。
 
 ## sub-agent 怎麼選模型
 

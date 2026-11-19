@@ -2,7 +2,7 @@
 package: modeltier
 import_path: internal/modeltier
 layer: unknown
-generated_at: 2026-11-19T13:49:59Z
+generated_at: 2026-11-19T14:01:30Z
 source_files: [config.go, resolve.go, store.go]
 ---
 
@@ -18,7 +18,7 @@ source_files: [config.go, resolve.go, store.go]
 - **ModelInfo** — 2 fields: ContextWindow, MaxTokens
 - **Provider** — 4 fields: Format, BaseURL, APIKeyEnv, Models
 - **ProviderStatus** — 5 fields: ID, Format, BaseURL, APIKeyEnv, KeyPresent
-- **Store** — 4 fields
+- **Store** — 5 fields
 - **TierEntry** — 4 fields: Provider, Model, ContextWindow, MaxTokens
 
 ## Functions
@@ -60,3 +60,4 @@ source_files: [config.go, resolve.go, store.go]
 - `Bind` 寫入暫存檔→Sync→rename，成功後才換掉記憶體設定；重新編碼會遺失註解（已知取捨，`/tier` 會提示）。Bind 清掉該等級的 `context_window`/`max_tokens`，因為那屬於舊模型。
 - lite/pro/max 永遠是已知等級（即使檔案沒寫），未綁定時 `Resolve` 回 `Unbound` 並帶正規化等級名，讓 bootstrap 能退回舊別名規則。
 - 段落審查後補修：`Bind`/`Unbind` 改為在鎖內**重新讀檔**、以 `map[string]any` 只替換 `tiers.<name>` 再原子寫回，被驗證忽略的段落、未知鍵和啟動後的手動修改都會保留（只有註解遺失）。啟動時檔案讀取或解析失敗，就拒絕寫檔，避免把只是打錯一個字的檔案整個覆蓋。
+- 最終審查後補修：Store 保留啟動警告（`Warnings`、`AppendWarnings`），供 `/tier` 和 TUI 啟動訊息顯示。

@@ -2,7 +2,7 @@
 package: commands
 import_path: internal/commands
 layer: cli
-generated_at: 2026-11-19T13:49:59Z
+generated_at: 2026-11-19T14:01:30Z
 source_files: [builtins.go, mcp.go, registry.go, resume.go, terminal_setup.go, tier.go]
 ---
 
@@ -21,7 +21,7 @@ type MCPServerLister interface {
 }
 ```
 
-### TierManager (5 methods)
+### TierManager (6 methods)
 > TierManager is the tier table view /tier needs. *modeltier.Store
 
 ```go
@@ -31,6 +31,7 @@ type TierManager interface {
     Bind(tier string, providerID string, modelID string) error
     Unbind(tier string) error
     MainContextWindow() int
+    Warnings() []string
 }
 ```
 
@@ -87,3 +88,4 @@ type TierManager interface {
 - **2026-11-18 BF-03-F1 评审修复（CR-BF03-2/3/4）**：`MCPServerLister`/`FormatMCPStatus` GoDoc 钉住「GetAll 返回活指针、读取期间禁止并发池突变」约束（快照根治待跨仓 BF-19；BF-01 并发写者落地前必须关闭，否则升级 P0）；渲染侧每连接值拷贝一次作廉价防御（非同步手段，注释明示）。/resume 的 `session.Resume` 底层错误经 %w 保留于友好文案（用户可见文案不变），`mgr.Close` 失败显式返回错误（与 listSessions 模式一致）。
 - **2026-11-18 BF-05 /config＋/terminal-setup 桩回填**：cmdConfig 改返回 Result{OpenDialog:"config"}（TUI 既有 wiring），面板只读（编辑经 /model /theme /vim /effort 与设置文件，交互编辑为后续项）。新增 terminal_setup.go：DetectTerminal(lookup) 纯函数环境检测（12 种终端识别，未知诚实报告），FormatTerminalSetup 非侵入指引（Ctrl+J 多行提示＋cobra completion 指引），不写文件不改终端设置（与原版键绑定安装的差距已在 tui.md v1.3 文档化）。
 - **2026-11-19 `/tier`**：`TierManager` 介面（`*modeltier.Store` 直接實作），經 `CommandContext.Tiers` 注入（commands 不得 import bootstrap）。改綁定在 Execute 內同步寫檔（小檔案，比照其他同步指令），下一個派出的 sub-agent 生效。等級表是唯一狀態來源，TUI 不需另外更新狀態。
+- 最終審查後補修：`TierManager` +`Warnings()`；`/tier` 列表最上方顯示 config.toml 的啟動警告（TUI 的 alt screen 會蓋掉 stderr）。

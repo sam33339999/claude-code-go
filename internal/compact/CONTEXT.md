@@ -2,7 +2,7 @@
 package: compact
 import_path: internal/compact
 layer: services
-generated_at: 2026-11-19T13:49:59Z
+generated_at: 2026-11-19T14:01:30Z
 source_files: [auto.go, compact.go, micro.go, snip.go, target.go, window.go]
 ---
 
@@ -36,7 +36,7 @@ type Compressor interface {
 - **SnipResult** — 3 fields: Messages, TokensFreed, Snipped
 - **Target** — 4 fields: Client, Model, ContextWindow, MaxOutputTokens
 - **TokenUsage** — 4 fields: InputTokens, OutputTokens, CacheReadInputTokens, CacheCreationInputTokens
-- **Tracker** — 2 fields
+- **Tracker** — 3 fields
 
 ## Functions
 
@@ -86,3 +86,4 @@ type Compressor interface {
   - **snip（C9/C12）**：證據見 `snip_prefix_test.go` 的歷史版本——修正前每輪都會把一則剛越過保護區的訊息改成 placeholder（前綴中段被改寫、快取每輪失效），並每輪追加一次 boundary 訊息（緊接 tool_result 的連續 user 訊息）。現在只在估算值 ≥ `SnipTriggerFraction`(0.8)×自動壓縮門檻時，一次剪完保護區之前的全部內容；Cache-first 下這等同一次壓縮（快取讀取 10% 價格、重寫 125%，提早 snip 通常賠錢）。說明文字併入 placeholder，不再有 boundary 訊息。
   - `CompactionExtra.SnipTokensFreed` 保留欄位但不再相減：訊息已是 snip 後的，修正前會重複扣除。
   - 段落審查後補修：snip 每個壓縮週期最多一次（歷史已有被剪過的區塊就不再 snip，交給自動壓縮），否則估算值停在 [0.8T, T) 時會逐輪改寫前綴、重現 C9。`fitForSummary` 保留第一則 plain user（任務 prompt，附截斷說明），之後從 assistant 邊界切，保留最近的工具往返；修正前 sub-agent 的摘要會只剩任務 prompt。
+  - 最終審查後補修：`AutoCompactThreshold` 的保留量按窗口比例設上限——輸出保留 `min(max_tokens, 20000, Window/4)`、buffer `min(13000, Window/10)`。200k 窗口數值不變；32k 窗口的門檻從 3k～11k（低於工具 schema 等固定開銷，會每輪壓縮）變成約 21k。另外 `Tracker.RecordPostCompact` 記下壓縮後的估算值，之後要成長 Window/10 才會再壓縮，避免固定開銷本身就超過門檻時每輪重複摘要。
