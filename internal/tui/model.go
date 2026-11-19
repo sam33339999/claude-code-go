@@ -124,6 +124,9 @@ type AppModel struct {
 	// live state while dialogSetup is open.
 	setupBackend commands.SetupBackend
 	setupWizard  *setupWizard
+	// setupSeq carries the wizard's request counter across /setup sessions,
+	// so a request abandoned in a closed wizard can never match a new one.
+	setupSeq int
 	// transcript persists conversation turns to the session JSONL (may be nil).
 	transcript *transcript.Recorder
 	// questionAskCh/questionRespCh carry AskUserQuestion HIL traffic (BF-08);

@@ -190,3 +190,27 @@ func TestStartup_NeedsSetupNotice(t *testing.T) {
 		t.Error("unexpected /setup notice")
 	}
 }
+
+// TestSetupDialog_StaleMsgFromClosedWizardIgnored: a request abandoned in a
+// previous /setup session must not be accepted by a reopened wizard.
+func TestSetupDialog_StaleMsgFromClosedWizardIgnored(t *testing.T) {
+	b := &fakeSetupBackend{models: []commands.SetupModel{{ID: "old/model"}}}
+	m := toEndpointModel(t, b)
+	m, _ = press(m, tea.KeyPressMsg{Code: 's', Text: "s"})
+	m, oldCmd := press(m, tea.KeyPressMsg{Code: tea.KeyEnter}) // validating (gen 1)
+	for range 3 {                                             // validating → endpoint → format → closed
+		m, _ = press(m, tea.KeyPressMsg{Code: tea.KeyEsc})
+	}
+	if m.activeDialog != dialogNone {
+		t.Fatal("dialog should be closed")
+	}
+	m, _ = m.applyCommandResult(commands.Result{OpenDialog: "setup", Display: commands.DisplayNone}, "setup")
+	m, _ = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	m, _ = press(m, tea.KeyPressMsg{Code: tea.KeyTab})
+	m, _ = press(m, tea.KeyPressMsg{Code: 's', Text: "s"})
+	m, _ = press(m, tea.KeyPressMsg{Code: tea.KeyEnter}) // new request in flight
+	updated, _ := m.Update(oldCmd())
+	if w := updated.(AppModel).setupWizard; w.step != stepValidating {
+		t.Errorf("stale result from the closed wizard was accepted (step %v)", w.step)
+	}
+}

@@ -37,6 +37,7 @@ func (m AppModel) openSetupDialog() AppModel {
 		return m
 	}
 	m.setupWizard = newSetupWizard(m.setupBackend.Current(), m.setupBackend.Overrides())
+	m.setupWizard.gen = m.setupSeq
 	m.activeDialog = dialogSetup
 	return m
 }
@@ -51,6 +52,7 @@ func (m AppModel) handleSetupKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch w.handleKey(key) {
 	case actClose:
+		m.setupSeq = w.gen + 1 // also invalidates a request still in flight
 		m.activeDialog = dialogNone
 		m.setupWizard = nil
 		return m, m.drainDeferredQueue()
