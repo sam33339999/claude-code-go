@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/tunsuy/glaude/internal/state"
 	"github.com/tunsuy/glaude/internal/tools"
@@ -77,7 +78,7 @@ func (t *todoWriteTool) UserFacingName(_ tools.Input) string  { return "TodoWrit
 // todoWriteResultText is the oracle's fixed confirmation (TodoWriteTool.ts).
 const todoWriteResultText = "Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable"
 
-func (t *todoWriteTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+func (t *todoWriteTool) Call(input tools.Input, uctx *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
 	if t.store == nil {
 		return &tools.Result{IsError: true, Content: "TodoWrite: no app state store configured"}, nil
 	}
@@ -103,6 +104,14 @@ func (t *todoWriteTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnP
 		}
 	}
 
+	if uctx != nil && uctx.TodoAppendOnly {
+		t.store.SetState(func(prev state.AppState) state.AppState {
+			prev.Todos = appendTodos(prev.Todos, in.Todos)
+			return prev
+		})
+		return &tools.Result{Content: todoWriteResultText}, nil
+	}
+
 	// Oracle semantics: an all-completed list clears the panel.
 	newTodos := in.Todos
 	if allDone {
@@ -113,6 +122,38 @@ func (t *todoWriteTool) Call(input tools.Input, _ *tools.UseContext, _ tools.OnP
 		return prev
 	})
 	return &tools.Result{Content: todoWriteResultText}, nil
+}
+
+// btwTodoPrefix marks todo items appended by /btw.
+const btwTodoPrefix = "[btw] "
+
+// appendTodos returns existing with items appended (append-only mode, used by
+// /btw): existing items and their status are never changed, contents are
+// prefixed with btwTodoPrefix, duplicates are skipped and colliding IDs get a
+// fresh one. The result is a new slice (the store's state is not aliased).
+func appendTodos(existing, items []types.TodoItem) []types.TodoItem {
+	out := append([]types.TodoItem(nil), existing...)
+	ids := map[string]bool{}
+	contents := map[string]bool{}
+	for _, it := range out {
+		ids[it.ID] = true
+		contents[it.Content] = true
+	}
+	for _, it := range items {
+		if !strings.HasPrefix(it.Content, btwTodoPrefix) {
+			it.Content = btwTodoPrefix + it.Content
+		}
+		if contents[it.Content] {
+			continue
+		}
+		for base, n := it.ID, 1; ids[it.ID]; n++ {
+			it.ID = fmt.Sprintf("%s-btw%d", base, n)
+		}
+		ids[it.ID] = true
+		contents[it.Content] = true
+		out = append(out, it)
+	}
+	return out
 }
 
 // ── AskUserQuestion ───────────────────────────────────────────────────────────
