@@ -35,3 +35,12 @@ func TestTarget_Window(t *testing.T) {
 		t.Errorf("Window = %d, want 32000", got)
 	}
 }
+
+func TestKnownContextWindow(t *testing.T) {
+	if n, ok := KnownContextWindow("claude-sonnet-5-5"); !ok || n != 200_000 {
+		t.Errorf("claude = %d %v", n, ok)
+	}
+	if n, ok := KnownContextWindow("qwen"); ok || n != 0 {
+		t.Errorf("qwen = %d %v", n, ok)
+	}
+}
