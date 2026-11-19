@@ -395,6 +395,15 @@ func (c *openaiClient) convertToMessageResponse(resp *openaiChatCompletionRespon
 			msgResp.StopReason = choice.FinishReason
 		}
 
+		// Convert reasoning content (thinking) first: reasoning models return
+		// chain-of-thought via the non-standard reasoning_content field.
+		if choice.Message.ReasoningContent != "" {
+			msgResp.Content = append(msgResp.Content, ContentBlock{
+				Type:     "thinking",
+				Thinking: choice.Message.ReasoningContent,
+			})
+		}
+
 		// Convert content
 		if choice.Message.Content != "" {
 			msgResp.Content = append(msgResp.Content, ContentBlock{

@@ -5,27 +5,31 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 )
 
 // openaiSSEReader implements StreamReader for OpenAI streaming responses.
 // It translates OpenAI SSE events to the Anthropic StreamEvent format.
 type openaiSSEReader struct {
-	resp             *http.Response
-	scanner          *bufio.Scanner
-	done             bool
-	messageID        string
-	model            string
-	started          bool
-	textBlockStarted bool                         // whether we've sent content_block_start for text
-	toolCalls        map[int]*accumulatedToolCall // index -> accumulated tool call
-	toolBlockStarted map[int]bool                 // whether we've sent content_block_start for each tool
-	inputUsage       int                          // accumulated from usage chunks
-	cachedUsage      int                          // prompt cache hit tokens from usage chunks
-	outputUsage      int                          // completion tokens from usage chunks
-	lastStopReason   string                       // stop reason from the finish chunk
-	pendingEvents    []*StreamEvent               // events to return before processing more chunks
-	debugLogger      *DebugLogger                 // debug logger for SSE event tracing
+	resp               *http.Response
+	scanner            *bufio.Scanner
+	done               bool
+	messageID          string
+	model              string
+	started            bool
+	thinkingBlockIndex int                          // allocated block index for reasoning_content (-1 = not started)
+	textBlockIndex     int                          // allocated block index for text (-1 = not started)
+	toolCalls          map[int]*accumulatedToolCall // OpenAI tool index -> accumulated tool call
+	toolBlockIndex     map[int]int                  // OpenAI tool index -> allocated block index
+	nextBlockIndex     int                          // next content block index to allocate
+	blocksClosed       bool                         // content_block_stop events already emitted
+	inputUsage         int                          // accumulated from usage chunks
+	cachedUsage        int                          // prompt cache hit tokens from usage chunks
+	outputUsage        int                          // completion tokens from usage chunks
+	lastStopReason     string                       // stop reason from the finish chunk
+	pendingEvents      []*StreamEvent               // events to return before processing more chunks
+	debugLogger        *DebugLogger                 // debug logger for SSE event tracing
 }
 
 // accumulatedToolCall tracks tool call data being streamed incrementally.
@@ -40,11 +44,13 @@ func newOpenAISSEReader(resp *http.Response, dl *DebugLogger) *openaiSSEReader {
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 	return &openaiSSEReader{
-		resp:             resp,
-		scanner:          scanner,
-		toolCalls:        make(map[int]*accumulatedToolCall),
-		toolBlockStarted: make(map[int]bool),
-		debugLogger:      dl,
+		resp:               resp,
+		scanner:            scanner,
+		thinkingBlockIndex: -1,
+		textBlockIndex:     -1,
+		toolCalls:          make(map[int]*accumulatedToolCall),
+		toolBlockIndex:     make(map[int]int),
+		debugLogger:        dl,
 	}
 }
 
@@ -81,18 +87,8 @@ func (r *openaiSSEReader) Next() (*StreamEvent, error) {
 		if data == "[DONE]" {
 			r.debugLogger.LogSSEEvent("DONE", "[DONE]")
 			r.done = true
-			// Send content_block_stop for text if we started one
-			if r.textBlockStarted {
-				r.pendingEvents = append(r.pendingEvents, r.createContentBlockStopEvent(0))
-			}
-			// Send content_block_stop for each tool block
-			for toolIndex := range r.toolBlockStarted {
-				blockIndex := toolIndex + 1
-				if !r.textBlockStarted {
-					blockIndex = toolIndex
-				}
-				r.pendingEvents = append(r.pendingEvents, r.createContentBlockStopEvent(blockIndex))
-			}
+			// Close any open content blocks (thinking/text/tools).
+			r.pendingEvents = append(r.pendingEvents, r.closeOpenBlocks()...)
 			// Send message_stop event
 			r.pendingEvents = append(r.pendingEvents, &StreamEvent{
 				Type: EventMessageStop,
@@ -160,18 +156,8 @@ func (r *openaiSSEReader) Next() (*StreamEvent, error) {
 
 			// Check for finish
 			if choice.FinishReason != "" {
-				// Send content_block_stop for text if we started one
-				if r.textBlockStarted {
-					r.pendingEvents = append(r.pendingEvents, r.createContentBlockStopEvent(0))
-				}
-				// Send content_block_stop for each tool block
-				for toolIndex := range r.toolBlockStarted {
-					blockIndex := toolIndex + 1
-					if !r.textBlockStarted {
-						blockIndex = toolIndex
-					}
-					r.pendingEvents = append(r.pendingEvents, r.createContentBlockStopEvent(blockIndex))
-				}
+				// Close any open content blocks (thinking/text/tools).
+				r.pendingEvents = append(r.pendingEvents, r.closeOpenBlocks()...)
 				// Queue message_delta event
 				r.pendingEvents = append(r.pendingEvents, r.createMessageDeltaEvent(&choice))
 				// Return first pending event
@@ -180,13 +166,29 @@ func (r *openaiSSEReader) Next() (*StreamEvent, error) {
 				return ev, nil
 			}
 
+			// Process reasoning content (thinking). Reasoning models stream
+			// chain-of-thought via the non-standard reasoning_content field;
+			// translate it to Anthropic thinking blocks so the engine/TUI
+			// display chain works unchanged. Events are queued before text
+			// (reasoning precedes the answer); fall through so a chunk carrying
+			// both reasoning and content is not lost.
+			if choice.Delta.ReasoningContent != "" {
+				if r.thinkingBlockIndex < 0 {
+					r.thinkingBlockIndex = r.nextBlockIndex
+					r.nextBlockIndex++
+					r.pendingEvents = append(r.pendingEvents, r.createContentBlockStartEvent(r.thinkingBlockIndex, "thinking"))
+				}
+				r.pendingEvents = append(r.pendingEvents, r.createThinkingDeltaEvent(r.thinkingBlockIndex, choice.Delta.ReasoningContent))
+			}
+
 			// Process delta content
 			if choice.Delta.Content != "" {
-				if !r.textBlockStarted {
-					r.textBlockStarted = true
-					r.pendingEvents = append(r.pendingEvents, r.createContentBlockStartEvent(0, "text"))
+				if r.textBlockIndex < 0 {
+					r.textBlockIndex = r.nextBlockIndex
+					r.nextBlockIndex++
+					r.pendingEvents = append(r.pendingEvents, r.createContentBlockStartEvent(r.textBlockIndex, "text"))
 				}
-				r.pendingEvents = append(r.pendingEvents, r.createContentDeltaEvent(choice.Delta.Content))
+				r.pendingEvents = append(r.pendingEvents, r.createContentDeltaEvent(r.textBlockIndex, choice.Delta.Content))
 				ev := r.pendingEvents[0]
 				r.pendingEvents = r.pendingEvents[1:]
 				return ev, nil
@@ -273,9 +275,9 @@ func (r *openaiSSEReader) createContentBlockStopEvent(index int) *StreamEvent {
 }
 
 // createContentDeltaEvent creates a content_block_delta event for text content.
-func (r *openaiSSEReader) createContentDeltaEvent(text string) *StreamEvent {
+func (r *openaiSSEReader) createContentDeltaEvent(index int, text string) *StreamEvent {
 	delta := &ContentBlockDeltaData{
-		Index: 0,
+		Index: index,
 		Delta: Delta{
 			Type: "text_delta",
 			Text: text,
@@ -287,6 +289,49 @@ func (r *openaiSSEReader) createContentDeltaEvent(text string) *StreamEvent {
 		Data:              data,
 		ContentBlockDelta: delta,
 	}
+}
+
+// createThinkingDeltaEvent creates a content_block_delta event carrying
+// chain-of-thought text (Anthropic thinking_delta semantics).
+func (r *openaiSSEReader) createThinkingDeltaEvent(index int, thinking string) *StreamEvent {
+	delta := &ContentBlockDeltaData{
+		Index: index,
+		Delta: Delta{
+			Type:     "thinking_delta",
+			Thinking: thinking,
+		},
+	}
+	data, _ := json.Marshal(delta)
+	return &StreamEvent{
+		Type:              EventContentBlockDelta,
+		Data:              data,
+		ContentBlockDelta: delta,
+	}
+}
+
+// closeOpenBlocks emits content_block_stop for every open block in allocated
+// order (thinking, text, tools). Idempotent: finish and [DONE] both call it.
+func (r *openaiSSEReader) closeOpenBlocks() []*StreamEvent {
+	if r.blocksClosed {
+		return nil
+	}
+	r.blocksClosed = true
+	var events []*StreamEvent
+	if r.thinkingBlockIndex >= 0 {
+		events = append(events, r.createContentBlockStopEvent(r.thinkingBlockIndex))
+	}
+	if r.textBlockIndex >= 0 {
+		events = append(events, r.createContentBlockStopEvent(r.textBlockIndex))
+	}
+	toolIdxs := make([]int, 0, len(r.toolBlockIndex))
+	for _, bi := range r.toolBlockIndex {
+		toolIdxs = append(toolIdxs, bi)
+	}
+	sort.Ints(toolIdxs)
+	for _, bi := range toolIdxs {
+		events = append(events, r.createContentBlockStopEvent(bi))
+	}
+	return events
 }
 
 // processToolCallDelta processes incremental tool call data.
@@ -309,13 +354,11 @@ func (r *openaiSSEReader) processToolCallDelta(tc *openaiToolCall) {
 		acc.Arguments.WriteString(tc.Function.Arguments)
 	}
 
-	blockIndex := toolIndex + 1
-	if !r.textBlockStarted {
-		blockIndex = toolIndex
-	}
-
-	if !r.toolBlockStarted[toolIndex] {
-		r.toolBlockStarted[toolIndex] = true
+	blockIndex, exists := r.toolBlockIndex[toolIndex]
+	if !exists {
+		blockIndex = r.nextBlockIndex
+		r.nextBlockIndex++
+		r.toolBlockIndex[toolIndex] = blockIndex
 		r.pendingEvents = append(r.pendingEvents, r.createToolUseBlockStartEvent(blockIndex, acc.ID, acc.Name))
 	}
 
