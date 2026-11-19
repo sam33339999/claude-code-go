@@ -2,7 +2,7 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-18T17:17:39Z
+generated_at: 2026-11-19T05:16:58Z
 source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.go, messagelist.go, messages.go, model.go, permissions.go, spinner.go, statusbar.go, styles.go, theme.go, update.go, view.go, welcome.go]
 ---
 
@@ -14,7 +14,7 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 
 - **AgentColorManager** — 3 fields
 - **AgentProgressMsg** — 3 fields: TaskID, Activity, Detail
-- **AgentStatusMsg** — 3 fields: TaskID, Status, Description
+- **AgentStatusMsg** — 5 fields: TaskID, Status, Description, Result, Summary
 - **AgentTaskState** — 12 fields: ID, Name, AgentType, Description, Status, StartTime, ElapsedMs, OutputTokens, ...
 - **AppModel** — 50 fields
 - **CommandResultMsg** — 2 fields: Text, IsError
@@ -105,3 +105,4 @@ source_files: [agentcolors.go, cmds.go, coordinator.go, init.go, input.go, keys.
 - **2026-11-18 CM-03**：PermissionRequestMsg +FromCodeMode；newPermissionDialog 按来源切换 always-allow 选项文案（CodeMode-scoped vs 项目级）；listenForPermissionRequest RespFn 映射 AlwaysInCodeMode/AlwaysAllow 互斥。
 - **2026-11-18 coordinator 提示注入（feat/coordinator-fork-cache）**：startQueryCmd 於 coordinatorMode 時注入 GetCoordinatorSystemPrompt(false) 至穩定 system 前綴（CLAUDE.md 之後）；此前該 prompt 僅測試使用、未接生產。cache 佈局：穩定段（CLAUDE.md＋coordinator prompt）末尾掛單一 ephemeral 斷點，動態記憶 reminder 追加於斷點之後（turn 尾部、不進快取前綴）。守護測試 coordinator_prompt_test.go×2。
 - **2026-11-18 WorkingDir 注入（feat/agent-cwd）**：startQueryCmd uctx.WorkingDir = appState.GetState().WorkingDir（live）——主會話工具（含 EnterWorktree 後）在會話目錄執行。守護測試 TestStartQueryCmd_WorkingDirFromAppState。
+- **2026-11-19 協調者完成唤醒＋面板高度約束（feat/coordinator-completion-wake）**：(1) AgentStatusMsg completed/failed 時注入 coordinator.FormatTaskNotification 至 msgQueue（ModeExternalPrompt，复用 EV-01 唤醒路徑）——idle 立即 processQueueCmd 起 query；running 則排队待 StreamDone between-turn drain（不中斷 in-flight turn，同步 agent 经 WaitForAgent 取結果故不需 wake）。修「背景 agent 完成後協調者不繼續跑／派 2+ agent 後停擺」。AgentStatusMsg +Result/Summary；init.go +coordinatorStatus 反向映射。(2) CoordinatorPanel.View 上限 maxPanelTaskRows=5（running 優先排序＋"+N more"），View viewport 下限 minViewportLines=5——修「subagent 面板擠掉輸出」。守護測試 coordinator_wake_test.go×5。

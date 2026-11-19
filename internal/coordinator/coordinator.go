@@ -49,8 +49,10 @@ type ProgressEvent struct {
 type OnProgressFn func(evt ProgressEvent)
 
 // OnStatusChangeFn is called when a sub-agent's lifecycle status changes.
-// Implementations must be safe for concurrent use.
-type OnStatusChangeFn func(agentID AgentID, description, name, agentType string, status AgentStatus)
+// Implementations must be safe for concurrent use. result and summary carry
+// the agent's final output on completion/failure (empty while running); the
+// TUI uses them to build the <task-notification> that wakes the coordinator.
+type OnStatusChangeFn func(agentID AgentID, description, name, agentType string, status AgentStatus, result, summary string)
 
 // EventKind discriminates Event types.
 type EventKind int
@@ -75,6 +77,10 @@ type Event struct {
 	Detail   string
 	// Status fields (Kind == EventStatusChange)
 	Status string // "running", "completed", "failed", "killed"
+	// Result and Summary carry the agent's final output on completion/failure
+	// (empty while running), for the coordinator wake notification.
+	Result  string
+	Summary string
 }
 
 // SpawnRequest is the parameter bundle passed to SpawnAgent.
@@ -342,7 +348,7 @@ func (c *coordinatorImpl) SpawnAgent(ctx context.Context, req SpawnRequest) (Age
 
 	// Notify TUI of the new agent.
 	if c.onStatusChange != nil {
-		c.onStatusChange(agentID, req.Description, req.Name, req.SubagentType, AgentStatusRunning)
+		c.onStatusChange(agentID, req.Description, req.Name, req.SubagentType, AgentStatusRunning, "", "")
 	}
 
 	// Run the agent asynchronously.
@@ -423,7 +429,7 @@ func (c *coordinatorImpl) runAgentLoop(ctx context.Context, entry *agentEntry, d
 
 		// Notify TUI of status change.
 		if c.onStatusChange != nil {
-			c.onStatusChange(entry.id, desc, name, agentType, finalStatus)
+			c.onStatusChange(entry.id, desc, name, agentType, finalStatus, result, summary)
 		}
 
 		for _, ch := range subs {
@@ -527,7 +533,7 @@ func (c *coordinatorImpl) resumeAgent(entry *agentEntry) error {
 	entry.mu.Unlock()
 
 	if c.onStatusChange != nil {
-		c.onStatusChange(entry.id, req.Description, name, req.SubagentType, AgentStatusRunning)
+		c.onStatusChange(entry.id, req.Description, name, req.SubagentType, AgentStatusRunning, "", "")
 	}
 	go c.runAgentLoop(agentCtx, entry, done)
 	return nil

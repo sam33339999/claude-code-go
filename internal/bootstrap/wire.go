@@ -883,7 +883,7 @@ func buildOnProgressFn(ch chan<- coordinator.Event) coordinator.OnProgressFn {
 
 // buildOnStatusChangeFn creates an OnStatusChangeFn that pushes events to the channel.
 func buildOnStatusChangeFn(ch chan<- coordinator.Event) coordinator.OnStatusChangeFn {
-	return func(agentID coordinator.AgentID, description, name, agentType string, status coordinator.AgentStatus) {
+	return func(agentID coordinator.AgentID, description, name, agentType string, status coordinator.AgentStatus, result, summary string) {
 		select {
 		case ch <- coordinator.Event{
 			Kind:        coordinator.EventStatusChange,
@@ -892,6 +892,8 @@ func buildOnStatusChangeFn(ch chan<- coordinator.Event) coordinator.OnStatusChan
 			AgentName:   name,
 			AgentType:   agentType,
 			Status:      string(status),
+			Result:      result,
+			Summary:     summary,
 		}:
 		default:
 		}

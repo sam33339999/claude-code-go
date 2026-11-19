@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/claude-code-go/internal/commands"
+	"github.com/tunsuy/claude-code-go/internal/coordinator"
 	"github.com/tunsuy/claude-code-go/internal/memdir"
 	"github.com/tunsuy/claude-code-go/internal/msgqueue"
 	"github.com/tunsuy/claude-code-go/internal/state"
@@ -243,11 +244,32 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			task.Detail = ""
 		}
 		m.coordinatorPanel.Tasks[msg.TaskID] = task
+
+		// Wake the coordinator when an agent finishes: inject a
+		// <task-notification> into the main conversation so the loop resumes
+		// to synthesize results and dispatch follow-up work. Without this,
+		// background agents complete but the coordinator never continues.
+		// Synchronous agents are awaited via WaitForAgent while the main loop
+		// runs (isLoading), so only wake immediately when idle; when running,
+		// the between-turn drain (StreamDoneMsg) processes the queued wake.
+		var cmds []tea.Cmd
+		if (msg.Status == AgentCompleted || msg.Status == AgentFailed) && m.msgQueue != nil {
+			notif := coordinator.FormatTaskNotification(coordinator.TaskNotification{
+				TaskID:  coordinator.AgentID(msg.TaskID),
+				Status:  coordinatorStatus(msg.Status),
+				Summary: msg.Summary,
+				Result:  msg.Result,
+			})
+			m.msgQueue.Enqueue(msgqueue.NewCommand(notif, msgqueue.ModeExternalPrompt, msgqueue.PriorityNext))
+			if !m.isLoading {
+				cmds = append(cmds, processQueueCmd(&m))
+			}
+		}
 		// Continue listening for agent events.
 		if m.agentEventCh != nil {
-			return m, listenForAgentEvent(m.agentEventCh)
+			cmds = append(cmds, listenForAgentEvent(m.agentEventCh))
 		}
-		return m, nil
+		return m, tea.Batch(cmds...)
 
 	// --- Agent progress (coordinator panel) ---
 	case AgentProgressMsg:

@@ -54,6 +54,13 @@ type CoordinatorPanel struct {
 	TaskOrder     []string // stable ordering
 }
 
+// maxPanelTaskRows caps how many agent rows the coordinator panel renders at
+// once. Without a cap, a flood of agents (or long-lived completed ones) grows
+// the panel until it squeezes the message viewport down to a single line.
+// Running agents are prioritized so active work stays visible; the rest are
+// summarized in a "+N more" line.
+const maxPanelTaskRows = 5
+
 // View renders the coordinator panel.
 func (p CoordinatorPanel) View(width int, theme Theme) string {
 	if len(p.Tasks) == 0 {
@@ -68,11 +75,35 @@ func (p CoordinatorPanel) View(width int, theme Theme) string {
 	sb.WriteString(title + "\n")
 	sb.WriteString(mutedStyle(theme).Render(sep) + "\n")
 
-	for i, id := range p.TaskOrder {
+	// Order rows: running agents first (active work must stay visible), then
+	// the remaining tasks in stable TaskOrder. SelectedIndex still refers to
+	// TaskOrder, so highlight by matching the task ID rather than row position.
+	selectedID := ""
+	if p.SelectedIndex >= 0 && p.SelectedIndex < len(p.TaskOrder) {
+		selectedID = p.TaskOrder[p.SelectedIndex]
+	}
+	ordered := make([]string, 0, len(p.TaskOrder))
+	for _, id := range p.TaskOrder {
+		if t, ok := p.Tasks[id]; ok && t.Status == AgentRunning {
+			ordered = append(ordered, id)
+		}
+	}
+	for _, id := range p.TaskOrder {
+		if t, ok := p.Tasks[id]; ok && t.Status != AgentRunning {
+			ordered = append(ordered, id)
+		}
+	}
+
+	shown := 0
+	for _, id := range ordered {
 		task, ok := p.Tasks[id]
 		if !ok {
 			continue
 		}
+		if shown >= maxPanelTaskRows {
+			break
+		}
+		shown++
 		statusIcon := agentStatusIcon(task.Status)
 		elapsed := ""
 		if !task.StartTime.IsZero() {
@@ -92,7 +123,7 @@ func (p CoordinatorPanel) View(width int, theme Theme) string {
 		}
 		line = line + strings.Repeat(" ", gap) + right
 
-		if i == p.SelectedIndex {
+		if id == selectedID {
 			line = primaryStyle(theme).Bold(true).Render(line)
 		} else {
 			line = mutedStyle(theme).Render(line)
@@ -107,6 +138,10 @@ func (p CoordinatorPanel) View(width int, theme Theme) string {
 			}
 			sb.WriteString(mutedStyle(theme).Render(detail) + "\n")
 		}
+	}
+
+	if remaining := len(ordered) - shown; remaining > 0 {
+		sb.WriteString(mutedStyle(theme).Render("  + "+itoa(remaining)+" more agents") + "\n")
 	}
 
 	sb.WriteString(mutedStyle(theme).Render(sep) + "\n")

@@ -12,6 +12,11 @@ import (
 // (status bar + input area + spinner + padding).
 const reservedLines = 6
 
+// minViewportLines is the floor for the message viewport height. Even when
+// bottom extras (coordinator panel, dialogs, todos) are tall, the output area
+// must stay usable rather than collapsing to a single line.
+const minViewportLines = 5
+
 // viewportHeight returns the available height for the message viewport.
 func (m AppModel) viewportHeight() int {
 	h := m.termHeight - reservedLines
@@ -62,8 +67,8 @@ func (m AppModel) View() tea.View {
 	vp := m.viewport
 	if extraLines > 0 {
 		h := vp.Height() - extraLines
-		if h < 1 {
-			h = 1
+		if h < minViewportLines {
+			h = minViewportLines
 		}
 		vp.SetHeight(h)
 	}

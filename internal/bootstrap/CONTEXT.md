@@ -2,7 +2,7 @@
 package: bootstrap
 import_path: internal/bootstrap
 layer: cli
-generated_at: 2026-11-19T02:29:38Z
+generated_at: 2026-11-19T05:16:58Z
 source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp_connect.go, mcp_health.go, mcp_help.go, mcp_list.go, mcp_parse.go, mcp_render.go, mcp_run.go, misc.go, plugin.go, plugin_help.go, plugin_install.go, plugin_marketplace.go, plugin_render.go, plugin_run.go, plugin_validate.go, root.go, run.go, session.go, tools.go, update_cmd.go, wire.go]
 ---
 
@@ -105,3 +105,4 @@ source_files: [agents_cmd.go, auth.go, bootstrap.go, install_cmd.go, mcp.go, mcp
 - **2026-11-18 sub-agent cache 路徑（feat/coordinator-fork-cache）**：buildRunAgentFn 全 sub-agent NoWriteBack=true（修此前 sub-agent 結束覆蓋主對話 e.messages 的污染 bug）；fork 經 buildForkQuery 繼承父 CacheSafeParams 前綴＋尾部 FormatForkDirective，ExcludeTools=nil（完整工具列表＝cache bytes 一致），QuerySource=background（529 即放棄，避免容量級聯）。runStates sync.Map 以 AgentID 保留最終 QueryParams（Messages=收集歷史），SendMessage resume 時原樣重用（system/tools/model 不變＝cache 連續性）；collectSubAgentRun 收集 assistant/user 訊息。無快照時 fork 退化為 boilerplate-as-system-prompt 的 one-shot agent。
 - **2026-11-18 WorkingDir 接線（feat/agent-cwd）**：buildRunAgentFn 改收 *state.AppStateStore（原 state.AppState 快照）——每次 spawn live 讀 WorkingDir＋MainLoopModel（/model、EnterWorktree 切換後生效），sub-agent uctx.WorkingDir 繼承會話目錄。headlessRun useCtx 亦注入 AppStateStore.WorkingDir。兩條建構路徑（生產＋test）同步。
 - **2026-11-19 sub-agent model alias 修正接線（fix/subagent-model-alias）**：buildSubAgentQuery +provider 參數，call site 傳 st.Settings.Provider（live）；explore 的 haiku alias 在 openai provider 不再直送（404 根因）。fork 路徑不受影響（本就繼承父 model）。
+- **2026-11-19 完成事件接線（feat/coordinator-completion-wake）**：buildOnStatusChangeFn 适配 OnStatusChangeFn 新簽名（+result/summary），填入 Event.Result/Summary 供 TUI 建唤醒通知。

@@ -140,6 +140,8 @@ type AgentStatusMsg struct {
 	TaskID      string
 	Status      AgentStatus
 	Description string // human-readable task description
+	Result      string // final output on completion/failure (empty while running)
+	Summary     string // human-readable status summary
 }
 
 // AgentProgressMsg is pushed from a running sub-agent to report real-time
