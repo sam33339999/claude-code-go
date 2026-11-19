@@ -21,6 +21,8 @@ type TierManager interface {
 	Unbind(tier string) error
 	// MainContextWindow returns [main] context_window (0 = unset).
 	MainContextWindow() int
+	// Warnings returns startup problems with config.toml or provider clients.
+	Warnings() []string
 }
 
 var _ TierManager = (*modeltier.Store)(nil)
@@ -72,6 +74,12 @@ func bindTier(m TierManager, tier, ref string) Result {
 
 func formatTiers(m TierManager) string {
 	var b strings.Builder
+	if ws := m.Warnings(); len(ws) > 0 {
+		b.WriteString("Warnings (fix ~/.glaude/config.toml and restart):\n")
+		for _, w := range ws {
+			b.WriteString("  " + w + "\n")
+		}
+	}
 	b.WriteString("Tiers:\n")
 	for _, t := range m.List() {
 		if t.Provider == "" {

@@ -234,3 +234,15 @@ func TestStore_BindKeepsExternalEdits(t *testing.T) {
 		t.Errorf("external edit lost: %+v %v", b, kind)
 	}
 }
+
+func TestStore_WarningsKept(t *testing.T) {
+	s, warnings := Load(writeConfig(t, "[[[ broken"))
+	got := s.Warnings()
+	if len(got) != 1 || got[0] != warnings[0] {
+		t.Errorf("Warnings() = %v, want the load warnings %v", got, warnings)
+	}
+	s.AppendWarnings("extra")
+	if w := s.Warnings(); len(w) != 2 || w[1] != "extra" {
+		t.Errorf("after AppendWarnings: %v", w)
+	}
+}

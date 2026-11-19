@@ -63,7 +63,9 @@ func loadTierRouter(homeDir string, mainClient api.Client, factory providerClien
 		client, err := factory(ps.ID, p, key)
 		if err != nil {
 			r.keyErr[ps.ID] = fmt.Errorf("build client: %w", err)
-			warnings = append(warnings, fmt.Sprintf("config.toml: providers.%s: %v", ps.ID, err))
+			w := fmt.Sprintf("config.toml: providers.%s: %v", ps.ID, err)
+			warnings = append(warnings, w)
+			store.AppendWarnings(w)
 			continue
 		}
 		r.clients[ps.ID] = client

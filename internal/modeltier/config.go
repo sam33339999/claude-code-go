@@ -76,6 +76,9 @@ type Store struct {
 	// loadErr is set when config.toml existed but could not be read or
 	// parsed; writes are refused so a typo never gets overwritten.
 	loadErr error
+	// warnings are the startup problems (load + client construction), kept
+	// for /tier and the TUI's startup notice.
+	warnings []string
 }
 
 // DefaultPath returns the global config.toml path for homeDir.
@@ -94,15 +97,18 @@ func Load(path string) (*Store, []string) {
 			return s, nil
 		}
 		s.loadErr = err
-		return s, []string{fmt.Sprintf("config.toml: %s: %v; ignoring file", path, err)}
+		s.warnings = []string{fmt.Sprintf("config.toml: %s: %v; ignoring file", path, err)}
+		return s, s.Warnings()
 	}
 	cfg, warnings, err := parse(data)
 	if err != nil {
 		s.loadErr = err
-		return s, []string{fmt.Sprintf("config.toml: %s: %v; ignoring file", path, err)}
+		s.warnings = []string{fmt.Sprintf("config.toml: %s: %v; ignoring file", path, err)}
+		return s, s.Warnings()
 	}
 	s.cfg = cfg
-	return s, warnings
+	s.warnings = warnings
+	return s, s.Warnings()
 }
 
 // parse decodes and validates config.toml content.

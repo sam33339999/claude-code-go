@@ -204,3 +204,19 @@ func writeAtomic(path string, content []byte) error {
 func (s *Store) Path() string {
 	return s.path
 }
+
+// Warnings returns the startup warnings (config.toml problems and provider
+// client failures) so they can be surfaced inside the TUI.
+func (s *Store) Warnings() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return append([]string(nil), s.warnings...)
+}
+
+// AppendWarnings records additional startup warnings (e.g. a provider client
+// that could not be built).
+func (s *Store) AppendWarnings(ws ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.warnings = append(s.warnings, ws...)
+}

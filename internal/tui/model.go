@@ -276,6 +276,13 @@ func newAppModel(
 		msgQueue:       mq,
 		queryGuard:     qg,
 	}
+	// Surface config.toml problems inside the TUI: stderr output is hidden by
+	// the alt screen, and a broken file silently unbinds every tier.
+	if tiers != nil {
+		for _, w := range tiers.Warnings() {
+			m.messages = append(m.messages, newSystemMessage("Warning: "+w+" (see /tier)"))
+		}
+	}
 	return m
 }
 

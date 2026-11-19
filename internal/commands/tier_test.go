@@ -15,11 +15,13 @@ type fakeTiers struct {
 	bound     []string // "tier provider model"
 	unbound   []string
 	window    int
+	warnings  []string
 }
 
 func (f *fakeTiers) List() []modeltier.Binding             { return f.bindings }
 func (f *fakeTiers) Providers() []modeltier.ProviderStatus { return f.providers }
 func (f *fakeTiers) MainContextWindow() int                { return f.window }
+func (f *fakeTiers) Warnings() []string                    { return f.warnings }
 func (f *fakeTiers) Unbind(tier string) error              { f.unbound = append(f.unbound, tier); return f.bindErr }
 func (f *fakeTiers) Bind(tier, provider, model string) error {
 	f.bound = append(f.bound, tier+" "+provider+" "+model)
@@ -113,3 +115,13 @@ func TestTier_NoteCommentsLost(t *testing.T) {
 }
 
 var _ TierManager = (*modeltier.Store)(nil)
+
+func TestTier_ListShowsWarnings(t *testing.T) {
+	f := newFakeTiers()
+	f.warnings = []string{"config.toml: tiers.lite: provider \"nope\" is not registered"}
+	res := runTier(f, "")
+	assertWords(t, res.Text, "Warnings", "nope")
+	if strings.Index(res.Text, "Warnings") > strings.Index(res.Text, "Tiers:") {
+		t.Error("warnings must be listed before the tiers")
+	}
+}
