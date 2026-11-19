@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/tunsuy/glaude/internal/commands"
+	"github.com/tunsuy/glaude/internal/compact"
 	"github.com/tunsuy/glaude/internal/coordinator"
 	"github.com/tunsuy/glaude/internal/memdir"
 	"github.com/tunsuy/glaude/internal/msgqueue"
@@ -19,7 +20,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
-		m.input = m.input.SetWidth(msg.Width - 2)
+		m.input = m.input.SetWidth(msg.Width)
+		// On short terminals keep the input box from crowding out the
+		// conversation (box chrome + status + spinner need ~6 rows).
+		m.input = m.input.SetMaxRows((msg.Height - 6) / 2)
 		// Resize the viewport to fill available space.
 		m.viewport.SetWidth(msg.Width)
 		m.viewport.SetHeight(m.viewportHeight())
@@ -70,19 +74,34 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m = m.appendStreamDelta(msg.Delta)
 		m.streamingHasMsg = true
+		m.streamedChars += len([]rune(msg.Delta))
+		m.activeTool = ""
+		// Coalesce bursts of tokens into one re-render per streamFlushInterval
+		// instead of re-rendering on every delta.
+		if m.streamFlushPending {
+			return m, waitForStreamEvent(m.streamCh)
+		}
+		m.streamFlushPending = true
+		return m, tea.Batch(waitForStreamEvent(m.streamCh), streamFlushCmd())
+
+	case streamFlushMsg:
+		m.streamFlushPending = false
 		m.syncViewportContent()
-		return m, waitForStreamEvent(m.streamCh)
+		return m, nil
 
 	case StreamThinkingMsg:
 		if m.streamCh == nil {
 			return m, nil
 		}
+		m.streamedChars += len([]rune(msg.Delta))
+		m.activeTool = ""
 		return m, waitForStreamEvent(m.streamCh)
 
 	case StreamToolUseStartMsg:
 		if m.streamCh == nil {
 			return m, nil
 		}
+		m.activeTool = msg.ToolName
 		return m, waitForStreamEvent(m.streamCh)
 
 	case StreamToolUseInputDeltaMsg:
@@ -110,6 +129,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.FinalMessage != nil {
 			m.messages = append(m.messages, *msg.FinalMessage)
 		}
+		m = m.recordUsage(msg.Usage)
 		m.streamingText = ""
 		m.streamingHasMsg = false
 		m.syncViewportContent()
@@ -122,10 +142,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.FinalMessage != nil {
 			m.messages = append(m.messages, *msg.FinalMessage)
 		}
+		// A user turn after tool use carries the tool results: the tools ran.
+		m.activeTool = ""
 		m.syncViewportContent()
 		return m, waitForStreamEvent(m.streamCh)
 
 	case StreamDoneMsg:
+		m = m.recordUsage(msg.Usage)
+		m = m.resetQueryFeedback()
 		m.isLoading = false
 		m.showSpinner = false
 		m.spinner = m.spinner.Reset()
@@ -157,6 +181,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case StreamErrorMsg:
+		m = m.resetQueryFeedback()
 		m.isLoading = false
 		m.showSpinner = false
 		m.spinner = m.spinner.Reset()
@@ -164,15 +189,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streamCh = nil
 		m.streamingText = ""
 		m.streamingHasMsg = false
-		errText := "Error: " + msg.Err.Error()
-		m.messages = append(m.messages, newSystemMessage(errText))
+		m.messages = append(m.messages, newSystemErrorMessage("Error: "+msg.Err.Error()))
 		m.syncViewportContent()
 		// BF-18: persist the partial turn (user input + any streamed output).
 		return m, persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages())
 
 	// --- Session persistence failure (BF-18) ---
 	case TranscriptErrMsg:
-		m.messages = append(m.messages, newSystemMessage("Session persistence failed: "+msg.Err.Error()))
+		m.messages = append(m.messages, newSystemErrorMessage("Session persistence failed: "+msg.Err.Error()))
 		m.syncViewportContent()
 		return m, nil
 
@@ -213,7 +237,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case CommandResultMsg:
 		m.commandResult = &msg
 		if msg.Text != "" {
-			m.messages = append(m.messages, newSystemMessage(msg.Text))
+			notice := newSystemMessage(msg.Text)
+			if msg.IsError {
+				notice = newSystemErrorMessage(msg.Text)
+			}
+			m.messages = append(m.messages, notice)
 			m.syncViewportContent()
 		}
 		return m, nil
@@ -296,6 +324,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// --- Compact done ---
 	case CompactDoneMsg:
+		m.statusBar.contextTokens = 0
 		m.messages = append(m.messages, newSystemMessage("Conversation compacted: "+msg.Summary))
 		m.activeDialog = dialogNone
 		m.syncViewportContent()
@@ -303,7 +332,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case DreamDoneMsg:
 		if msg.Err != "" {
-			m.messages = append(m.messages, newSystemMessage("Dream consolidation failed: "+msg.Err))
+			m.messages = append(m.messages, newSystemErrorMessage("Dream consolidation failed: "+msg.Err))
 		} else {
 			m.messages = append(m.messages, newSystemMessage("Dream consolidation completed."))
 		}
@@ -332,6 +361,22 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case queuedSlashMsg:
 		return m.handleSlashCommand(msg.Text)
 
+	// --- Bracketed paste: insert into the input box ---
+	case tea.PasteMsg:
+		if m.activeDialog != dialogNone {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		return m, tea.Batch(cmd, m.refreshCompletion())
+
+	// --- @-mention file index built in the background ---
+	case fileIndexReadyMsg:
+		if m.fileIndex != nil {
+			m.fileIndex.adopt(msg)
+		}
+		return m, m.refreshCompletion()
+
 	// --- Mouse events (scroll wheel) ---
 	case tea.MouseWheelMsg:
 		return m.handleMouse(msg)
@@ -353,7 +398,7 @@ func (m AppModel) handleSlashCommand(text string) (AppModel, tea.Cmd) {
 
 	slashCmd := m.commandRegistry.Lookup(name)
 	if slashCmd == nil {
-		m.messages = append(m.messages, newSystemMessage("Unknown command: /"+name))
+		m.messages = append(m.messages, newSystemErrorMessage("Unknown command: /"+name+" — type / to see available commands"))
 		m.syncViewportContent()
 		return m, nil
 	}
@@ -424,8 +469,10 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 		if t, ok := BuiltinThemes[result.NewTheme]; ok {
 			m.theme = t
 			m.darkMode = result.NewTheme != "light"
+			// Re-render history in the new colours.
+			m.syncViewportContent()
 		} else {
-			m.messages = append(m.messages, newSystemMessage("Unknown theme: "+result.NewTheme))
+			m.messages = append(m.messages, newSystemErrorMessage("Unknown theme: "+result.NewTheme))
 			m.syncViewportContent()
 			return m, nil
 		}
@@ -438,6 +485,7 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 	if result.NewModel != "" {
 		m.queryEngine.SetModel(result.NewModel)
 		m.statusBar.model = result.NewModel
+		m.statusBar.contextWindow = compact.ContextWindow(result.NewModel)
 		m.appState.SetState(func(prev state.AppState) state.AppState {
 			prev.MainLoopModel.ModelID = result.NewModel
 			return prev
@@ -465,6 +513,7 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 	if result.ClearHistory {
 		m.messages = nil
 		m.queryEngine.SetMessages(nil)
+		m.statusBar.contextTokens = 0
 		m.streamingText = ""
 		m.streamingHasMsg = false
 		m.syncViewportContent()
@@ -541,7 +590,7 @@ func (m AppModel) applyDisplayResult(result commands.Result) (AppModel, tea.Cmd)
 		}
 	case commands.DisplayError:
 		if result.Text != "" {
-			m.messages = append(m.messages, newSystemMessage("Error: "+result.Text))
+			m.messages = append(m.messages, newSystemErrorMessage("Error: "+result.Text))
 			m.syncViewportContent()
 		}
 	case commands.DisplayNone:
@@ -553,4 +602,25 @@ func (m AppModel) applyDisplayResult(result commands.Result) (AppModel, tea.Cmd)
 		}
 	}
 	return m, nil
+}
+
+// recordUsage folds one request's API usage into the status bar and the
+// per-query output-token counter shown by the spinner.
+func (m AppModel) recordUsage(u *TokenUsage) AppModel {
+	if u == nil || (u.Input == 0 && u.Output == 0 && u.CacheRead == 0 && u.CacheCreated == 0) {
+		return m
+	}
+	m.statusBar = m.statusBar.addUsage(*u)
+	m.queryOutputTokens += u.Output
+	// Real usage supersedes the character-based estimate for finished text.
+	m.streamedChars = 0
+	return m
+}
+
+// resetQueryFeedback clears the per-query spinner state.
+func (m AppModel) resetQueryFeedback() AppModel {
+	m.activeTool = ""
+	m.streamedChars = 0
+	m.queryOutputTokens = 0
+	return m
 }

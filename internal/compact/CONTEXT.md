@@ -2,13 +2,13 @@
 package: compact
 import_path: internal/compact
 layer: services
-generated_at: 2026-11-18T03:53:13Z
+generated_at: 2026-11-19T06:52:46Z
 source_files: [auto.go, compact.go, micro.go, snip.go]
 ---
 
 # internal/compact
 
-> Layer: **Services** · Files: 4 · Interfaces: 1 · Structs: 11 · Functions: 3
+> Layer: **Services** · Files: 4 · Interfaces: 1 · Structs: 11 · Functions: 4
 
 ## Interfaces
 
@@ -38,6 +38,7 @@ type Compressor interface {
 
 ## Functions
 
+- `ContextWindow(model string) int`
 - `NewAutoCompactor(client api.Client, model string, maxTokens int) *AutoCompactor`
 - `NewMicroCompactor() *MicroCompactor`
 - `SnipCompactIfNeeded(messages []types.Message) SnipResult`
@@ -61,7 +62,7 @@ type Compressor interface {
 
 **Imports:** `internal/api`, `pkg/types`
 
-**Imported by:** `internal/engine`
+**Imported by:** `internal/engine`, `internal/tui`
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->

@@ -1,11 +1,14 @@
 package tui
 
 import (
+	"fmt"
+	"image/color"
 	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/ansi"
+	xansi "github.com/charmbracelet/x/ansi"
 	"github.com/tunsuy/glaude/pkg/types"
 )
 
@@ -16,6 +19,20 @@ func blackCircle() string {
 		return "⏺"
 	}
 	return "●"
+}
+
+// System messages are TUI-local notices (command output, errors, mode
+// changes). They are stored in AppModel.messages with RoleAssistant so the
+// existing plumbing keeps working, and tagged through Message.ID — the TUI
+// display list is never sent to the API (the engine keeps its own history).
+const (
+	systemMessageID      = "glaude-tui-system"
+	systemErrorMessageID = "glaude-tui-system-error"
+)
+
+// isSystemMessage reports whether msg is a TUI-local system notice.
+func isSystemMessage(msg types.Message) bool {
+	return msg.ID == systemMessageID || msg.ID == systemErrorMessageID
 }
 
 // ToolStatus represents the execution status of a tool call.
@@ -73,16 +90,41 @@ func buildMessageLookups(messages []types.Message) MessageLookups {
 	return lookups
 }
 
-// newGlamourStyle creates a custom glamour style with no padding/margin
-// to avoid extra indentation that interferes with our bullet point layout.
-func newGlamourStyle(dark bool) ansi.StyleConfig {
-	// Start with a minimal style - no margins or padding
-	// This prevents glamour from adding its default 2-space paragraph indent
-	baseColor := "252" // light gray for dark mode
-	if !dark {
-		baseColor = "235" // dark gray for light mode
-	}
+// renderOptions bundles everything that influences how a message renders.
+type renderOptions struct {
+	width        int
+	dark         bool
+	theme        Theme
+	md           *glamour.TermRenderer
+	expanded     map[string]bool // tool_use_id → show full result
+	showThinking bool            // ctrl+o: show thinking blocks in full
+	cwd          string          // paths under it are shown relative
+}
 
+// glamourColor converts a Theme colour into the string form glamour expects:
+// ANSI indices stay indices (so they follow the terminal palette), anything
+// else becomes #rrggbb.
+func glamourColor(c color.Color) *string {
+	if c == nil {
+		return nil
+	}
+	var s string
+	switch v := c.(type) {
+	case xansi.BasicColor:
+		s = itoa(int(v))
+	case xansi.IndexedColor:
+		s = itoa(int(v))
+	default:
+		r, g, b, _ := c.RGBA()
+		s = fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+	return &s
+}
+
+// newGlamourStyle creates the markdown style for assistant text. Colours come
+// from the active Theme so /theme changes markdown too; margins and padding are
+// zero so glamour's indentation doesn't fight the bullet layout.
+func newGlamourStyle(theme Theme) ansi.StyleConfig {
 	return ansi.StyleConfig{
 		Document: ansi.StyleBlock{
 			Margin: uintPtr(0),
@@ -91,36 +133,56 @@ func newGlamourStyle(dark bool) ansi.StyleConfig {
 			Margin: uintPtr(0),
 		},
 		Text: ansi.StylePrimitive{
-			Color: stringPtr(baseColor),
+			Color: glamourColor(theme.Secondary),
 		},
 		Code: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Color: stringPtr("203"), // red for inline code
+				Color: glamourColor(theme.Accent),
 			},
 		},
 		CodeBlock: ansi.StyleCodeBlock{
 			StyleBlock: ansi.StyleBlock{
 				Margin: uintPtr(0),
+				StylePrimitive: ansi.StylePrimitive{
+					Color: glamourColor(theme.CodeFG),
+				},
 			},
 		},
 		Heading: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
 				Bold:  boolPtr(true),
-				Color: stringPtr("212"), // pink for headings
+				Color: glamourColor(theme.Primary),
 			},
 		},
 		Link: ansi.StylePrimitive{
-			Color:     stringPtr("33"),
+			Color:     glamourColor(theme.Primary),
 			Underline: boolPtr(true),
 		},
 		LinkText: ansi.StylePrimitive{
-			Color: stringPtr("33"),
+			Color: glamourColor(theme.Primary),
 		},
 		Emph: ansi.StylePrimitive{
 			Italic: boolPtr(true),
 		},
 		Strong: ansi.StylePrimitive{
 			Bold: boolPtr(true),
+		},
+		BlockQuote: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{
+				Color: glamourColor(theme.Muted),
+			},
+			Indent:      uintPtr(1),
+			IndentToken: stringPtr("│ "),
+		},
+		Item: ansi.StylePrimitive{
+			BlockPrefix: "• ",
+		},
+		Enumeration: ansi.StylePrimitive{
+			BlockPrefix: ". ",
+		},
+		HorizontalRule: ansi.StylePrimitive{
+			Color:  glamourColor(theme.Muted),
+			Format: "\n────────\n",
 		},
 	}
 }
@@ -132,12 +194,12 @@ func boolPtr(b bool) *bool       { return &b }
 // renderMarkdown converts a Markdown string to an ANSI-colored string
 // suitable for terminal display using charmbracelet/glamour.
 // Pass a non-nil renderer to reuse a cached instance (P1-C fix).
-func renderMarkdown(md string, width int, dark bool, r *glamour.TermRenderer) string {
+func renderMarkdown(md string, width int, theme Theme, r *glamour.TermRenderer) string {
 	if r == nil {
 		// Fall back: build a one-shot renderer with custom style (no padding).
 		var err error
 		r, err = glamour.NewTermRenderer(
-			glamour.WithStyles(newGlamourStyle(dark)),
+			glamour.WithStyles(newGlamourStyle(theme)),
 			glamour.WithWordWrap(width),
 		)
 		if err != nil {
@@ -167,14 +229,28 @@ func MessageListView(
 	mdRenderer *glamour.TermRenderer,
 	expandedToolResults map[string]bool,
 ) string {
-	// Build message lookups for efficient rendering
-	lookups := buildMessageLookups(messages)
+	opts := renderOptions{
+		width:    width,
+		dark:     darkMode,
+		theme:    theme,
+		md:       mdRenderer,
+		expanded: expandedToolResults,
+	}
+	return renderMessageList(messages, opts, nil)
+}
 
+// renderMessageList renders messages, reusing cache entries for messages
+// whose rendering inputs are unchanged. cache may be nil.
+func renderMessageList(messages []types.Message, opts renderOptions, cache *messageRenderCache) string {
+	lookups := buildMessageLookups(messages)
 	var sb strings.Builder
 	for i, msg := range messages {
-		sb.WriteString(renderMessage(msg, width, darkMode, theme, mdRenderer, expandedToolResults, lookups))
-		// Add a blank line between messages for visual separation,
-		// except after the last message.
+		if cache != nil {
+			sb.WriteString(cache.render(i, msg, opts, lookups))
+		} else {
+			sb.WriteString(renderMessageOpts(msg, opts, lookups))
+		}
+		// Blank line between messages for visual separation.
 		if i < len(messages)-1 {
 			sb.WriteString("\n")
 		}
@@ -184,31 +260,49 @@ func MessageListView(
 
 // renderMessage dispatches to the appropriate renderer for a single message.
 func renderMessage(msg types.Message, width int, darkMode bool, theme Theme, mdRenderer *glamour.TermRenderer, expandedToolResults map[string]bool, lookups MessageLookups) string {
-	switch msg.Role {
-	case types.RoleUser:
-		return renderUserMessage(msg, theme)
-	case types.RoleAssistant:
-		return renderAssistantMessage(msg, width, darkMode, theme, mdRenderer, expandedToolResults, lookups)
+	return renderMessageOpts(msg, renderOptions{
+		width: width, dark: darkMode, theme: theme, md: mdRenderer, expanded: expandedToolResults,
+	}, lookups)
+}
+
+// renderMessageOpts dispatches on message kind.
+func renderMessageOpts(msg types.Message, opts renderOptions, lookups MessageLookups) string {
+	switch {
+	case isSystemMessage(msg):
+		return renderSystemMessage(msg, opts)
+	case msg.Role == types.RoleUser:
+		return renderUserMessage(msg, opts)
+	case msg.Role == types.RoleAssistant:
+		return renderAssistantMessage(msg, opts, lookups)
 	default:
-		return renderSystemMessage(msg, theme)
+		return renderSystemMessage(msg, opts)
 	}
 }
 
-// renderUserMessage renders a user turn.
-// Tool_result blocks are skipped here because they are rendered inline with tool_use in assistant messages.
-func renderUserMessage(msg types.Message, theme Theme) string {
+// renderUserMessage renders a user turn. Tool_result blocks are skipped here
+// because they are rendered inline with their tool_use in assistant messages.
+// Long input wraps to the terminal width with continuation lines indented
+// under the "> " prompt.
+func renderUserMessage(msg types.Message, opts renderOptions) string {
 	var sb strings.Builder
-	prefix := primaryStyle(theme).Bold(true).Render("> ")
+	prefix := primaryStyle(opts.theme).Bold(true).Render("> ")
+	wrapWidth := opts.width - 2
+	if wrapWidth < 10 {
+		wrapWidth = 10
+	}
 	for _, blk := range msg.Content {
-		switch blk.Type {
-		case types.ContentTypeText:
-			if blk.Text != nil {
-				sb.WriteString(prefix + *blk.Text + "\n")
-			}
-		case types.ContentTypeToolResult:
-			// Skip tool_result blocks - they are now rendered inline with tool_use in assistant messages
-			// This avoids duplicate display
+		if blk.Type != types.ContentTypeText || blk.Text == nil {
 			continue
+		}
+		wrapped := xansi.Wrap(*blk.Text, wrapWidth, "")
+		for i, line := range strings.Split(wrapped, "\n") {
+			if i == 0 {
+				sb.WriteString(prefix)
+			} else {
+				sb.WriteString("  ")
+			}
+			sb.WriteString(line)
+			sb.WriteString("\n")
 		}
 	}
 	return sb.String()
@@ -216,283 +310,154 @@ func renderUserMessage(msg types.Message, theme Theme) string {
 
 // renderAssistantMessage renders an assistant turn, including markdown and tool
 // use blocks. Tool results are displayed inline after their corresponding tool_use.
-// Matches the original TypeScript Claude Code display format.
-func renderAssistantMessage(msg types.Message, width int, darkMode bool, theme Theme, mdRenderer *glamour.TermRenderer, expandedToolResults map[string]bool, lookups MessageLookups) string {
+func renderAssistantMessage(msg types.Message, opts renderOptions, lookups MessageLookups) string {
 	var sb strings.Builder
 	for _, blk := range msg.Content {
 		switch blk.Type {
 		case types.ContentTypeText:
 			if blk.Text != nil && *blk.Text != "" {
-				// Render text with bullet prefix, same as original Claude Code
-				sb.WriteString(renderTextBlock(*blk.Text, width, darkMode, theme, mdRenderer))
+				sb.WriteString(renderTextBlock(*blk.Text, opts, primaryStyle(opts.theme).Render(blackCircle())))
 			}
 		case types.ContentTypeThinking:
 			if blk.Thinking != nil && *blk.Thinking != "" {
-				sb.WriteString(renderThinkingBlock(*blk.Thinking, theme))
+				sb.WriteString(renderThinkingBlock(*blk.Thinking, opts))
 			}
 		case types.ContentTypeToolUse:
-			sb.WriteString(renderToolUseBlock(blk, theme, lookups))
-			// Render the corresponding tool result inline if available
+			sb.WriteString(renderToolUseBlock(blk, opts, lookups))
 			if blk.ID != nil {
 				if result, ok := lookups.ToolUseToResult[*blk.ID]; ok {
-					expanded := false
-					if expandedToolResults != nil {
-						expanded = expandedToolResults[*blk.ID]
+					name := ""
+					if blk.Name != nil {
+						name = *blk.Name
 					}
-					sb.WriteString(renderToolResultBlock(result, theme, expanded))
+					sb.WriteString(renderToolResult(name, blk.Input, result, opts.expanded[*blk.ID], opts))
 				}
 			}
 		}
 	}
-	// Ensure assistant message ends with a newline for consistent formatting.
 	if sb.Len() > 0 && !strings.HasSuffix(sb.String(), "\n") {
 		sb.WriteString("\n")
 	}
 	return sb.String()
 }
 
-// renderTextBlock renders a text content block with bullet prefix.
-// Format: ● text content (matches original Claude Code style)
-func renderTextBlock(text string, width int, darkMode bool, _ Theme, mdRenderer *glamour.TermRenderer) string {
+// renderTextBlock renders markdown text after a coloured bullet, indenting
+// continuation lines under the first.
+func renderTextBlock(text string, opts renderOptions, bullet string) string {
 	var sb strings.Builder
-	bullet := blackCircle() + " "
-	// Render the bullet in primary style
-	sb.WriteString(bullet)
-	// Render markdown content
-	rendered := renderMarkdown(text, width-4, darkMode, mdRenderer)
-	// Trim leading/trailing whitespace and normalize line breaks
-	rendered = strings.TrimSpace(rendered)
-	// Add proper indentation for multi-line content
-	lines := strings.Split(rendered, "\n")
-	for i, line := range lines {
-		if i == 0 {
-			sb.WriteString(line)
-		} else {
-			// Skip consecutive empty lines, keep at most one
-			sb.WriteString("\n  " + line)
+	sb.WriteString(bullet + " ")
+	rendered := strings.TrimSpace(renderMarkdown(text, opts.width-4, opts.theme, opts.md))
+	// glamour only breaks lines at spaces, so a long run of CJK text (no
+	// spaces) overflows and the viewport clips it. Hard-wrap any line that is
+	// still wider than the text column.
+	textWidth := opts.width - 2
+	if textWidth < 10 {
+		textWidth = 10
+	}
+	first := true
+	for _, line := range strings.Split(rendered, "\n") {
+		if displayWidth(line) > textWidth {
+			line = xansi.Wrap(line, textWidth, "")
+		}
+		for _, l := range strings.Split(line, "\n") {
+			if first {
+				sb.WriteString(l)
+				first = false
+			} else {
+				sb.WriteString("\n  " + l)
+			}
 		}
 	}
 	sb.WriteString("\n")
 	return sb.String()
 }
 
-// renderSystemMessage renders a system/error message.
-func renderSystemMessage(msg types.Message, theme Theme) string {
+// renderSystemMessage renders a TUI-local notice. Errors get a red ✗ marker;
+// informational notices a muted bullet, still rendered as markdown because
+// command output (/help, /mcp, …) uses lists and code spans.
+func renderSystemMessage(msg types.Message, opts renderOptions) string {
 	var sb strings.Builder
 	for _, blk := range msg.Content {
-		if blk.Type == types.ContentTypeText && blk.Text != nil {
-			sb.WriteString(mutedStyle(theme).Render("System: "+*blk.Text) + "\n")
+		if blk.Type != types.ContentTypeText || blk.Text == nil || *blk.Text == "" {
+			continue
 		}
+		if msg.ID == systemErrorMessageID {
+			lines := strings.Split(strings.TrimRight(*blk.Text, "\n"), "\n")
+			for i, l := range lines {
+				marker := "  "
+				if i == 0 {
+					marker = "✗ "
+				}
+				sb.WriteString(errorStyle(opts.theme).Render(marker + l))
+				sb.WriteString("\n")
+			}
+			continue
+		}
+		sb.WriteString(renderTextBlock(*blk.Text, opts, mutedStyle(opts.theme).Render("※")))
 	}
 	return sb.String()
 }
 
-// renderThinkingBlock renders a thinking block in a collapsed/muted style.
-func renderThinkingBlock(text string, theme Theme) string {
-	lines := strings.Split(strings.TrimSpace(text), "\n")
-	// Show only first 3 lines of thinking.
-	visible := lines
-	truncated := false
-	if len(lines) > 3 {
-		visible = lines[:3]
-		truncated = true
+// renderThinkingBlock renders extended-thinking text. Collapsed (default) it
+// is a single muted line; ctrl+o shows the full reasoning.
+func renderThinkingBlock(text string, opts renderOptions) string {
+	style := mutedStyle(opts.theme).Italic(true)
+	if !opts.showThinking {
+		return style.Render("✻ Thinking… (ctrl+o to expand)") + "\n"
 	}
-	prefix := mutedStyle(theme).Render("  ▸ ")
 	var sb strings.Builder
-	sb.WriteString(mutedStyle(theme).Render("Thinking:\n"))
-	for _, l := range visible {
-		sb.WriteString(prefix + mutedStyle(theme).Render(l) + "\n")
-	}
-	if truncated {
-		sb.WriteString(mutedStyle(theme).Render("  … (truncated)\n"))
+	sb.WriteString(style.Render("✻ Thinking…") + "\n")
+	wrapped := xansi.Wrap(strings.TrimSpace(text), opts.width-2, "")
+	for _, l := range strings.Split(wrapped, "\n") {
+		sb.WriteString(style.Render("  "+l) + "\n")
 	}
 	return sb.String()
 }
 
-// renderToolUseBlock renders a tool_use content block in Claude Code style.
-// Format: ● ToolName(args)
-// The bullet color indicates status:
-// - Gray/dim: queued or in progress
-// - Green: resolved successfully
-// - Red: error
-func renderToolUseBlock(blk types.ContentBlock, theme Theme, lookups MessageLookups) string {
-	var sb strings.Builder
+// renderToolUseBlock renders a tool_use content block: `● ToolName(args)`.
+// The bullet colour shows status: muted while running, green when resolved,
+// red on error.
+func renderToolUseBlock(blk types.ContentBlock, opts renderOptions, lookups MessageLookups) string {
 	name := ""
 	if blk.Name != nil {
 		name = *blk.Name
 	}
-
 	toolID := ""
 	if blk.ID != nil {
 		toolID = *blk.ID
 	}
 
-	// Determine tool status for coloring
-	isResolved := lookups.ResolvedToolUseIDs[toolID]
-	isError := lookups.ErroredToolUseIDs[toolID]
-
-	// Render bullet with appropriate color based on status
 	var bullet string
-	if isResolved {
-		if isError {
-			// Red bullet for errors
-			bullet = errorStyle(theme).Render(blackCircle()) + " "
-		} else {
-			// Green bullet for success
-			bullet = successStyle(theme).Render(blackCircle()) + " "
-		}
-	} else {
-		// Dim bullet for queued/in-progress
-		bullet = mutedStyle(theme).Render(blackCircle()) + " "
+	switch {
+	case lookups.ErroredToolUseIDs[toolID]:
+		bullet = errorStyle(opts.theme).Render(blackCircle())
+	case lookups.ResolvedToolUseIDs[toolID]:
+		bullet = successStyle(opts.theme).Render(blackCircle())
+	default:
+		bullet = mutedStyle(opts.theme).Render(blackCircle())
 	}
 
-	sb.WriteString(bullet)
-	sb.WriteString(toolNameStyle(theme).Bold(true).Render(name))
-
-	// Show input in parentheses like: Bash(ls -la)
-	if len(blk.Input) > 0 {
-		summary := summariseToolInput(blk.Input, 60)
-		if summary != "" {
-			sb.WriteString(mutedStyle(theme).Render("("))
-			sb.WriteString(toolInputStyle(theme).Render(summary))
-			sb.WriteString(mutedStyle(theme).Render(")"))
-		}
+	var sb strings.Builder
+	sb.WriteString(bullet + " ")
+	sb.WriteString(toolNameStyle(opts.theme).Render(name))
+	// Room for "● Name(" + ")".
+	argWidth := opts.width - displayWidth(name) - 5
+	if summary := toolArgSummary(name, blk.Input, opts.cwd, argWidth); summary != "" {
+		sb.WriteString(mutedStyle(opts.theme).Render("("))
+		sb.WriteString(toolInputStyle(opts.theme).Render(summary))
+		sb.WriteString(mutedStyle(opts.theme).Render(")"))
 	}
 	sb.WriteString("\n")
 	return sb.String()
 }
 
-// summariseToolInput formats tool input for display.
-// For single-key inputs like {command: "ls"}, just show the value.
-// For multi-key inputs, show key=value pairs.
-func summariseToolInput(input map[string]any, maxLen int) string {
-	if len(input) == 0 {
-		return ""
-	}
-	// Common single-value tool inputs
-	if len(input) == 1 {
-		for k, v := range input {
-			// For command-like inputs, just show the value
-			if k == "command" || k == "query" || k == "path" || k == "content" {
-				s := toString(v)
-				if len(s) > maxLen {
-					return s[:maxLen] + "…"
-				}
-				return s
-			}
-			// Otherwise show key=value
-			s := k + "=" + toString(v)
-			if len(s) > maxLen {
-				return s[:maxLen] + "…"
-			}
-			return s
-		}
-	}
-	// Multiple keys: show key=value pairs
-	parts := make([]string, 0, len(input))
-	for k, v := range input {
-		s := k + "=" + toString(v)
-		if len(s) > 30 {
-			s = s[:30] + "…"
-		}
-		parts = append(parts, s)
-	}
-	result := strings.Join(parts, ", ")
-	if len(result) > maxLen {
-		return result[:maxLen] + "…"
-	}
-	return result
-}
-
-func toString(v any) string {
-	switch t := v.(type) {
-	case string:
-		return t
-	case float64:
-		return itoa(int(t))
-	case bool:
-		if t {
-			return "true"
-		}
-		return "false"
-	case nil:
-		return ""
-	default:
-		return "<complex>"
-	}
-}
-
-// renderToolResultBlock renders a tool_result content block in Claude Code style.
-// Format matches original TypeScript version:
-//
-//	│ first line of output
-//	│ second line
-//	… +N lines (ctrl+o to expand)
-//
-// Uses vertical bar (│) as left border to match original style.
+// renderToolResultBlock renders a tool result with the generic output
+// preview (no per-tool summary). Kept for callers without tool context.
 func renderToolResultBlock(blk types.ContentBlock, theme Theme, expanded bool) string {
-	var sb strings.Builder
-	isError := blk.IsError != nil && *blk.IsError
-
-	// Vertical bar prefix for tool result (matches original Claude Code)
-	barPrefix := mutedStyle(theme).Render("│ ")
-	errorBarPrefix := errorStyle(theme).Render("│ ")
-
-	for _, inner := range blk.Content {
-		if inner.Type == types.ContentTypeText && inner.Text != nil {
-			text := *inner.Text
-			if text == "" {
-				continue
-			}
-
-			lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
-			if len(lines) == 0 {
-				continue
-			}
-
-			// Determine how many lines to show
-			maxVisibleLines := 4
-			if expanded {
-				maxVisibleLines = len(lines)
-			}
-
-			// Render visible lines with vertical bar prefix
-			for i, line := range lines {
-				if i >= maxVisibleLines {
-					break
-				}
-
-				// Truncate long lines
-				displayLine := line
-				if len(displayLine) > 120 {
-					displayLine = displayLine[:117] + "…"
-				}
-
-				if isError {
-					sb.WriteString(errorBarPrefix)
-					sb.WriteString(errorStyle(theme).Render(displayLine))
-				} else {
-					sb.WriteString(barPrefix)
-					sb.WriteString(mutedStyle(theme).Render(displayLine))
-				}
-				sb.WriteString("\n")
-			}
-
-			// Show truncation indicator if not expanded
-			if !expanded && len(lines) > maxVisibleLines {
-				remaining := len(lines) - maxVisibleLines
-				hint := mutedStyle(theme).Render("… +" + itoa(remaining) + " lines (ctrl+o to expand)")
-				sb.WriteString(hint)
-				sb.WriteString("\n")
-			}
-		}
-	}
-	return sb.String()
+	return renderToolResult("", nil, blk, expanded, renderOptions{width: 120, theme: theme})
 }
 
+// truncate cuts s to at most n display cells, appending "…" when cut.
 func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
+	return truncateWidth(s, n)
 }

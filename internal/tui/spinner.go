@@ -1,6 +1,9 @@
 package tui
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // SpinnerMode controls how the spinner verb is displayed.
 type SpinnerMode int
@@ -43,11 +46,60 @@ func (s SpinnerModel) Reset() SpinnerModel {
 	return s
 }
 
-// View renders the spinner line.
+// spinnerStatus is the live context the spinner line describes.
+type spinnerStatus struct {
+	tool         string // running tool name ("" = model is generating)
+	outputTokens int    // output tokens so far this query (real or estimated)
+}
+
+// verbFor returns the spinner verb for the current activity.
+func verbFor(tool string) string {
+	switch tool {
+	case "":
+		return "Thinking"
+	case "Bash":
+		return "Running command"
+	case "Read", "NotebookRead":
+		return "Reading"
+	case "Edit", "NotebookEdit":
+		return "Editing"
+	case "Write":
+		return "Writing"
+	case "Grep", "Glob", "ToolSearch":
+		return "Searching"
+	case "WebFetch":
+		return "Fetching"
+	case "WebSearch":
+		return "Searching the web"
+	case "Agent":
+		return "Delegating"
+	case "TodoWrite":
+		return "Planning"
+	default:
+		return "Running " + tool
+	}
+}
+
+// View renders the spinner line, e.g.
+// "⠋ Reading… (12s · ↓ 1.2k tokens · esc to interrupt)".
 func (s SpinnerModel) View(theme Theme) string {
+	return s.ViewStatus(theme, spinnerStatus{})
+}
+
+// ViewStatus renders the spinner line for the given live status.
+func (s SpinnerModel) ViewStatus(theme Theme, st spinnerStatus) string {
 	frame := s.frames[s.current%len(s.frames)]
-	return accentStyle(theme).Render(frame) + " " + s.verb + "… " +
-		mutedStyle(theme).Render(formatDuration(s.elapsed))
+	verb := s.verb
+	if st.tool != "" || verb == "" {
+		verb = verbFor(st.tool)
+	}
+	details := []string{formatDuration(s.elapsed)}
+	if st.outputTokens > 0 {
+		details = append(details, "↓ "+compactCount(st.outputTokens)+" tokens")
+	}
+	details = append(details, "esc to interrupt")
+	return accentStyle(theme).Render(frame) + " " + accentStyle(theme).Render(verb+"…") + " " +
+		mutedStyle(theme).Render("("+strings.Join(details, " · ")+")")
 }
 
 // formatDuration returns a human-readable elapsed time string.

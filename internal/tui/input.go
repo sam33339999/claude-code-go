@@ -5,6 +5,19 @@ import (
 
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+)
+
+// Input box geometry: a rounded border (1 cell each side) plus a 1-cell
+// horizontal padding, and the "> " prompt column.
+const (
+	inputBorderCells = 2
+	inputPaddingCell = 2
+	inputPromptCells = 2
+	// inputChromeWidth is everything in a box row that isn't text.
+	inputChromeWidth = inputBorderCells + inputPaddingCell + inputPromptCells
+	// inputMaxRows caps how tall the input grows before it scrolls.
+	inputMaxRows = 8
 )
 
 // VimMode represents the current Vim editing mode.
@@ -28,9 +41,21 @@ type InputModel struct {
 // NewInput creates a new InputModel.
 func NewInput(vimEnabled bool) InputModel {
 	ta := textarea.New()
-	ta.Placeholder = "Message Claude…"
+	ta.Placeholder = "Type a message · / commands · @ files · alt+enter newline"
 	ta.ShowLineNumbers = false
-	ta.SetHeight(3)
+	ta.Prompt = "" // the "> " prompt is drawn once, beside the first row
+	// Grow with the content (1..inputMaxRows rows) instead of a fixed 3 rows.
+	ta.DynamicHeight = true
+	ta.MinHeight = 1
+	ta.MaxHeight = inputMaxRows
+	// MaxHeight alone would also cap the *content* at inputMaxRows lines
+	// (bubbles' legacy atContentLimit); keep it purely a visible-height cap.
+	ta.MaxContentHeight = 10_000
+	ta.SetHeight(1)
+	// No cursor-line highlight inside the box.
+	styles := ta.Styles()
+	styles.Focused.CursorLine = lipgloss.NewStyle()
+	ta.SetStyles(styles)
 	ta.Focus()
 
 	return InputModel{
@@ -51,10 +76,52 @@ func (m InputModel) SetValue(s string) InputModel {
 	return m
 }
 
-// SetWidth sets the input width.
-func (m InputModel) SetWidth(w int) InputModel {
+// SetWidth sizes the input box to occupy totalWidth terminal cells.
+func (m InputModel) SetWidth(totalWidth int) InputModel {
+	w := totalWidth - inputChromeWidth
+	if w < 10 {
+		w = 10
+	}
 	m.textarea.SetWidth(w)
 	return m
+}
+
+// InsertNewline inserts a line break at the cursor (alt+enter). The textarea's
+// own InsertNewline binding is "enter", which the app reserves for submit.
+func (m InputModel) InsertNewline() InputModel {
+	m.textarea.InsertString("\n")
+	return m
+}
+
+// SetMaxRows caps how many rows the box grows to (short terminals).
+func (m InputModel) SetMaxRows(n int) InputModel {
+	if n < 1 {
+		n = 1
+	}
+	if n > inputMaxRows {
+		n = inputMaxRows
+	}
+	m.textarea.MaxHeight = n
+	return m
+}
+
+// OnFirstLine reports whether the cursor is on the first logical line.
+func (m InputModel) OnFirstLine() bool {
+	return m.textarea.Line() == 0
+}
+
+// OnLastLine reports whether the cursor is on the last logical line.
+func (m InputModel) OnLastLine() bool {
+	return m.textarea.Line() >= m.textarea.LineCount()-1
+}
+
+// CursorAtEnd reports whether the cursor sits at the very end of the text.
+func (m InputModel) CursorAtEnd() bool {
+	if !m.OnLastLine() {
+		return false
+	}
+	lines := strings.Split(m.textarea.Value(), "\n")
+	return m.textarea.Column() >= len([]rune(lines[len(lines)-1]))
 }
 
 // Focus gives focus to the input.
@@ -175,22 +242,32 @@ func (m InputModel) vimNormalKey(key tea.KeyPressMsg) (InputModel, tea.Cmd) {
 	return m, nil
 }
 
-// View renders the input box.
-func (m InputModel) View(theme Theme) string {
-	var indicator string
-	if m.vimEnabled {
-		switch m.vimMode {
-		case VimModeNormal:
-			indicator = warningStyle(theme).Render("[NORMAL] ")
-		case VimModeInsert:
-			indicator = successStyle(theme).Render("[INSERT] ")
-		case VimModeVisual:
-			indicator = accentStyle(theme).Render("[VISUAL] ")
-		}
+// VimIndicator returns the styled Vim mode label ("" when Vim is off).
+func (m InputModel) VimIndicator(theme Theme) string {
+	if !m.vimEnabled {
+		return ""
 	}
-	// Add > prompt prefix to match original Claude Code style
-	prompt := accentStyle(theme).Bold(true).Render("> ")
-	return prompt + indicator + m.textarea.View()
+	switch m.vimMode {
+	case VimModeNormal:
+		return warningStyle(theme).Render("-- NORMAL --")
+	case VimModeVisual:
+		return accentStyle(theme).Render("-- VISUAL --")
+	default:
+		return successStyle(theme).Render("-- INSERT --")
+	}
+}
+
+// View renders the input as a rounded box: "> " beside the first row, the
+// textarea (which grows with its content) to its right.
+func (m InputModel) View(theme Theme) string {
+	rows := strings.Count(m.textarea.View(), "\n") + 1
+	prompt := accentStyle(theme).Bold(true).Render(">") + " " + strings.Repeat("\n", rows-1)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, prompt, m.textarea.View())
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Muted).
+		Padding(0, 1)
+	return box.Render(body)
 }
 
 // IsSlashCommand returns true when the current value starts with '/'.

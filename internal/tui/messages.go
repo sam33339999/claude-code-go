@@ -63,6 +63,9 @@ type StreamToolResultMsg struct {
 // tool execution and a subsequent LLM call. The TUI must keep pulling events.
 type StreamAssistantTurnMsg struct {
 	FinalMessage *types.Message // the completed assistant message for this turn
+	// Usage is the API usage of the request that just finished (nil when
+	// this event does not end a request).
+	Usage *TokenUsage
 }
 
 // StreamUserTurnMsg is emitted when a user turn is added to the conversation,
@@ -75,6 +78,8 @@ type StreamUserTurnMsg struct {
 // No more events will arrive on the stream channel after this.
 type StreamDoneMsg struct {
 	FinalMessage *types.Message // the completed assistant message (legacy; may be nil)
+	// Usage is the API usage of the final request (nil when unknown).
+	Usage *TokenUsage
 }
 
 // StreamErrorMsg is emitted on an unrecoverable streaming error.

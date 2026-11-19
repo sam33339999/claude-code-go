@@ -155,6 +155,7 @@ func (m AppModel) handleCompactKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.String() == "y" || key.String() == "Y":
 		m.activeDialog = dialogNone
 		engineMsgs := m.queryEngine.GetMessages()
+		m.statusBar.contextTokens = 0
 		m.messages = nil
 		m.queryEngine.SetMessages(nil)
 		sessionID := m.sessionID
@@ -187,24 +188,73 @@ func (m AppModel) handleExitKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 // handleIdleKey handles keys when no dialog is open.
+//
+// Arrow keys follow the original Claude Code: ↑/↓ move the cursor inside a
+// multi-line input and recall prompt history at its first/last line, and
+// navigate the completion popup while it is open. The conversation scrolls
+// with PgUp/PgDn, shift+↑/↓ and the mouse wheel.
 func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// v2: shift+tab arrives as Tab with ModShift (no dedicated KeyShiftTab).
 	if key.Code == tea.KeyTab && key.Mod.Contains(tea.ModShift) {
 		return m.cyclePermissionMode()
 	}
+
+	// --- Completion popup navigation ---
+	if m.completion.visible() {
+		switch key.Code {
+		case tea.KeyUp:
+			m.completion = m.completion.move(-1)
+			return m, nil
+		case tea.KeyDown:
+			m.completion = m.completion.move(1)
+			return m, nil
+		case tea.KeyTab:
+			return m.acceptCompletion(), nil
+		case tea.KeyEsc:
+			// Close the popup, then fall through so Esc still interrupts a
+			// running query (and still switches Vim to normal mode).
+			m.completion = completionState{dismissedFor: m.input.Value()}
+		case tea.KeyEnter:
+			if key.Mod.Contains(tea.ModAlt) {
+				break
+			}
+			if m.completion.kind == completionFile {
+				// A file mention just inserts the path; keep typing.
+				return m.acceptCompletion(), nil
+			}
+			// A slash suggestion runs on Enter only when it is unambiguous
+			// (single match) or explicitly chosen with ↑/↓. Otherwise submit
+			// what was typed: "/" or "/c" + Enter must never silently run
+			// the alphabetically-first command (e.g. /clear).
+			if m.completion.navigated || len(m.completion.items) == 1 {
+				m = m.acceptCompletion()
+			}
+			m.completion = completionState{}
+			return m.handleSubmit()
+		}
+	}
+
+	if key.Mod.Contains(tea.ModShift) {
+		switch key.Code {
+		case tea.KeyUp:
+			return m.scrollUp(3), nil
+		case tea.KeyDown:
+			return m.scrollDown(3), nil
+		}
+	}
+
 	switch key.Code {
 	case tea.KeyEsc:
 		if m.isLoading {
 			return m.doAbort()
 		}
-		return m, nil
+		return m.updateInput(key)
 
 	case tea.KeyEnter:
 		if key.Mod.Contains(tea.ModAlt) {
-			// Alt-Enter inserts a newline; delegate to input.
-			var cmd tea.Cmd
-			m.input, cmd = m.input.Update(key)
-			return m, cmd
+			// Alt-Enter inserts a newline.
+			m.input = m.input.InsertNewline()
+			return m, m.refreshCompletion()
 		}
 		return m.handleSubmit()
 
@@ -213,10 +263,12 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPgUp:
 		m.pinnedToBottom = false
+		m.viewport.SetHeight(m.viewportHeight())
 		m.viewport.HalfPageUp()
 		return m, nil
 
 	case tea.KeyPgDown:
+		m.viewport.SetHeight(m.viewportHeight())
 		m.viewport.HalfPageDown()
 		if m.viewport.AtBottom() {
 			m.pinnedToBottom = true
@@ -224,31 +276,41 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyUp:
-		m.pinnedToBottom = false
-		m.viewport.ScrollUp(3)
-		return m, nil
+		if m.input.OnFirstLine() && (m.input.Value() == "" || m.history.browsing() || m.input.textarea.LineCount() == 1) {
+			if h, text, ok := m.history.prev(m.input.Value()); ok {
+				m.history = h
+				m.input = m.input.SetValue(text)
+				m.completion = completionState{}
+				return m, nil
+			}
+		}
+		if m.input.OnFirstLine() {
+			// Nothing older to recall: scroll the conversation instead.
+			return m.scrollUp(3), nil
+		}
+		return m.updateInput(key)
 
 	case tea.KeyDown:
-		m.viewport.ScrollDown(3)
-		if m.viewport.AtBottom() {
-			m.pinnedToBottom = true
+		if m.input.OnLastLine() {
+			if m.history.browsing() {
+				h, text, _ := m.history.next()
+				m.history = h
+				m.input = m.input.SetValue(text)
+				m.completion = completionState{}
+				return m, nil
+			}
+			return m.scrollDown(3), nil
 		}
-		return m, nil
+		return m.updateInput(key)
 	}
 
 	// Vim normal mode uses j/k for navigation when vim is enabled.
 	if m.input.vimEnabled && m.input.vimMode == VimModeNormal {
 		switch key.String() {
 		case "k":
-			m.pinnedToBottom = false
-			m.viewport.ScrollUp(3)
-			return m, nil
+			return m.scrollUp(3), nil
 		case "j":
-			m.viewport.ScrollDown(3)
-			if m.viewport.AtBottom() {
-				m.pinnedToBottom = true
-			}
-			return m, nil
+			return m.scrollDown(3), nil
 		case "g":
 			m.pinnedToBottom = false
 			m.viewport.GotoTop()
@@ -260,23 +322,68 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Delegate to input model.
+	return m.updateInput(key)
+}
+
+// updateInput forwards a key to the input box and refreshes the completion
+// popup for the edited text.
+func (m AppModel) updateInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	before := m.input.Value()
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(key)
-	return m, cmd
+	if m.input.Value() != before {
+		m.history.idx = len(m.history.entries) // editing ends history browsing
+	}
+	return m, tea.Batch(cmd, m.refreshCompletion())
+}
+
+// refreshCompletion recomputes the completion popup from the input. When an
+// @-mention needs the file index and it is missing or stale, it returns a Cmd
+// that builds the index off the Update loop (fileIndexReadyMsg re-runs this).
+func (m *AppModel) refreshCompletion() tea.Cmd {
+	value := m.input.Value()
+	var cmd tea.Cmd
+	if m.fileIndex != nil && strings.HasPrefix(trailingToken(value), "@") {
+		cmd = m.fileIndex.refreshCmd(m.appState.GetState().WorkingDir)
+	}
+	m.completion = computeCompletion(m.completion, value, m.input.CursorAtEnd(), m.commandRegistry, m.fileIndex)
+	return cmd
+}
+
+// acceptCompletion inserts the selected completion into the input.
+func (m AppModel) acceptCompletion() AppModel {
+	m.input = m.input.SetValue(applyCompletion(m.completion, m.input.Value()))
+	m.completion = completionState{}
+	return m
+}
+
+// scrollUp scrolls the conversation up by n lines and unpins it.
+func (m AppModel) scrollUp(n int) AppModel {
+	m.pinnedToBottom = false
+	m.viewport.SetHeight(m.viewportHeight())
+	m.viewport.ScrollUp(n)
+	return m
+}
+
+// scrollDown scrolls the conversation down by n lines, re-pinning at bottom.
+// The viewport height is refreshed first: the input box grows and shrinks,
+// so the height from the last sync may be stale and AtBottom() wrong.
+func (m AppModel) scrollDown(n int) AppModel {
+	m.viewport.SetHeight(m.viewportHeight())
+	m.viewport.ScrollDown(n)
+	if m.viewport.AtBottom() {
+		m.pinnedToBottom = true
+	}
+	return m
 }
 
 // handleMouse handles mouse wheel events (v2: dedicated MouseWheelMsg).
 func (m AppModel) handleMouse(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 	switch msg.Button {
 	case tea.MouseWheelUp:
-		m.pinnedToBottom = false
-		m.viewport.ScrollUp(3)
+		m = m.scrollUp(3)
 	case tea.MouseWheelDown:
-		m.viewport.ScrollDown(3)
-		if m.viewport.AtBottom() {
-			m.pinnedToBottom = true
-		}
+		m = m.scrollDown(3)
 	}
 	return m, nil
 }
@@ -290,8 +397,10 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 
 	// Keep welcome header visible (always show)
 
-	// Clear input.
+	// Clear input, remember it for ↑ recall, close any completion popup.
 	m.input = m.input.SetValue("")
+	m.history = m.history.add(text)
+	m.completion = completionState{}
 	m.pinnedToBottom = true
 
 	// Check for # quick memory input.
@@ -373,6 +482,7 @@ func (m AppModel) handleTabCompletion() (tea.Model, tea.Cmd) {
 // doAbort cancels the in-flight query.
 func (m AppModel) doAbort() (tea.Model, tea.Cmd) {
 	abortCmd := abortQueryCmd(m.queryEngine)
+	m = m.resetQueryFeedback()
 	m.isLoading = false
 	m.showSpinner = false
 	m.spinner = m.spinner.Reset()
@@ -386,12 +496,15 @@ func (m AppModel) doAbort() (tea.Model, tea.Cmd) {
 	return m, abortCmd
 }
 
-// toggleAllToolResults toggles the expansion state of all tool results.
-// If any are collapsed, expand all; if all are expanded, collapse all.
+// toggleAllToolResults toggles the expansion state of all tool results and
+// of thinking blocks. If anything is collapsed, expand all; otherwise
+// collapse all.
 func (m AppModel) toggleAllToolResults() (tea.Model, tea.Cmd) {
 	// Collect all tool use IDs from messages
 	toolIDs := m.collectToolUseIDs()
 	if len(toolIDs) == 0 {
+		m.showThinking = !m.showThinking
+		m.syncViewportContent()
 		return m, nil
 	}
 
@@ -405,6 +518,7 @@ func (m AppModel) toggleAllToolResults() (tea.Model, tea.Cmd) {
 	}
 
 	// Toggle: if any collapsed, expand all; otherwise collapse all
+	m.showThinking = anyCollapsed
 	if anyCollapsed {
 		for _, id := range toolIDs {
 			m.expandedToolResults[id] = true

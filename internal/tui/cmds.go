@@ -189,15 +189,21 @@ func dispatchEngineMsg(msg engine.Msg) tea.Msg {
 	case engine.MsgTypeUserMessage:
 		return StreamUserTurnMsg{FinalMessage: msg.UserMsg}
 	case engine.MsgTypeTurnComplete:
+		usage := &TokenUsage{
+			Input:        msg.InputTokens,
+			Output:       msg.OutputTokens,
+			CacheRead:    msg.CacheReadTokens,
+			CacheCreated: msg.CacheCreatedTokens,
+		}
 		// Only treat as "stream done" when the stop reason is terminal.
 		// For tool_use / max_tokens the engine will continue the loop,
 		// so the TUI must keep pulling events from the channel.
 		switch msg.StopReason {
 		case "tool_use", "max_tokens":
-			return StreamAssistantTurnMsg{}
+			return StreamAssistantTurnMsg{Usage: usage}
 		default:
 			// "end_turn", "stop_sequence", "" → query finished.
-			return StreamDoneMsg{}
+			return StreamDoneMsg{Usage: usage}
 		}
 	case engine.MsgTypeError:
 		return StreamErrorMsg{Err: msg.Err}
