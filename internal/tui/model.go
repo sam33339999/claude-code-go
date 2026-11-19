@@ -25,16 +25,16 @@ import (
 type dialogKind int
 
 const (
-	dialogNone       dialogKind = iota
-	dialogPermission            // tool permission request
-	dialogCompact               // /compact confirmation
-	dialogExit                  // exit confirmation
-	dialogConfig                // /config
-	dialogQuestion              // AskUserQuestion (BF-08)
-	dialogResume                // /resume session picker
-	dialogSetup                 // /setup first-run wizard
-	dialogModelPicker           // /model menu
-	dialogModelConfirm          // /model cache-invalidation confirmation
+	dialogNone         dialogKind = iota
+	dialogPermission              // tool permission request
+	dialogCompact                 // /compact confirmation
+	dialogExit                    // exit confirmation
+	dialogConfig                  // /config
+	dialogQuestion                // AskUserQuestion (BF-08)
+	dialogResume                  // /resume session picker
+	dialogSetup                   // /setup first-run wizard
+	dialogModelPicker             // /model menu
+	dialogModelConfirm            // /model cache-invalidation confirmation
 )
 
 // questionState holds the active AskUserQuestion dialog (BF-08): the question,
