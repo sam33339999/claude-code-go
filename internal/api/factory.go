@@ -24,6 +24,9 @@ type ClientConfig struct {
 	BaseURL        string
 	MaxRetries     int
 	TimeoutSeconds int
+	// RatePolicy sets client-side pacing/concurrency limits. When empty,
+	// NewClient falls back to CLAUDE_CODE_API_RPM / CLAUDE_CODE_API_MAX_CONCURRENT.
+	RatePolicy RatePolicy
 	// CustomHeaders from ANTHROPIC_CUSTOM_HEADERS env var
 	CustomHeaders map[string]string
 	// Bedrock-specific
@@ -92,6 +95,23 @@ func NewClient(cfg ClientConfig, httpClient *http.Client) (Client, error) {
 		headers[k] = v
 	}
 
+	client, err := buildProviderClient(cfg, httpClient, headers, baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// Uniform client-side rate control at the provider boundary: explicit
+	// config wins, otherwise environment variables apply. With no policy the
+	// client is returned unwrapped (zero overhead).
+	policy := cfg.RatePolicy
+	if policy.RPM <= 0 && policy.MaxConcurrent <= 0 {
+		policy = ratePolicyFromEnv()
+	}
+	return applyRatePolicy(client, policy), nil
+}
+
+// buildProviderClient constructs the provider-specific client.
+func buildProviderClient(cfg ClientConfig, httpClient *http.Client, headers map[string]string, baseURL string) (Client, error) {
 	switch cfg.Provider {
 	case ProviderDirect, "":
 		return &directClient{

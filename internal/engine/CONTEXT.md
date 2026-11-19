@@ -2,7 +2,7 @@
 package: engine
 import_path: internal/engine
 layer: core
-generated_at: 2026-11-18T17:00:17Z
+generated_at: 2026-11-19T01:31:12Z
 source_files: [budget.go, cache_params.go, engine.go, forked_agent.go, msg.go, orchestration.go, query.go, stop_hooks.go]
 ---
 
@@ -116,3 +116,4 @@ type QueryEngine interface {
 - **2026-11-18 内核搬回（反转 PR #31）**：本包原于 2026-09-23 逐字提取至外部仓 github.com/tunsuy/agtkeel；因该仓停止维护，经人类决策整併回本仓原始路径。来源：agtkeel main 3a77085＋后续提交，零逻辑改动（仅 import 路径恢复＋gofmt）。内核改动自此直接在本仓进行。
 - **2026-11-18 cache 斷點佈局＋fork 快照＋inbox（feat/coordinator-fork-cache）**：buildRequestWithModel 確定性三處斷點——system（顯式 part 標記優先；無標記則掛末段，一個斷點快取整個穩定段）、tools 末位（會話內釘住）、messages 滾動斷點（最後 user message 末 block，clone 後標記不污染歷史）。SkipCacheWrite 抑制全部。runQueryLoop 於 turn 邊界（壓縮後、inbox drain 後）快照 CacheSafeParams（+Model）至 UseContext.CacheParams，供 Agent tool spawn fork 時繼承——快照與請求前綴一致，fork 前綴 byte-identical（守護測試 TestForkPrefix_ByteIdentity；訊息比對需排除 cache_control 標記，標記是 write-position metadata、provider 前綴匹配忽略其位置）。QueryParams.InboxCh 於每個 turn 邊界 non-blocking drain，以 <coordinator-message> 包裝追加尾部（前綴不動）。
 - **2026-11-18 實機驗證修復：Interrupt slot 不被 background query 劫持（fix/agent-lifetime）**：Query 原無條件覆蓋 e.abortFn——sub-agent/fork 的 Query 跑在同一 engine 上會劫持 Interrupt（Ctrl+C 取消到 background query 而非主對話）。現仅 write-back（foreground）query 擁有 interrupt slot；NoWriteBack query 經自身 ctx 取消（coordinator cancelFn／fork ctx）。守護測試 TestInterrupt_NotHijackedByBackgroundQuery。
+- **2026-11-19 streamResponse 接上 WithRetry（feat/api-rate-control）**：e.client.Stream 呼叫包 api.WithRetry（Model/QuerySource from req）——429/5xx/網路錯誤指數退避重试（retry-after 優先），401 fail-fast（無 refresh hook）。此前 WithRetry 僅測試使用、生產路徑 429 直接失敗（使用者 qwen 上限痛點）。守護測試 retry_wiring_test.go×2（429→重试→成功；401→單次失敗）；TestQuery_StreamError_EmitsErrorMsg 改用非重试 400（通用網路錯誤現會重试，TS parity）。

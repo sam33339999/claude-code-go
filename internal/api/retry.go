@@ -25,8 +25,11 @@ const (
 )
 
 // foreground529RetrySources mirrors TS FOREGROUND_529_RETRY_SOURCES.
+// "foreground" is the Go engine's main-query source (TS: repl_main_thread);
+// without it the main conversation would abandon on 529 like a background job.
 var foreground529RetrySources = map[string]bool{
 	"repl_main_thread": true,
+	"foreground":       true,
 	"sdk":              true,
 	"agent:default":    true,
 	"agent:custom":     true,
@@ -44,6 +47,10 @@ type RetryOptions struct {
 	QuerySource           string
 	InitialConsecutive529 int
 	Signal                context.Context
+	// RefreshToken, when set, is invoked on 401 before retrying (TS parity:
+	// the caller owns token refresh). When nil, 401 fails fast instead of
+	// burning the full backoff ladder on an unrecoverable auth error.
+	RefreshToken func(ctx context.Context) error
 }
 
 // WithRetry executes fn with exponential backoff retry logic.
@@ -126,6 +133,23 @@ func WithRetry[T any](
 			}
 		} else {
 			consecutive529 = 0
+		}
+
+		// 401: retry only when the caller can refresh the token; otherwise
+		// fail fast (no refresh hook = unrecoverable auth error).
+		if isAPIErr && apiErr.StatusCode == 401 {
+			if opts.RefreshToken == nil {
+				return zero, &CannotRetryError{
+					Cause:        err,
+					RetryContext: RetryContext{Attempt: attempt, Model: opts.Model, QuerySource: opts.QuerySource},
+				}
+			}
+			if refreshErr := opts.RefreshToken(ctx); refreshErr != nil {
+				return zero, &CannotRetryError{
+					Cause:        err,
+					RetryContext: RetryContext{Attempt: attempt, Model: opts.Model, QuerySource: opts.QuerySource},
+				}
+			}
 		}
 
 		// Decide if this error is retryable

@@ -2,13 +2,13 @@
 package: api
 import_path: internal/api
 layer: services
-generated_at: 2026-11-19T01:11:07Z
-source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, openai_client.go, openai_stream.go, openai_types.go, retry.go, stream.go, usage.go]
+generated_at: 2026-11-19T01:31:12Z
+source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, openai_client.go, openai_stream.go, openai_types.go, ratelimit.go, retry.go, stream.go, usage.go]
 ---
 
 # internal/api
 
-> Layer: **Services** · Files: 12 · Interfaces: 2 · Structs: 27 · Functions: 7
+> Layer: **Services** · Files: 13 · Interfaces: 2 · Structs: 28 · Functions: 7
 
 ## Interfaces
 
@@ -39,7 +39,7 @@ type StreamReader interface {
 - **CacheControl** — 1 fields: Type
 - **CacheCreationUsage** — 2 fields: Ephemeral1hInputTokens, Ephemeral5mInputTokens
 - **CannotRetryError** — 2 fields: Cause, RetryContext
-- **ClientConfig** — 13 fields: Provider, APIKey, BaseURL, MaxRetries, TimeoutSeconds, CustomHeaders, AWSRegion, GCPProject, ...
+- **ClientConfig** — 14 fields: Provider, APIKey, BaseURL, MaxRetries, TimeoutSeconds, RatePolicy, CustomHeaders, AWSRegion, ...
 - **ContentBlock** — 11 fields: Type, Text, ID, Name, Input, ToolUseID, Content, IsError, ...
 - **ContentBlockDeltaData** — 2 fields: Index, Delta
 - **DebugLogger** — 4 fields
@@ -52,8 +52,9 @@ type StreamReader interface {
 - **MessageResponse** — 7 fields: ID, Type, Role, Content, Model, StopReason, Usage
 - **MessageStartData** — 1 fields: Message
 - **RateLimit** — 2 fields: Utilization, ResetsAt
+- **RatePolicy** — 2 fields: RPM, MaxConcurrent
 - **RetryContext** — 3 fields: Attempt, Model, QuerySource
-- **RetryOptions** — 6 fields: MaxRetries, Model, FallbackModel, QuerySource, InitialConsecutive529, Signal
+- **RetryOptions** — 7 fields: MaxRetries, Model, FallbackModel, QuerySource, InitialConsecutive529, Signal, RefreshToken
 - **ServerToolUse** — 2 fields: WebSearchRequests, WebFetchRequests
 - **StreamEvent** — 6 fields: Type, Data, MessageStart, ContentBlockDelta, MessageDelta, Error
 - **SystemBlock** — 3 fields: Type, Text, CacheControl
@@ -115,7 +116,7 @@ type StreamReader interface {
 - `mockClient` in `test/integration/engine_e2e_test.go`
 
 **Exported type references (files that use types from this package):**
-- `APIError` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`
+- `APIError` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/retry_wiring_test.go` (test)
 - `Accumulator` → `internal/engine/query.go`
 - `Client` → `internal/bootstrap/wire.go`, `internal/compact/auto.go`, `internal/engine/engine.go`, `internal/engine/engine_test.go` (test)
 - `ClientConfig` → `internal/bootstrap/wire.go`
@@ -124,11 +125,12 @@ type StreamReader interface {
 - `Delta` → `internal/engine/engine_test.go` (test)
 - `MessageDeltaData` → `internal/engine/engine_test.go` (test)
 - `MessageParam` → `internal/compact/auto.go`, `internal/engine/query.go`
-- `MessageRequest` → `internal/compact/auto.go`, `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/interrupt_slot_test.go` (test) + 2 more
+- `MessageRequest` → `internal/compact/auto.go`, `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/interrupt_slot_test.go` (test) + 3 more
 - `MessageResponse` → `internal/compact/auto.go`, `internal/engine/engine_test.go` (test), `internal/engine/query.go`
 - `MessageStartData` → `internal/engine/engine_test.go` (test)
+- `RetryOptions` → `internal/engine/query.go`
 - `StreamEvent` → `internal/engine/engine_test.go` (test)
-- `StreamReader` → `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/interrupt_slot_test.go` (test), `internal/engine/stop_hooks_test.go` (test)
+- `StreamReader` → `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/forked_agent_test.go` (test), `internal/engine/interrupt_slot_test.go` (test), `internal/engine/query.go` + 2 more
 - `SystemBlock` → `internal/engine/query.go`
 - `ToolSchema` → `internal/engine/query.go`
 - `Usage` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`
@@ -148,3 +150,4 @@ type StreamReader interface {
 - **OpenAI 兼容增强（随搬回正式入库）**：normalizeBaseURL 去除 baseURL 尾部 /v1 避免重复版本路径（原 agtkeel 提交 9262ebf）；openai_types.go 新增 ReasoningContent 字段支持 DeepSeek-R1/QwQ 类推理模型（原 .agtkeel-uncommitted.diff WIP，现已落定）。
 - **2026-11-18 prompt-cache wire 支援（feat/coordinator-fork-cache）**：此前 Anthropic 路徑**完全未送 cache_control**（TUI 設的 SystemPromptPart.CacheControl 被 engine 壓成純字串忽略）——prompt cache 從未寫入。現 MessageRequest.SystemBlocks 非空時 MarshalJSON 以 block 陣列序列化 system（帶斷點）；ToolSchema/ContentBlock +CacheControl；EphemeralCache 共享標記值。System 仍為 canonical 純文字（既有測試與 compact 路徑不受影響）；OpenAI 相容路徑經 SystemText() 讀純文字（provider 隱式前綴快取，不帶標記）。滾動斷點由 engine 佈局，api 層只負責序列化。
 - **2026-11-19 OpenAI 相容路徑 cache usage 映射（feat/openai-cache-usage）**：此前 OpenAI 路徑 CacheReadInputTokens 恆 0——openaiUsage 無 cached_tokens 欄位、StreamOptions.IncludeUsage 從未設定、usage chunk（常於 finish chunk 之後、choices 空）不被發出事件、accumulator 只合併 OutputTokens。現：openaiUsage +PromptTokensDetails（OpenAI 式）＋PromptCacheHitTokens（DeepSeek 式）＋cachedTokens()；streaming 請求設 stream_options.include_usage=true；usage chunk 觸發补充 message_delta（createUsageDeltaEvent，.repeat lastStopReason）携带 final input/output/cache counts；accumulator 非零 input/cache 欄位覆寫 message_start 快照、空 stop reason 視為不變（Anthropic delta 語義保留）。Complete 路徑同步映射。守護測試 openai_cache_usage_test.go×4。注意：OpenAI prompt_tokens 含 cached（與 Anthropic input_tokens 不含 cache read 的語義不同），CacheReadInputTokens 独立報告命中數。
+- **2026-11-19 客戶端速率控制＋retry 接線（feat/api-rate-control）**：使用者實機踩 qwen 429。診斷：WithRetry 完整實作但 engine 從未呼叫（429 直接失敗）；無主動限速（平行 fork＝無上限併發）。新增 RatePolicy{RPM, MaxConcurrent}＋rateLimitedClient wrapper（provider-agnostic，NewClient 統一 wrap 所有 provider）：RPM 走 strict-spacing token bucket（burst 1）、MaxConcurrent 走 semaphore（streaming 持 slot 至 reader.Close，releasedReader sync.Once 釋放）；env CLAUDE_CODE_API_RPM／CLAUDE_CODE_API_MAX_CONCURRENT，ClientConfig.RatePolicy 優先。WithRetry +RefreshToken hook（nil 時 401 fail-fast，不烧退避梯）；foreground529RetrySources +foreground（Go engine 主 query source，TS repl_main_thread 對應）。Provider 層「拉出來」採內部抽象化（Client 介面＋factory＋wrapper seam），**不對外抽倉**（agtkeel 教訓）。守護測試 ratelimit_test.go×10。
