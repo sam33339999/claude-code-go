@@ -95,6 +95,15 @@ type QueryParams struct {
 	// loop's session-long tracker; every sub-agent should carry its own so its
 	// failures cannot trip the main loop's circuit breaker.
 	CompactTracker *compact.Tracker
+	// ToolFilter, when set, is consulted before executing each tool call.
+	// The tool schemas sent to the API are unchanged (cache identity); a
+	// refused call returns an error tool_result with reason.
+	ToolFilter func(t tools.Tool, input tools.Input) (allowed bool, reason string)
+	// NonInteractivePermissions checks permissions with CanUseTool only: Ask
+	// is treated as Deny, nothing is prompted and no denial is recorded.
+	NonInteractivePermissions bool
+	// NoCompaction disables snip, micro and auto compaction for this query.
+	NoCompaction bool
 }
 
 // TaskBudget defines an optional task-level output token budget.

@@ -1,0 +1,176 @@
+package engine
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"sync/atomic"
+	"testing"
+
+	"github.com/tunsuy/glaude/internal/api"
+	"github.com/tunsuy/glaude/internal/msgqueue"
+	"github.com/tunsuy/glaude/internal/permissions"
+	"github.com/tunsuy/glaude/internal/tools"
+	"github.com/tunsuy/glaude/pkg/types"
+)
+
+// callCountTool records how many times Call ran.
+type callCountTool struct {
+	stubTool
+	calls atomic.Int32
+}
+
+func (c *callCountTool) Call(_ tools.Input, _ *tools.UseContext, _ tools.OnProgressFn) (*tools.Result, error) {
+	c.calls.Add(1)
+	return &tools.Result{Content: "ok"}, nil
+}
+
+// toolThenDone streams one tool_use for name, then an end_turn reply.
+func toolThenDone(name string) *countingClient {
+	c := &countingClient{}
+	turn := 0
+	c.streamFn = func(*api.MessageRequest) (api.StreamReader, error) {
+		turn++
+		if turn == 1 {
+			return newStaticReader(buildToolUseEvents("tu1", name, `{}`)...), nil
+		}
+		return newStaticReader(buildEndTurnEvents("done")...), nil
+	}
+	return c
+}
+
+// lastToolResultText returns the text of the tool_result sent in the second request.
+func lastToolResultText(t *testing.T, c *countingClient) string {
+	t.Helper()
+	if len(c.streams) < 2 {
+		t.Fatalf("expected a second request, got %d", len(c.streams))
+	}
+	msgs := c.streams[1].Messages
+	raw := string(msgs[len(msgs)-1].Content)
+	return raw
+}
+
+func TestDrainMidTurn_OnlyMainLoop(t *testing.T) {
+	q := msgqueue.NewMessageQueue()
+	q.Enqueue(msgqueue.NewCommand("queued for main", msgqueue.ModePrompt, msgqueue.PriorityNext))
+	c := toolThenDone("Read")
+	reg := newTestRegistry(&stubTool{name: "Read", safe: true, readOnly: true})
+	eng := New(Config{Client: c, Registry: reg, Model: "m", MsgQueue: q})
+	runQuery(t, eng, QueryParams{Messages: []types.Message{userText("side")}, NoWriteBack: true})
+	if q.Len() != 1 {
+		t.Fatalf("a NoWriteBack query consumed the main loop's queue (len %d)", q.Len())
+	}
+	for _, r := range c.streams {
+		for _, m := range r.Messages {
+			if strings.Contains(string(m.Content), "queued for main") {
+				t.Fatal("main-loop message leaked into a NoWriteBack query")
+			}
+		}
+	}
+
+	c2 := toolThenDone("Read")
+	eng2 := New(Config{Client: c2, Registry: reg, Model: "m", MsgQueue: q})
+	runQuery(t, eng2, QueryParams{Messages: []types.Message{userText("main")}})
+	if q.Len() != 0 {
+		t.Errorf("the main loop must drain its queue (len %d)", q.Len())
+	}
+}
+
+func TestToolFilter_BlocksExecutionKeepsSchema(t *testing.T) {
+	w := &callCountTool{stubTool: stubTool{name: "Write"}}
+	c := toolThenDone("Write")
+	eng := New(Config{Client: c, Registry: newTestRegistry(w), Model: "m"})
+	runQuery(t, eng, QueryParams{
+		Messages: []types.Message{userText("x")}, NoWriteBack: true,
+		ToolFilter: func(t tools.Tool, _ tools.Input) (bool, string) {
+			return t.Name() != "Write", "Write is not available in /btw (read-only)"
+		},
+	})
+	if w.calls.Load() != 0 {
+		t.Error("filtered tool executed")
+	}
+	if got := lastToolResultText(t, c); !strings.Contains(got, "not available in /btw") {
+		t.Errorf("tool_result = %s", got)
+	}
+	if len(c.streams[0].Tools) != 1 || c.streams[0].Tools[0].Name != "Write" {
+		t.Error("tool schema must still include the filtered tool (cache identity)")
+	}
+}
+
+func TestToolFilter_AllowsReadOnly(t *testing.T) {
+	r := &callCountTool{stubTool: stubTool{name: "Read", safe: true, readOnly: true}}
+	eng := New(Config{Client: toolThenDone("Read"), Registry: newTestRegistry(r), Model: "m"})
+	runQuery(t, eng, QueryParams{
+		Messages: []types.Message{userText("x")}, NoWriteBack: true,
+		ToolFilter: func(t tools.Tool, in tools.Input) (bool, string) { return t.IsReadOnly(in), "" },
+	})
+	if r.calls.Load() != 1 {
+		t.Errorf("allowed tool calls = %d", r.calls.Load())
+	}
+}
+
+// askChecker answers Ask from CanUseTool and records whether the interactive
+// flow (RequestPermission) was used.
+type askChecker struct{ requested atomic.Int32 }
+
+func (a *askChecker) CanUseTool(context.Context, string, tools.Input, *tools.UseContext) (tools.PermissionResult, error) {
+	return tools.PermissionResult{Behavior: tools.PermissionAsk}, nil
+}
+func (a *askChecker) RequestPermission(context.Context, permissions.PermissionRequest, *tools.UseContext) (tools.PermissionResult, error) {
+	a.requested.Add(1)
+	return tools.PermissionResult{Behavior: tools.PermissionAllow}, nil
+}
+func (a *askChecker) GetDenialCount() int { return 0 }
+
+func TestNonInteractivePermissions_AskBecomesDeny(t *testing.T) {
+	r := &callCountTool{stubTool: stubTool{name: "Read", safe: true, readOnly: true}}
+	chk := &askChecker{}
+	c := toolThenDone("Read")
+	eng := New(Config{Client: c, Registry: newTestRegistry(r), Model: "m", PermissionChecker: chk})
+	runQuery(t, eng, QueryParams{Messages: []types.Message{userText("x")}, NoWriteBack: true, NonInteractivePermissions: true})
+	if chk.requested.Load() != 0 || r.calls.Load() != 0 {
+		t.Errorf("interactive flow used (%d) or tool ran (%d)", chk.requested.Load(), r.calls.Load())
+	}
+	if got := lastToolResultText(t, c); !strings.Contains(got, "needs permission") {
+		t.Errorf("tool_result = %s", got)
+	}
+}
+
+func TestNoCompaction_SkipsAllCompaction(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "")
+	c := &countingClient{}
+	eng := New(Config{Client: c, Registry: tools.NewRegistry(), Model: "m", MainContextWindow: 40_000})
+	runQuery(t, eng, QueryParams{Messages: bigHistory(32_000), NoWriteBack: true, NoCompaction: true})
+	if _, n := c.counts(); n != 0 {
+		t.Errorf("summary requests = %d, want 0", n)
+	}
+}
+
+func TestBTW_RequestPrefixMatchesMain(t *testing.T) {
+	reg := newTestRegistry(&stubTool{name: "Read"}, &stubTool{name: "Write"})
+	eng := New(Config{Client: &countingClient{}, Registry: reg, Model: "m"}).(*engineImpl)
+	sys := SystemPrompt{Parts: []SystemPromptPart{{Text: "stable", CacheControl: "ephemeral"}, {Text: "tail"}}}
+	hist := []types.Message{userText("a"), {Role: types.RoleAssistant, Content: []types.ContentBlock{{Type: types.ContentTypeText, Text: strPtr("b")}}}, userText("c")}
+	uctx := &tools.UseContext{Ctx: context.Background()}
+	mainReq, err := eng.buildRequestWithModel(QueryParams{SystemPrompt: sys, ToolUseContext: uctx}, hist, "m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	btwParams := QueryParams{SystemPrompt: sys, ToolUseContext: uctx, NoWriteBack: true, NoCompaction: true, NonInteractivePermissions: true,
+		ToolFilter: func(tools.Tool, tools.Input) (bool, string) { return false, "" }}
+	btwReq, err := eng.buildRequestWithModel(btwParams, append(append([]types.Message(nil), hist...), userText("side question")), "m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	same := func(a, b any) bool { x, _ := json.Marshal(a); y, _ := json.Marshal(b); return string(x) == string(y) }
+	if !same(mainReq.Tools, btwReq.Tools) || !same(mainReq.SystemBlocks, btwReq.SystemBlocks) {
+		t.Error("btw tools/system differ from the main request")
+	}
+	// The history before the last user message must match byte for byte
+	// (the rolling cache breakpoint moves to btw's own last user message).
+	for i := 0; i < len(hist)-1; i++ {
+		if string(mainReq.Messages[i].Content) != string(btwReq.Messages[i].Content) {
+			t.Errorf("message %d differs", i)
+		}
+	}
+}

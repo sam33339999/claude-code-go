@@ -249,7 +249,11 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 
 			// P1: Mid-turn drain checkpoint — inject queued user messages
 			// between tool execution and the next LLM call.
-			e.drainMidTurn(ctx, &messages, msgCh)
+			// Only the main loop takes the main session's queued messages;
+			// sub-agents, forks and /btw get follow-ups via their own InboxCh.
+			if !params.NoWriteBack {
+				e.drainMidTurn(ctx, &messages, msgCh)
+			}
 
 			// Continue the loop so the LLM can process tool results.
 			continue

@@ -125,6 +125,14 @@ type UseContext struct {
 	Coordinator AgentCoordinator
 	// AgentID is the ID of the current agent ("" for main session).
 	AgentID string
+	// ExecFilter mirrors engine.QueryParams.ToolFilter for the orchestration
+	// layer (nil = every tool may run).
+	ExecFilter func(t Tool, input Input) (allowed bool, reason string)
+	// NonInteractivePermissions mirrors engine.QueryParams.NonInteractivePermissions.
+	NonInteractivePermissions bool
+	// TodoAppendOnly makes TodoWrite append to the session todo list instead
+	// of replacing it (used by /btw).
+	TodoAppendOnly bool
 	// MemoryStore is the project memory store injected by bootstrap/TUI.
 	// Concrete type: *memdir.MemoryStore (set in internal/tools/memory).
 	MemoryStore any
