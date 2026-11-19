@@ -77,7 +77,7 @@ func ListModels(ctx context.Context, cfg ClientConfig, httpClient *http.Client) 
 		return nil, &ListModelsError{Kind: ListModelsNotSupported, Message: fmt.Sprintf("provider %q cannot list models", cfg.Provider)}
 	}
 	if err != nil {
-		return nil, redactKey(err, cfg.APIKey)
+		return nil, err
 	}
 	sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
 	return models, nil
@@ -93,16 +93,19 @@ func listAnthropicModels(ctx context.Context, c *http.Client, base, key string) 
 			u += "&after_id=" + url.QueryEscape(after)
 		}
 		var page struct {
-			Data []struct {
+			Data *[]struct {
 				ID string `json:"id"`
 			} `json:"data"`
 			HasMore bool   `json:"has_more"`
 			LastID  string `json:"last_id"`
 		}
-		if err := getJSON(ctx, c, u, headers, &page); err != nil {
+		if err := getJSON(ctx, c, u, headers, key, &page); err != nil {
 			return nil, err
 		}
-		for _, m := range page.Data {
+		if page.Data == nil {
+			return nil, notAModelList()
+		}
+		for _, m := range *page.Data {
 			out = append(out, ModelListing{ID: m.ID})
 		}
 		if !page.HasMore || page.LastID == "" {
@@ -115,23 +118,32 @@ func listAnthropicModels(ctx context.Context, c *http.Client, base, key string) 
 
 func listOpenAIModels(ctx context.Context, c *http.Client, base, key string) ([]ModelListing, error) {
 	var resp struct {
-		Data []struct {
+		Data *[]struct {
 			ID            string `json:"id"`
 			ContextLength int    `json:"context_length"`
 		} `json:"data"`
 	}
-	if err := getJSON(ctx, c, base+"/v1/models", map[string]string{"Authorization": "Bearer " + key}, &resp); err != nil {
+	if err := getJSON(ctx, c, base+"/v1/models", map[string]string{"Authorization": "Bearer " + key}, key, &resp); err != nil {
 		return nil, err
 	}
-	out := make([]ModelListing, 0, len(resp.Data))
-	for _, m := range resp.Data {
+	if resp.Data == nil {
+		return nil, notAModelList()
+	}
+	out := make([]ModelListing, 0, len(*resp.Data))
+	for _, m := range *resp.Data {
 		out = append(out, ModelListing{ID: m.ID, ContextWindow: max(m.ContextLength, 0)})
 	}
 	return out, nil
 }
 
-// getJSON performs a GET and decodes a JSON object into v, classifying failures.
-func getJSON(ctx context.Context, c *http.Client, u string, headers map[string]string, v any) error {
+// notAModelList reports a 200 response without a "data" array.
+func notAModelList() error {
+	return &ListModelsError{Kind: ListModelsNotSupported, StatusCode: http.StatusOK, Message: "response is not a model list"}
+}
+
+// getJSON performs a GET and decodes a JSON object into v, classifying
+// failures. key is redacted from any error text before it is truncated.
+func getJSON(ctx context.Context, c *http.Client, u string, headers map[string]string, key string, v any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return &ListModelsError{Kind: ListModelsUnreachable, Message: err.Error()}
@@ -144,7 +156,7 @@ func getJSON(ctx context.Context, c *http.Client, u string, headers map[string]s
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return &ListModelsError{Kind: ListModelsTimeout, Message: "request timed out"}
 		}
-		return &ListModelsError{Kind: ListModelsUnreachable, Message: err.Error()}
+		return &ListModelsError{Kind: ListModelsUnreachable, Message: redact(err.Error(), key)}
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
@@ -158,7 +170,7 @@ func getJSON(ctx context.Context, c *http.Client, u string, headers map[string]s
 		case http.StatusNotFound:
 			kind = ListModelsNotSupported
 		}
-		return &ListModelsError{Kind: kind, StatusCode: resp.StatusCode, Message: snippet(body)}
+		return &ListModelsError{Kind: kind, StatusCode: resp.StatusCode, Message: snippet(redact(string(body), key))}
 	}
 	if err := json.Unmarshal(body, v); err != nil {
 		return &ListModelsError{Kind: ListModelsNotSupported, StatusCode: resp.StatusCode, Message: "response is not a model list"}
@@ -166,21 +178,21 @@ func getJSON(ctx context.Context, c *http.Client, u string, headers map[string]s
 	return nil
 }
 
-func snippet(body []byte) string {
-	s := strings.TrimSpace(string(body))
-	if len(s) > 200 {
-		s = s[:200] + "…"
+// snippet trims s to at most 200 runes for display.
+func snippet(s string) string {
+	s = strings.TrimSpace(s)
+	if r := []rune(s); len(r) > 200 {
+		s = string(r[:200]) + "…"
 	}
 	return s
 }
 
-// redactKey removes key from a ListModelsError message (endpoints sometimes
-// echo the Authorization header back).
-func redactKey(err error, key string) error {
-	var le *ListModelsError
-	if key == "" || !errors.As(err, &le) {
-		return err
+// redact removes key from s (endpoints sometimes echo the Authorization
+// header back). It must run before snippet so a key spanning the cut is
+// still found whole.
+func redact(s, key string) string {
+	if key == "" {
+		return s
 	}
-	le.Message = strings.ReplaceAll(le.Message, key, "[redacted]")
-	return le
+	return strings.ReplaceAll(s, key, "[redacted]")
 }

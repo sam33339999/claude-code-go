@@ -177,3 +177,27 @@ func TestListModels_UnsupportedProvider(t *testing.T) {
 		t.Errorf("bedrock: kind %s, want not_supported", got)
 	}
 }
+
+func TestListModels_ErrorRedactsKeyAcrossTruncation(t *testing.T) {
+	key := "sk-ant-api03-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(401)
+		_, _ = w.Write([]byte(strings.Repeat("x", 170) + key))
+	}))
+	defer srv.Close()
+	_, err := ListModels(context.Background(), ClientConfig{Provider: ProviderOpenAI, BaseURL: srv.URL, APIKey: key}, nil)
+	if err == nil || strings.Contains(err.Error(), "sk-ant-api03-ABC") {
+		t.Errorf("error leaks part of the key: %v", err)
+	}
+}
+
+func TestListModels_MissingDataIsUnsupported(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"object":"error","message":"nope"}`))
+	}))
+	defer srv.Close()
+	_, err := ListModels(context.Background(), ClientConfig{Provider: ProviderOpenAI, BaseURL: srv.URL, APIKey: "k"}, nil)
+	if got := listErrKind(t, err); got != ListModelsNotSupported {
+		t.Errorf("kind = %s, want not_supported", got)
+	}
+}
