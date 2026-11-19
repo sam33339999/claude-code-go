@@ -102,7 +102,13 @@ func resolveSubAgentTarget(r *tierRouter, provider, parentModel, toolModel, prof
 		if err := r.keyErr[b.Provider]; err != nil {
 			return subAgentTarget{}, fmt.Errorf("tier %q → provider %q: %w", tierLabel(b, cand), b.Provider, err)
 		}
-		t.Client = r.clients[b.Provider]
+		client, ok := r.clients[b.Provider]
+		if !ok || client == nil {
+			// Registered after startup (picked up by a /tier rewrite): no
+			// client exists yet. Never fall back to the main client.
+			return subAgentTarget{}, fmt.Errorf("tier %q → provider %q: provider was added after startup; restart glaude to use it", tierLabel(b, cand), b.Provider)
+		}
+		t.Client = client
 		return t, nil
 	case modeltier.Unbound:
 		if alias, ok := modeltier.LegacyAlias(b.Tier); ok {

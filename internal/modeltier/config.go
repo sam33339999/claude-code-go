@@ -73,6 +73,9 @@ type Store struct {
 	mu   sync.RWMutex
 	path string
 	cfg  Config
+	// loadErr is set when config.toml existed but could not be read or
+	// parsed; writes are refused so a typo never gets overwritten.
+	loadErr error
 }
 
 // DefaultPath returns the global config.toml path for homeDir.
@@ -90,16 +93,27 @@ func Load(path string) (*Store, []string) {
 		if errors.Is(err, os.ErrNotExist) {
 			return s, nil
 		}
+		s.loadErr = err
 		return s, []string{fmt.Sprintf("config.toml: %s: %v; ignoring file", path, err)}
 	}
+	cfg, warnings, err := parse(data)
+	if err != nil {
+		s.loadErr = err
+		return s, []string{fmt.Sprintf("config.toml: %s: %v; ignoring file", path, err)}
+	}
+	s.cfg = cfg
+	return s, warnings
+}
+
+// parse decodes and validates config.toml content.
+func parse(data []byte) (Config, []string, error) {
 	var cfg Config
 	md, err := toml.Decode(string(data), &cfg)
 	if err != nil {
-		return s, []string{fmt.Sprintf("config.toml: %s: %v; ignoring file", path, err)}
+		return emptyConfig(), nil, err
 	}
 	warnings := validate(&cfg, md.Undecoded())
-	s.cfg = cfg
-	return s, warnings
+	return cfg, warnings, nil
 }
 
 func emptyConfig() Config {

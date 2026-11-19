@@ -2,8 +2,8 @@ package modeltier
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -100,16 +100,52 @@ func (s *Store) Unbind(tier string) error {
 	return s.commitLocked(name, TierEntry{})
 }
 
-// commitLocked writes a copy of the config with tiers[name]=entry, and only
-// swaps the in-memory config after the file write succeeded. Caller holds mu.
+// commitLocked sets tiers[name] in config.toml with a read-modify-write of
+// the file as it is on disk now, so sections the validator ignored, unknown
+// keys and edits made after startup all survive (only comments are lost).
+// The in-memory config is replaced only after the write succeeded.
+// Caller holds mu.
 func (s *Store) commitLocked(name string, entry TierEntry) error {
-	next := s.cfg
-	next.Tiers = maps.Clone(s.cfg.Tiers)
-	if next.Tiers == nil {
-		next.Tiers = map[string]TierEntry{}
+	if s.loadErr != nil {
+		return fmt.Errorf("modeltier: %s could not be loaded at startup (%v); fix the file and restart before using /tier", s.path, s.loadErr)
 	}
-	next.Tiers[name] = entry
-	if err := writeAtomic(s.path, &next); err != nil {
+	raw := map[string]any{}
+	data, err := os.ReadFile(s.path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+	case err != nil:
+		return fmt.Errorf("modeltier: read %s: %w", s.path, err)
+	default:
+		if _, err := toml.Decode(string(data), &raw); err != nil {
+			return fmt.Errorf("modeltier: %s no longer parses (%v); not rewriting it", s.path, err)
+		}
+	}
+	tiers, _ := raw["tiers"].(map[string]any)
+	if tiers == nil {
+		tiers = map[string]any{}
+	}
+	for k := range tiers {
+		if strings.EqualFold(strings.TrimSpace(k), name) {
+			delete(tiers, k)
+		}
+	}
+	table := map[string]any{}
+	if entry.Provider != "" {
+		table["provider"] = entry.Provider
+		table["model"] = entry.Model
+	}
+	tiers[name] = table
+	raw["tiers"] = tiers
+
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(raw); err != nil {
+		return fmt.Errorf("modeltier: encode config: %w", err)
+	}
+	next, _, err := parse(buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("modeltier: re-parse rewritten config: %w", err)
+	}
+	if err := writeAtomic(s.path, buf.Bytes()); err != nil {
 		return err
 	}
 	s.cfg = next
@@ -132,11 +168,7 @@ func validTierName(tier string) (string, error) {
 	return name, nil
 }
 
-func writeAtomic(path string, cfg *Config) error {
-	var buf bytes.Buffer
-	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
-		return fmt.Errorf("modeltier: encode config: %w", err)
-	}
+func writeAtomic(path string, content []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("modeltier: create %s: %w", dir, err)
@@ -147,7 +179,7 @@ func writeAtomic(path string, cfg *Config) error {
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName) // no-op after a successful rename
-	if _, err := tmp.Write(buf.Bytes()); err != nil {
+	if _, err := tmp.Write(content); err != nil {
 		tmp.Close()
 		return fmt.Errorf("modeltier: write temp file: %w", err)
 	}

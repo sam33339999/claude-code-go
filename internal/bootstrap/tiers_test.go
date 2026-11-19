@@ -257,3 +257,29 @@ func TestBuildForkQuery_NeverSetsClient(t *testing.T) {
 		t.Errorf("fork params = client %v window %d model %q", params.Client, params.ContextWindow, params.Model)
 	}
 }
+
+func TestResolveSubAgentTarget_ProviderAddedAfterStartup(t *testing.T) {
+	r := newTestRouter(t, tierTestConfig)
+	path := r.store.Path()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.WriteString("\n[providers.late]\nformat = \"openai\"\nbase_url = \"https://late\"\napi_key_env = \"ZAI_API_KEY\"\n")
+	f.Close()
+	// Any rebind re-reads the file, so "late" becomes a known provider...
+	if err := r.store.Bind("pro", "zai", "x"); err != nil {
+		t.Fatalf("Bind: %v", err)
+	}
+	if err := r.store.Bind("lite", "late", "m"); err != nil {
+		t.Fatalf("Bind: %v", err)
+	}
+	// ...but it has no client until restart: dispatch must fail, not use main.
+	got, err := resolveSubAgentTarget(r, "direct", "claude-parent", "", "lite")
+	if err == nil || !strings.Contains(err.Error(), "restart") {
+		t.Fatalf("err = %v, want restart hint", err)
+	}
+	if got.Client != nil || got.Model != "" {
+		t.Errorf("target = %+v, want empty", got)
+	}
+}

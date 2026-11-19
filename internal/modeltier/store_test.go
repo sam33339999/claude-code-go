@@ -177,3 +177,60 @@ func TestStore_ListIncludesDefaultTiers(t *testing.T) {
 		t.Errorf("List tiers = %v, want lite,max,pro", names)
 	}
 }
+
+func TestStore_BindRefusesAfterLoadError(t *testing.T) {
+	path := writeConfig(t, "[[[ broken")
+	s, _ := Load(path)
+	if err := s.Bind("lite", MainProviderID, "m"); err == nil {
+		t.Fatal("Bind after a failed load must error instead of overwriting the file")
+	}
+	if err := s.Unbind("lite"); err == nil {
+		t.Fatal("Unbind after a failed load must error")
+	}
+	if b, _ := os.ReadFile(path); string(b) != "[[[ broken" {
+		t.Errorf("file was rewritten: %q", b)
+	}
+}
+
+func TestStore_BindPreservesIgnoredSections(t *testing.T) {
+	path := writeConfig(t, specExample+`
+[providers.bad]
+format = "bedrock"
+base_url = "https://bad"
+
+[tiers.orphan]
+provider = "nope"
+model = "m"
+
+[extra]
+keep = "me"
+`)
+	s, _ := Load(path)
+	if err := s.Bind("lite", "openrouter", "x/y"); err != nil {
+		t.Fatalf("Bind: %v", err)
+	}
+	raw, _ := os.ReadFile(path)
+	for _, want := range []string{"bedrock", "orphan", "nope", "keep", "me"} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("rewritten file lost %q:\n%s", want, raw)
+		}
+	}
+}
+
+func TestStore_BindKeepsExternalEdits(t *testing.T) {
+	path := writeConfig(t, specExample)
+	s, _ := Load(path)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.WriteString("\n[tiers.later]\nprovider = \"zai\"\nmodel = \"added-by-hand\"\n")
+	f.Close()
+	if err := s.Bind("lite", "openrouter", "x/y"); err != nil {
+		t.Fatalf("Bind: %v", err)
+	}
+	reloaded, _ := Load(path)
+	if b, kind := reloaded.Resolve("later"); kind != Bound || b.Model != "added-by-hand" {
+		t.Errorf("external edit lost: %+v %v", b, kind)
+	}
+}
