@@ -37,12 +37,14 @@ const snipPlaceholder = "[snipped: earlier tool output removed to reduce context
 //   - Below the trigger, history is returned untouched — the prefix is stable.
 //   - At the trigger, every message before the protected tail (the most recent
 //     snipKeepRecentTurns pairs) is snipped in one batch.
-//   - Already-snipped blocks are skipped, so the call is idempotent.
+//   - At most one snip per compaction epoch: once history holds snipped
+//     blocks, staying above the trigger hands over to auto-compaction instead
+//     of snipping the next pair every turn (which would move the prefix again).
 //
 // The operation is purely local (no LLM call required).
 func SnipCompactIfNeeded(messages []types.Message, estTokens int, t Target) SnipResult {
 	trigger := int(SnipTriggerFraction * float64(AutoCompactThreshold(t)))
-	if !needsSnip(messages) || estTokens < trigger {
+	if !needsSnip(messages) || estTokens < trigger || hasSnipped(messages) {
 		return SnipResult{Messages: messages}
 	}
 	snipped, freed := snipMessages(messages)
@@ -94,6 +96,18 @@ func snipMessages(messages []types.Message) ([]types.Message, int) {
 		result[i] = msg
 	}
 	return result, freed
+}
+
+// hasSnipped reports whether any tool_result in messages was already snipped.
+func hasSnipped(messages []types.Message) bool {
+	for _, m := range messages {
+		for _, blk := range m.Content {
+			if blk.Type == types.ContentTypeToolResult && isSnipped(blk) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isSnipped(blk types.ContentBlock) bool {

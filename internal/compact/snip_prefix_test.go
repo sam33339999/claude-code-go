@@ -157,3 +157,19 @@ func TestSnip_IdempotentOnSnipped(t *testing.T) {
 		}
 	}
 }
+
+// TestSnip_PrefixStableWhileAboveTrigger: once history has been snipped, an
+// estimate that stays in [trigger, threshold) must not snip again every turn
+// (that would recreate C9); the next prefix reset belongs to auto-compaction.
+func TestSnip_PrefixStableWhileAboveTrigger(t *testing.T) {
+	requests, snipped := simulateSnipTurns(t, 6, func(int) int { return snipTrigger() })
+	if !snipped[0] {
+		t.Fatal("turn 0 should snip")
+	}
+	for turn := 1; turn < len(snipped); turn++ {
+		if snipped[turn] {
+			t.Errorf("turn %d snipped again while above trigger", turn)
+		}
+	}
+	assertPrefix(t, requests, 0)
+}
