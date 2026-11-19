@@ -103,6 +103,27 @@ type openaiUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+	// PromptTokensDetails carries the OpenAI-style prompt cache hit count.
+	PromptTokensDetails *openaiPromptTokensDetails `json:"prompt_tokens_details,omitempty"`
+	// PromptCacheHitTokens is the DeepSeek-style prompt cache hit count.
+	PromptCacheHitTokens int `json:"prompt_cache_hit_tokens,omitempty"`
+}
+
+// openaiPromptTokensDetails breaks down prompt tokens by cache status.
+type openaiPromptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
+// cachedTokens returns the provider-reported prompt cache hit count,
+// preferring the OpenAI-style details field over the DeepSeek-style field.
+func (u *openaiUsage) cachedTokens() int {
+	if u == nil {
+		return 0
+	}
+	if u.PromptTokensDetails != nil && u.PromptTokensDetails.CachedTokens > 0 {
+		return u.PromptTokensDetails.CachedTokens
+	}
+	return u.PromptCacheHitTokens
 }
 
 // OpenAI Streaming types
