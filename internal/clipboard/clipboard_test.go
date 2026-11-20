@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -337,6 +338,76 @@ type runCall struct {
 	ctx  context.Context
 	name string
 	args []string
+}
+
+// exitWithStderr builds an *exec.ExitError carrying stderr, the shape
+// Output() returns when wl-paste or xclip exits non-zero.
+func exitWithStderr(t *testing.T, stderr string) *exec.ExitError {
+	t.Helper()
+	err := exec.Command("false").Run()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("false: %v", err)
+	}
+	exitErr.Stderr = []byte(stderr)
+	return exitErr
+}
+
+func TestLinuxEmptyClipboard(t *testing.T) {
+	tests := []struct {
+		name    string
+		wayland bool
+		tool    string
+		stderr  string
+		empty   bool
+	}{
+		{name: "wl nothing copied", wayland: true, tool: "wl-paste", stderr: "Nothing is copied\n", empty: true},
+		{name: "wl no selection", wayland: true, tool: "wl-paste", stderr: "No selection\n", empty: true},
+		{name: "xclip no owner", wayland: false, tool: "xclip", stderr: "There is no owner for the CLIPBOARD selection\n", empty: true},
+		{name: "connection refused", wayland: true, tool: "wl-paste", stderr: "Connection refused\n", empty: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := linuxReader(tc.wayland, tc.tool, func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+				return nil, exitWithStderr(t, tc.stderr)
+			})
+			_, imgErr := r.ReadImage(context.Background())
+			if tc.empty {
+				if !errors.Is(imgErr, ErrNoImage) {
+					t.Fatalf("ReadImage err = %v, want ErrNoImage", imgErr)
+				}
+			} else if imgErr == nil || errors.Is(imgErr, ErrNoImage) {
+				t.Fatalf("ReadImage err = %v, want a wrapped failure", imgErr)
+			}
+
+			text, textErr := r.ReadText(context.Background())
+			if tc.empty {
+				if text != "" || textErr != nil {
+					t.Fatalf("ReadText = %q, %v, want empty nil", text, textErr)
+				}
+				return
+			}
+			if text == "" && textErr == nil {
+				t.Fatal("ReadText = empty nil, want a failure")
+			}
+			if errors.Is(textErr, ErrNoImage) {
+				t.Fatalf("ReadText err = %v, want a wrapped failure", textErr)
+			}
+		})
+	}
+}
+
+func linuxReader(wayland bool, tool string, run Runner) *Reader {
+	display := ""
+	if wayland {
+		display = "wayland-0"
+	}
+	return &Reader{
+		GOOS:     "linux",
+		Getenv:   func(string) string { return display },
+		LookPath: lookPathOK(tool),
+		Run:      run,
+	}
 }
 
 func lookPathOK(want string) func(string) (string, error) {

@@ -212,6 +212,95 @@ func TestCtrlV_ResultInsertedAtCurrentCursor(t *testing.T) {
 	}
 }
 
+func TestCtrlV_EmptyClipboardNotice(t *testing.T) {
+	m := newTestModel()
+	m.clip = &fakeClip{imgErr: clipboard.ErrNoImage, text: ""}
+	m.input = m.input.SetValue("keep")
+	m = applyCtrlV(t, m)
+	if got := m.input.Value(); got != "keep" {
+		t.Fatalf("input = %q, want unchanged", got)
+	}
+	if !strings.Contains(m.View().Content, "Clipboard is empty") {
+		t.Fatalf("view missing empty notice: %q", m.View().Content)
+	}
+}
+
+func TestCtrlV_InFlightBubbleHitsCap(t *testing.T) {
+	m := newTestModel()
+	m.input = m.input.SetValue(imageMarkers(m, 20))
+	m, cmd := press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil || !m.isLoading {
+		t.Fatal("submit did not start a turn")
+	}
+	if len(m.queryEngine.GetMessages()) != 0 {
+		t.Fatal("GetMessages filled without running Query")
+	}
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if got := m.input.Value(); got != "" {
+		t.Fatalf("input = %q, want no new marker", got)
+	}
+	if !strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatalf("view missing cap notice: %q", m.View().Content)
+	}
+}
+
+func TestCtrlV_InFlightToolResultHitsCap(t *testing.T) {
+	m := newTestModel()
+	m.input = m.input.SetValue("look")
+	m, cmd := press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil || !m.isLoading {
+		t.Fatal("submit did not start a turn")
+	}
+	id := "tool-inflight"
+	m.messages = append(m.messages, types.Message{
+		Role: types.RoleUser,
+		Content: []types.ContentBlock{{
+			Type:      types.ContentTypeToolResult,
+			ToolUseID: &id,
+			Content: []types.ContentBlock{{
+				Type:   types.ContentTypeImage,
+				Source: &types.ImageSource{Type: "base64", MediaType: "image/png", Data: "AA=="},
+			}},
+		}},
+	})
+	markers := imageMarkers(m, 19)
+	m.input = m.input.SetValue(markers)
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if got := m.input.Value(); got != markers {
+		t.Fatalf("input = %q, want unchanged", got)
+	}
+	if !strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatalf("view missing cap notice: %q", m.View().Content)
+	}
+}
+
+func TestCtrlV_HistoricalBubblesNotDoubleCounted(t *testing.T) {
+	m := newTestModel()
+	m.queryEngine.SetMessages(messagesWithImages(19, 0))
+	m.messages = append(m.messages, newUserMessage(imageMarkers(m, 19)))
+	if m.isLoading {
+		t.Fatal("idle paste must not be in a turn")
+	}
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatal("historical bubbles were counted again")
+	}
+	if !m.pastes.isMarker(m.input.Value()) {
+		t.Fatalf("input = %q, want a new image marker", m.input.Value())
+	}
+}
+
+func imageMarkers(m AppModel, n int) string {
+	parts := make([]string, n)
+	for i := range n {
+		parts[i] = m.pastes.addImage(&types.ImageSource{Type: "base64", MediaType: "image/png", Data: "AA=="})
+	}
+	return strings.Join(parts, " ")
+}
+
 func TestCtrlV_MissingToolNotice(t *testing.T) {
 	const hint = "Install wl-clipboard or xclip to paste from the clipboard"
 	m := newTestModel()

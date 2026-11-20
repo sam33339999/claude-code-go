@@ -514,18 +514,18 @@ func processQueueCmd(m *AppModel) tea.Cmd {
 			return queuedSlashMsg{Text: text}
 		}
 	case msgqueue.ModePrompt:
-		// The user message was already appended to m.messages when enqueued
-		// (in handleSubmit), so we don't append again. Just start the query.
-		*m = m.beginQuery()
+		// The user message was already appended when enqueued. Record that
+		// bubble: its markers are not in GetMessages until this query ends.
+		*m = m.beginQuery().noteInflightUser(cmd.Value)
 		return startQueryCmd(m, cmd.Value, cmd.Origin == "")
 	case msgqueue.ModeExternalPrompt:
 		// EV-01: externally injected event (e.g. MCP server notification).
-		// The display message was NOT appended at enqueue time — do it here,
-		// then start the query so the agent reacts to the event.
+		// Open the window first, then append the display message, so this
+		// turn's bubble is counted before GetMessages includes it.
+		*m = m.beginQuery()
 		m.messages = append(m.messages, newUserMessage(cmd.Value))
 		m.pinnedToBottom = true
 		m.syncViewportContent()
-		*m = m.beginQuery()
 		return startQueryCmd(m, cmd.Value, false)
 	}
 	return nil

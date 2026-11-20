@@ -499,15 +499,12 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 		return m, nil // No startQueryCmd — will drain later.
 	}
 
-	// Default: direct dispatch (existing behavior, backward compat if msgQueue==nil).
-	// Append user message to local display.
+	// Direct dispatch when msgQueue is nil. Open the turn window before the
+	// user bubble so its markers count while GetMessages is still the prior turn.
+	m = m.beginQuery()
 	m.messages = append(m.messages, newUserMessage(text))
 	m.syncViewportContent()
-
-	// Normal query.
-	m = m.beginQuery()
-	queryCmd := startQueryCmd(&m, text, true)
-	return m, queryCmd
+	return m, startQueryCmd(&m, text, true)
 }
 
 // handleQuickMemory saves a user preference via the # shortcut.

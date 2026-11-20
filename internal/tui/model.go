@@ -72,8 +72,14 @@ type AppModel struct {
 	// starts; startQueryCmd resets it before creating the new context.
 	messages  []types.Message
 	isLoading bool
-	abortFn   context.CancelFunc // nil when idle
-	abortCtx  context.Context    // current query context
+	// inflightBase is the m.messages index at turn start. While isLoading,
+	// bubbles from here on are not in GetMessages yet.
+	inflightBase int
+	// inflightPending is a user bubble queued before this turn whose markers
+	// are not in GetMessages. -1 when this turn has no such bubble.
+	inflightPending int
+	abortFn         context.CancelFunc // nil when idle
+	abortCtx        context.Context    // current query context
 
 	// --- UI sub-view state ---
 	activeDialog dialogKind

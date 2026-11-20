@@ -105,6 +105,10 @@ func (m AppModel) beginQuery() AppModel {
 	m.spinner = m.spinner.Reset()
 	m.turnStart = m.clock()
 	m.turnStats = turnStats{}
+	// The bubble appended after this call is outside GetMessages until the
+	// query loop exits. A prompt queued earlier is recorded separately.
+	m.inflightBase = len(m.messages)
+	m.inflightPending = -1
 	return m
 }
 

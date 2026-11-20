@@ -130,7 +130,7 @@ func (m AppModel) onClipboardImage(msg clipboardImageMsg) (AppModel, tea.Cmd) {
 	if m.activeDialog != dialogNone {
 		return m, nil
 	}
-	if countImages(m.queryEngine.GetMessages())+m.distinctInputImages() >= maxSessionImages {
+	if m.sessionImageCount() >= maxSessionImages {
 		m.setPasteNotice(noticeImageCap)
 		return m, nil
 	}
@@ -188,21 +188,101 @@ func imageBlockCount(block types.ContentBlock) int {
 	}
 }
 
-// distinctInputImages counts stored image markers in the input, once per id.
-func (m AppModel) distinctInputImages() int {
-	if m.pastes == nil {
+// sessionImageCount is history plus images not yet written back to the engine.
+// While idle, that is GetMessages plus distinct markers in the input.
+// While loading, bubbles from the turn-start index (and a queued user bubble
+// from the previous turn) are included too. Older bubbles are not scanned:
+// their images are already blocks inside GetMessages.
+func (m AppModel) sessionImageCount() int {
+	n := countImages(m.queryEngine.GetMessages())
+	texts := []string{m.input.Value()}
+	if m.isLoading {
+		tail := m.inflightTail()
+		n += countImages(tail)
+		texts = append(texts, messageTexts(tail)...)
+		if msg, ok := m.pendingInflightMessage(); ok {
+			texts = append(texts, messagePlainText(msg))
+		}
+	}
+	return n + distinctImageMarkers(m.pastes, texts)
+}
+
+// inflightTail is the display bubbles appended after this turn's window opened.
+func (m AppModel) inflightTail() []types.Message {
+	if m.inflightBase < 0 || m.inflightBase > len(m.messages) {
+		return nil
+	}
+	return m.messages[m.inflightBase:]
+}
+
+// pendingInflightMessage is the queued user bubble from the previous turn.
+func (m AppModel) pendingInflightMessage() (types.Message, bool) {
+	i := m.inflightPending
+	if i < 0 || i >= len(m.messages) || i >= m.inflightBase {
+		return types.Message{}, false
+	}
+	return m.messages[i], true
+}
+
+// noteInflightUser records a user bubble already on screen whose text matches
+// the prompt about to run. beginQuery must run first. A bubble inside the new
+// window is left alone so its markers are not counted twice.
+func (m AppModel) noteInflightUser(text string) AppModel {
+	idx := userBubbleIndex(m.messages, text)
+	if idx >= 0 && idx < m.inflightBase {
+		m.inflightPending = idx
+	}
+	return m
+}
+
+func userBubbleIndex(msgs []types.Message, text string) int {
+	found := -1
+	for i, msg := range msgs {
+		if msg.Role != types.RoleUser {
+			continue
+		}
+		if messagePlainText(msg) == text {
+			found = i
+		}
+	}
+	return found
+}
+
+func messageTexts(msgs []types.Message) []string {
+	out := make([]string, len(msgs))
+	for i, msg := range msgs {
+		out[i] = messagePlainText(msg)
+	}
+	return out
+}
+
+func messagePlainText(msg types.Message) string {
+	text := ""
+	for _, block := range msg.Content {
+		if block.Type == types.ContentTypeText && block.Text != nil {
+			text += *block.Text
+		}
+	}
+	return text
+}
+
+// distinctImageMarkers counts stored image markers in texts, once per id.
+func distinctImageMarkers(pastes *pasteStore, texts []string) int {
+	if pastes == nil {
 		return 0
 	}
 	seen := make(map[int]struct{})
-	for _, tok := range markerRe.FindAllString(m.input.Value(), -1) {
-		if !m.pastes.isMarker(tok) {
-			continue
+	for _, text := range texts {
+		for _, tok := range markerRe.FindAllString(text, -1) {
+			if !pastes.isMarker(tok) {
+				continue
+			}
+			item := pastes.items[markerID(tok)]
+			if item == nil || item.kind != pasteImage {
+				continue
+			}
+			seen[markerID(tok)] = struct{}{}
 		}
-		item := m.pastes.items[markerID(tok)]
-		if item == nil || item.kind != pasteImage {
-			continue
-		}
-		seen[markerID(tok)] = struct{}{}
 	}
 	return len(seen)
 }
