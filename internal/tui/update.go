@@ -402,6 +402,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input, cmd = m.input.Update(msg)
 		return m, tea.Batch(cmd, m.refreshCompletion())
 
+	// --- ! bash mode result ---
+	case bashResultMsg:
+		return m.onBashResult(msg)
+
 	// --- /btw side question stream ---
 	case btwChunkMsg:
 		return m.onBTWChunk(msg)
@@ -592,6 +596,9 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 	if result.ClearHistory {
 		m = m.dropBTW()
 		m.btwPending = ""
+		m = m.cancelBash()
+		m.bashPending = nil
+		m.bashGen++
 		m.messages = nil
 		m.queryEngine.SetMessages(nil)
 		m.statusBar.contextTokens = 0
