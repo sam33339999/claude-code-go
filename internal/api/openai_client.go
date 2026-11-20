@@ -111,7 +111,7 @@ func (c *openaiClient) buildRequest(ctx context.Context, req *MessageRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("api: marshal openai request: %w", err)
 	}
-	url := c.baseURL + "/v1/chat/completions"
+	url := openAIURL(c.baseURL, "/chat/completions")
 
 	// Build headers map for logging.
 	reqHeaders := map[string]string{

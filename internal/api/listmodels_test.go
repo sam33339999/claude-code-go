@@ -238,3 +238,17 @@ func TestOpenRouterHostMatch(t *testing.T) {
 		t.Error("openRouterHostMatch")
 	}
 }
+
+func TestListModels_BaseURLWithV4(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/coding/paas/v4/models" {
+			t.Errorf("path = %s, want /api/coding/paas/v4/models", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"data":[{"id":"glm-5"}]}`))
+	}))
+	defer srv.Close()
+	got, err := ListModels(context.Background(), ClientConfig{Provider: ProviderOpenAI, BaseURL: srv.URL + "/api/coding/paas/v4", APIKey: "k"}, nil)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("models = %+v, err = %v", got, err)
+	}
+}
