@@ -57,6 +57,15 @@ type questionState struct {
 type AppModel struct {
 	// --- Session state ---
 	sessionID string
+	// --- Turn timing (see turntiming.go) ---
+	// turnStart is when the running turn began (zero = no turn being timed).
+	turnStart time.Time
+	// turnStats accumulates the running turn's counters.
+	turnStats turnStats
+	// turnLogPath is the JSONL turn-timing log; "" disables logging.
+	turnLogPath string
+	// now is the clock used for turn timing (nil = time.Now).
+	now func() time.Time
 	// messages is the full conversation history.
 	// NOTE: abortFn may still point to a previous context when a new query
 	// starts; startQueryCmd resets it before creating the new context.

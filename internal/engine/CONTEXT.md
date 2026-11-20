@@ -2,7 +2,7 @@
 package: engine
 import_path: internal/engine
 layer: core
-generated_at: 2026-11-19T18:29:52Z
+generated_at: 2026-11-20T03:43:08Z
 source_files: [budget.go, cache_params.go, compaction.go, engine.go, forked_agent.go, msg.go, orchestration.go, query.go, stop_hooks.go]
 ---
 
@@ -98,7 +98,7 @@ type QueryEngine interface {
 - `Config` → `internal/bootstrap/wire.go`
 - `ForkedAgentConfig` → `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/session_memory.go`
 - `MainTarget` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/modelswitch_test.go` (test), `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 5 more
-- `Msg` → `internal/bootstrap/run.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/bootstrap/wire_result_test.go` (test) + 7 more
+- `Msg` → `internal/bootstrap/run.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/bootstrap/wire_result_test.go` (test) + 8 more
 - `QueryEngine` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/tui/cmds.go`, `internal/tui/init.go` + 1 more
 - `QueryParams` → `internal/bootstrap/run.go`, `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/tui/btw.go`, `internal/tui/btw_test.go` (test) + 2 more
 - `StopHookContext` → `internal/bootstrap/wire.go`, `internal/memdir/dream.go`, `internal/memdir/extract.go`, `internal/memdir/extract_test.go` (test), `internal/memdir/session_memory.go`

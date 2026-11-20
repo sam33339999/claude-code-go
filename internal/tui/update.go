@@ -114,6 +114,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.activeTool = msg.ToolName
+		m.turnStats.toolCalls++
 		return m, waitForStreamEvent(m.streamCh)
 
 	case StreamToolUseInputDeltaMsg:
@@ -142,6 +143,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.messages = append(m.messages, *msg.FinalMessage)
 		}
 		m = m.recordUsage(msg.Usage)
+		m = m.noteTurnUsage(msg.Usage)
 		m.streamingText = ""
 		m.streamingHasMsg = false
 		m.syncViewportContent()
@@ -162,6 +164,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case StreamDoneMsg:
 		m.mainSnap = nil
 		m = m.recordUsage(msg.Usage)
+		m = m.noteTurnUsage(msg.Usage)
 		m = m.resetQueryFeedback()
 		m.isLoading = false
 		m.showSpinner = false
@@ -176,6 +179,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.streamingText = ""
 		m.streamingHasMsg = false
+		var timingCmd tea.Cmd
+		m, timingCmd = m.finishTurn("done")
 		m.pinnedToBottom = true
 		m.syncViewportContent()
 
@@ -188,7 +193,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.reclaimBTWNotes()
 
 		// BF-18: persist the completed turn off the Update loop.
-		cmds := []tea.Cmd{persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages())}
+		cmds := []tea.Cmd{persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages()), timingCmd}
 
 		// P1: Between-turn drain — process queued commands now that the query
 		// finished (deferred while the /resume picker is open; it drains on close).
@@ -208,9 +213,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streamingText = ""
 		m.streamingHasMsg = false
 		m.messages = append(m.messages, newSystemErrorMessage("Error: "+msg.Err.Error()))
+		var timingCmd tea.Cmd
+		m, timingCmd = m.finishTurn("error")
 		m.syncViewportContent()
 		// BF-18: persist the partial turn (user input + any streamed output).
-		return m, persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages())
+		return m, tea.Batch(persistTranscriptCmd(m.transcript, m.queryEngine.GetMessages()), timingCmd)
 
 	// --- Session persistence failure (BF-18) ---
 	case TranscriptErrMsg:
@@ -494,9 +501,7 @@ func processQueueCmd(m *AppModel) tea.Cmd {
 	case msgqueue.ModePrompt:
 		// The user message was already appended to m.messages when enqueued
 		// (in handleSubmit), so we don't append again. Just start the query.
-		m.isLoading = true
-		m.showSpinner = true
-		m.spinner = m.spinner.Reset()
+		*m = m.beginQuery()
 		return startQueryCmd(m, cmd.Value)
 	case msgqueue.ModeExternalPrompt:
 		// EV-01: externally injected event (e.g. MCP server notification).
@@ -505,9 +510,7 @@ func processQueueCmd(m *AppModel) tea.Cmd {
 		m.messages = append(m.messages, newUserMessage(cmd.Value))
 		m.pinnedToBottom = true
 		m.syncViewportContent()
-		m.isLoading = true
-		m.showSpinner = true
-		m.spinner = m.spinner.Reset()
+		*m = m.beginQuery()
 		return startQueryCmd(m, cmd.Value)
 	}
 	return nil
@@ -673,9 +676,7 @@ func (m AppModel) applyDisplayResult(result commands.Result) (AppModel, tea.Cmd)
 		}
 	case commands.DisplayNone:
 		if result.Text != "" {
-			m.isLoading = true
-			m.showSpinner = true
-			m.spinner = m.spinner.Reset()
+			m = m.beginQuery()
 			return m, startQueryCmd(&m, result.Text)
 		}
 	}
