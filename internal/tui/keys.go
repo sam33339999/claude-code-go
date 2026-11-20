@@ -170,6 +170,7 @@ func (m AppModel) handleCompactKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.statusBar.contextTokens = 0
 		m.messages = nil
 		m.queryEngine.SetMessages(nil)
+		m = m.dropUnsentUsers()
 		sessionID := m.sessionID
 		store := m.memoryStore
 		return m, func() tea.Msg {
@@ -495,6 +496,7 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 		m.msgQueue.Enqueue(cmd)
 		// Show queued message in UI so the user sees their input was accepted.
 		m.messages = append(m.messages, newUserMessage(text))
+		m = m.noteQueuedUser()
 		m.syncViewportContent()
 		return m, nil // No startQueryCmd — will drain later.
 	}

@@ -75,11 +75,13 @@ type AppModel struct {
 	// inflightBase is the m.messages index at turn start. While isLoading,
 	// bubbles from here on are not in GetMessages yet.
 	inflightBase int
-	// inflightPending is a user bubble queued before this turn whose markers
-	// are not in GetMessages. -1 when this turn has no such bubble.
-	inflightPending int
-	abortFn         context.CancelFunc // nil when idle
-	abortCtx        context.Context    // current query context
+	// unsentUsers are queued user-bubble indices whose images are not in
+	// GetMessages yet. The running one stays until that query writes back.
+	unsentUsers []int
+	// inflightUser is the unsentUsers entry this query will write back, or -1.
+	inflightUser int
+	abortFn      context.CancelFunc // nil when idle
+	abortCtx     context.Context    // current query context
 
 	// --- UI sub-view state ---
 	activeDialog dialogKind
@@ -345,6 +347,7 @@ func newAppModel(
 	if setup != nil && setup.NeedsSetup() {
 		m.messages = append(m.messages, newSystemMessage(setupStartupNotice))
 	}
+	m.inflightUser = -1
 	return m
 }
 

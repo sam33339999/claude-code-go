@@ -514,9 +514,9 @@ func processQueueCmd(m *AppModel) tea.Cmd {
 			return queuedSlashMsg{Text: text}
 		}
 	case msgqueue.ModePrompt:
-		// The user message was already appended when enqueued. Record that
-		// bubble: its markers are not in GetMessages until this query ends.
-		*m = m.beginQuery().noteInflightUser(cmd.Value)
+		// The user message was already appended when enqueued. Every queued
+		// bubble stays unsent until its own query writes back.
+		*m = m.beginQuery().claimQueuedUser()
 		return startQueryCmd(m, cmd.Value, cmd.Origin == "")
 	case msgqueue.ModeExternalPrompt:
 		// EV-01: externally injected event (e.g. MCP server notification).
@@ -612,6 +612,7 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 		m.bashGen++
 		m.messages = nil
 		m.queryEngine.SetMessages(nil)
+		m = m.dropUnsentUsers()
 		m.statusBar.contextTokens = 0
 		m.streamingText = ""
 		m.streamingHasMsg = false
@@ -668,6 +669,7 @@ func (m AppModel) applyResumeResult(result commands.Result) (AppModel, bool) {
 	}
 	m.messages = msgs
 	m.queryEngine.SetMessages(msgs)
+	m = m.dropUnsentUsers()
 	// Shell output from the old session must not leak into the resumed one.
 	m = m.cancelBash()
 	m.bashPending = nil
@@ -723,5 +725,6 @@ func (m AppModel) resetQueryFeedback() AppModel {
 	m.activeTool = ""
 	m.streamedChars = 0
 	m.queryOutputTokens = 0
-	return m
+	// The loop has exited, so this turn's user bubble is in GetMessages.
+	return m.releaseWrittenUser()
 }

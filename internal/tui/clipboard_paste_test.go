@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/tunsuy/glaude/internal/clipboard"
+	"github.com/tunsuy/glaude/internal/msgqueue"
 	"github.com/tunsuy/glaude/pkg/types"
 )
 
@@ -291,6 +292,114 @@ func TestCtrlV_HistoricalBubblesNotDoubleCounted(t *testing.T) {
 	if !m.pastes.isMarker(m.input.Value()) {
 		t.Fatalf("input = %q, want a new image marker", m.input.Value())
 	}
+}
+
+func TestCtrlV_QueuedPromptsStillCount(t *testing.T) {
+	m := newTestModel()
+	m.msgQueue = msgqueue.NewMessageQueue()
+	m.input = m.input.SetValue("turn")
+	m, cmd := press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil || !m.isLoading {
+		t.Fatal("submit did not start a turn")
+	}
+
+	m = queueUser(t, m, imageMarkers(m, 10))
+	m = queueUser(t, m, imageMarkers(m, 10))
+	if len(m.queryEngine.GetMessages()) != 0 {
+		t.Fatal("GetMessages filled without running Query")
+	}
+
+	// Drop the drain command so fakeEngine.Query does not write history.
+	m = drainNextPrompt(t, m)
+	if !m.isLoading {
+		t.Fatal("drain did not start the queued prompt")
+	}
+	if len(m.queryEngine.GetMessages()) != 0 {
+		t.Fatal("drain wrote GetMessages")
+	}
+
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if got := m.input.Value(); got != "" {
+		t.Fatalf("input = %q, want no new marker", got)
+	}
+	if !strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatalf("view missing cap notice: %q", m.View().Content)
+	}
+
+	// The running prompt's images are in history. Production then starts the
+	// next queued prompt, so the session is loading again. Those 10 blocks
+	// must not be added to their markers, and the bubble still waiting counts.
+	m.queryEngine.SetMessages(messagesWithImages(10, 0))
+	m = drainNextPrompt(t, m)
+	if !m.isLoading {
+		t.Fatal("follow-up drain did not start")
+	}
+	if countImages(m.queryEngine.GetMessages()) != 10 {
+		t.Fatalf("written-back images = %d, want 10", countImages(m.queryEngine.GetMessages()))
+	}
+	m = applyCtrlV(t, m)
+	if got := m.input.Value(); got != "" {
+		t.Fatalf("input = %q, want no new marker after write-back", got)
+	}
+	if !strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatal("queued bubble was dropped after write-back")
+	}
+
+	// 9 blocks + the waiting 10 markers is under the cap. Counting the
+	// written-back markers as well would still refuse the paste.
+	m.queryEngine.SetMessages(messagesWithImages(9, 0))
+	m = applyCtrlV(t, m)
+	if strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatal("written-back bubble was counted again")
+	}
+	if !m.pastes.isMarker(m.input.Value()) {
+		t.Fatalf("input = %q, want a new image marker", m.input.Value())
+	}
+}
+
+func TestCtrlV_QueuedDuplicateTextCountsBoth(t *testing.T) {
+	m := newTestModel()
+	m.msgQueue = msgqueue.NewMessageQueue()
+	m.input = m.input.SetValue("turn")
+	m, cmd := press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil || !m.isLoading {
+		t.Fatal("submit did not start a turn")
+	}
+	text := imageMarkers(m, 10)
+	m = queueUser(t, m, text)
+	m = queueUser(t, m, text)
+	m = drainNextPrompt(t, m)
+	if len(m.queryEngine.GetMessages()) != 0 {
+		t.Fatal("drain wrote GetMessages")
+	}
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if got := m.input.Value(); got != "" {
+		t.Fatalf("input = %q, want no new marker", got)
+	}
+	if !strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatalf("view missing cap notice: %q", m.View().Content)
+	}
+}
+
+func queueUser(t *testing.T, m AppModel, text string) AppModel {
+	t.Helper()
+	if !m.isLoading {
+		t.Fatal("queueUser requires a running turn")
+	}
+	m.input = m.input.SetValue(text)
+	m, cmd := press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatal("queued submit started a query")
+	}
+	return m
+}
+
+func drainNextPrompt(t *testing.T, m AppModel) AppModel {
+	t.Helper()
+	updated, _ := m.Update(StreamDoneMsg{})
+	return updated.(AppModel)
 }
 
 func imageMarkers(m AppModel, n int) string {

@@ -190,9 +190,10 @@ func imageBlockCount(block types.ContentBlock) int {
 
 // sessionImageCount is history plus images not yet written back to the engine.
 // While idle, that is GetMessages plus distinct markers in the input.
-// While loading, bubbles from the turn-start index (and a queued user bubble
-// from the previous turn) are included too. Older bubbles are not scanned:
-// their images are already blocks inside GetMessages.
+// While loading, the turn tail supplies tool-result blocks and any bubble
+// appended after the window opened. Queued user bubbles from earlier turns
+// are counted from unsentUsers, one submission at a time. Bubbles already
+// written back are not scanned: their markers are image blocks in GetMessages.
 func (m AppModel) sessionImageCount() int {
 	n := countImages(m.queryEngine.GetMessages())
 	texts := []string{m.input.Value()}
@@ -200,9 +201,7 @@ func (m AppModel) sessionImageCount() int {
 		tail := m.inflightTail()
 		n += countImages(tail)
 		texts = append(texts, messageTexts(tail)...)
-		if msg, ok := m.pendingInflightMessage(); ok {
-			texts = append(texts, messagePlainText(msg))
-		}
+		texts = append(texts, m.unsentMarkerTexts()...)
 	}
 	return n + distinctImageMarkers(m.pastes, texts)
 }
@@ -215,37 +214,65 @@ func (m AppModel) inflightTail() []types.Message {
 	return m.messages[m.inflightBase:]
 }
 
-// pendingInflightMessage is the queued user bubble from the previous turn.
-func (m AppModel) pendingInflightMessage() (types.Message, bool) {
-	i := m.inflightPending
-	if i < 0 || i >= len(m.messages) || i >= m.inflightBase {
-		return types.Message{}, false
+// unsentMarkerTexts is queued user bubbles still outside GetMessages and
+// outside the current turn tail. Each submission is its own text.
+func (m AppModel) unsentMarkerTexts() []string {
+	var out []string
+	for _, idx := range m.unsentUsers {
+		if idx < 0 || idx >= len(m.messages) || idx >= m.inflightBase {
+			continue
+		}
+		out = append(out, messagePlainText(m.messages[idx]))
 	}
-	return m.messages[i], true
+	return out
 }
 
-// noteInflightUser records a user bubble already on screen whose text matches
-// the prompt about to run. beginQuery must run first. A bubble inside the new
-// window is left alone so its markers are not counted twice.
-func (m AppModel) noteInflightUser(text string) AppModel {
-	idx := userBubbleIndex(m.messages, text)
-	if idx >= 0 && idx < m.inflightBase {
-		m.inflightPending = idx
+// noteQueuedUser records the user bubble just appended by a mid-turn enqueue.
+func (m AppModel) noteQueuedUser() AppModel {
+	if len(m.messages) == 0 {
+		return m
 	}
+	m.unsentUsers = append(m.unsentUsers, len(m.messages)-1)
 	return m
 }
 
-func userBubbleIndex(msgs []types.Message, text string) int {
-	found := -1
-	for i, msg := range msgs {
-		if msg.Role != types.RoleUser {
-			continue
-		}
-		if messagePlainText(msg) == text {
-			found = i
+// claimQueuedUser marks the oldest queued bubble as the one this query writes
+// back. beginQuery must run first. The bubble stays unsent until release.
+func (m AppModel) claimQueuedUser() AppModel {
+	if len(m.unsentUsers) == 0 {
+		m.inflightUser = -1
+		return m
+	}
+	m.inflightUser = m.unsentUsers[0]
+	return m
+}
+
+// releaseWrittenUser drops the bubble whose query just exited. Later queued
+// bubbles stay, because their images are still not in GetMessages.
+func (m AppModel) releaseWrittenUser() AppModel {
+	if m.inflightUser < 0 {
+		return m
+	}
+	m.unsentUsers = dropUserIndex(m.unsentUsers, m.inflightUser)
+	m.inflightUser = -1
+	return m
+}
+
+// dropUnsentUsers forgets queued bubbles when display history is replaced.
+func (m AppModel) dropUnsentUsers() AppModel {
+	m.unsentUsers = nil
+	m.inflightUser = -1
+	return m
+}
+
+func dropUserIndex(idxs []int, target int) []int {
+	out := make([]int, 0, len(idxs))
+	for _, idx := range idxs {
+		if idx != target {
+			out = append(out, idx)
 		}
 	}
-	return found
+	return out
 }
 
 func messageTexts(msgs []types.Message) []string {
@@ -266,23 +293,30 @@ func messagePlainText(msg types.Message) string {
 	return text
 }
 
-// distinctImageMarkers counts stored image markers in texts, once per id.
+// distinctImageMarkers counts stored image markers once per id inside each
+// text, then sums the texts. Two submissions of the same marker both count.
 func distinctImageMarkers(pastes *pasteStore, texts []string) int {
 	if pastes == nil {
 		return 0
 	}
-	seen := make(map[int]struct{})
+	n := 0
 	for _, text := range texts {
-		for _, tok := range markerRe.FindAllString(text, -1) {
-			if !pastes.isMarker(tok) {
-				continue
-			}
-			item := pastes.items[markerID(tok)]
-			if item == nil || item.kind != pasteImage {
-				continue
-			}
-			seen[markerID(tok)] = struct{}{}
+		n += imageMarkersIn(pastes, text)
+	}
+	return n
+}
+
+func imageMarkersIn(pastes *pasteStore, text string) int {
+	seen := make(map[int]struct{})
+	for _, tok := range markerRe.FindAllString(text, -1) {
+		if !pastes.isMarker(tok) {
+			continue
 		}
+		item := pastes.items[markerID(tok)]
+		if item == nil || item.kind != pasteImage {
+			continue
+		}
+		seen[markerID(tok)] = struct{}{}
 	}
 	return len(seen)
 }

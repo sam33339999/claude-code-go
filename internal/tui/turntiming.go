@@ -105,10 +105,10 @@ func (m AppModel) beginQuery() AppModel {
 	m.spinner = m.spinner.Reset()
 	m.turnStart = m.clock()
 	m.turnStats = turnStats{}
-	// The bubble appended after this call is outside GetMessages until the
-	// query loop exits. A prompt queued earlier is recorded separately.
+	// Bubbles appended after this call stay out of GetMessages until the loop
+	// exits. Queued user bubbles from earlier stay in unsentUsers.
 	m.inflightBase = len(m.messages)
-	m.inflightPending = -1
+	m.inflightUser = -1
 	return m
 }
 
