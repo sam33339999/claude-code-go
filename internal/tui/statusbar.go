@@ -60,7 +60,7 @@ func (s StatusBar) contextPercent() int {
 	return p
 }
 
-// contextMeter renders "ctx ▰▰▱▱▱ 42%", coloured by how full the window is.
+// contextMeter renders "ctx ██░░░ 42%", coloured by how full the window is.
 func (s StatusBar) contextMeter(theme Theme) string {
 	if s.contextWindow <= 0 || s.contextTokens == 0 {
 		return ""
@@ -71,7 +71,7 @@ func (s StatusBar) contextMeter(theme Theme) string {
 	if p > 0 && filled == 0 {
 		filled = 1
 	}
-	bar := strings.Repeat("▰", filled) + strings.Repeat("▱", cells-filled)
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", cells-filled)
 	style := mutedStyle(theme)
 	switch {
 	case p >= 90:
