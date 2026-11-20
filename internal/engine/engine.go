@@ -138,6 +138,10 @@ type engineImpl struct {
 	// messages is the mutable conversation history; protected by mu.
 	messages []types.Message
 
+	// imageRejected records models (by ID) that rejected image input this
+	// session; their requests carry placeholders instead of images.
+	imageRejected sync.Map
+
 	// abortMu protects abortFn against concurrent reads from Interrupt() and
 	// writes from Query() running in separate goroutines.
 	abortMu sync.Mutex

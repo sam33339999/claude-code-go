@@ -340,6 +340,7 @@ func executeOneTool(
 	callResult, callErr := t.Call(tc.input, uctx, onProgress)
 
 	var contentStr string
+	var resultBlocks []types.ContentBlock
 	isError := false
 	if callErr != nil {
 		contentStr = callErr.Error()
@@ -355,18 +356,12 @@ func executeOneTool(
 		if merr != nil {
 			contentStr = fmt.Sprintf("error formatting result: %v", merr)
 		} else {
-			// Parse the tool_result block to extract the content field.
-			var block struct {
-				Content string `json:"content"`
-			}
-			if json.Unmarshal(raw, &block) == nil {
-				contentStr = block.Content
-			} else {
-				// Fallback: use the raw JSON.
-				contentStr = string(raw)
-			}
+			resultBlocks, contentStr = toolResultContent(raw)
 		}
 		isError = callResult.IsError
+	}
+	if resultBlocks == nil {
+		resultBlocks = []types.ContentBlock{{Type: types.ContentTypeText, Text: &contentStr}}
 	}
 
 	// Emit ToolResult msg.
@@ -386,7 +381,7 @@ func executeOneTool(
 	return types.ContentBlock{
 		Type:      types.ContentTypeToolResult,
 		ToolUseID: &tc.id,
-		Content:   []types.ContentBlock{{Type: types.ContentTypeText, Text: &contentStr}},
+		Content:   resultBlocks,
 		IsError:   &isErrorVal,
 	}, nil
 }

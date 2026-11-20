@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,7 +159,15 @@ func (t *fileReadTool) Call(input tools.Input, ctx *tools.UseContext, _ tools.On
 
 	// Route by file type.
 	switch {
+	case ext == ".svg":
+		// SVG is XML text; image APIs do not accept it as an image.
+		return t.readText(fullPath, in, ctx)
+	case isImageExtension(ext) && !apiImageExtensions[ext]:
+		return &tools.Result{IsError: true, Content: fmt.Sprintf("cannot read %s: %s images are not supported (only PNG, JPEG, GIF, WebP); convert it first", fullPath, ext)}, nil
 	case isImageExtension(ext):
+		if info.Size() > maxImageBytes {
+			return &tools.Result{IsError: true, Content: fmt.Sprintf("image too large: %s is %.1f MB (limit %.2f MB); downscale it first, e.g. `sips -Z 1568 <in> --out <out>` on macOS", fullPath, float64(info.Size())/1e6, float64(maxImageBytes)/1e6)}, nil
+		}
 		return t.readImage(fullPath)
 	default:
 		return t.readText(fullPath, in, ctx)
@@ -226,6 +235,13 @@ func (t *fileReadTool) readText(fullPath string, in FileReadInput, ctx *tools.Us
 	return &tools.Result{Content: out}, nil
 }
 
+// maxImageBytes caps images sent to the model: the Anthropic API rejects
+// images whose base64 exceeds 5 MB (≈3.75 MB raw).
+const maxImageBytes = 3_750_000
+
+// apiImageExtensions are the image formats provider APIs accept.
+var apiImageExtensions = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true}
+
 // readImage reads an image file and returns it as a base64-encoded block.
 func (t *fileReadTool) readImage(fullPath string) (*tools.Result, error) {
 	data, err := os.ReadFile(fullPath)
@@ -233,8 +249,7 @@ func (t *fileReadTool) readImage(fullPath string) (*tools.Result, error) {
 		return &tools.Result{IsError: true, Content: fmt.Sprintf("cannot read image: %v", err)}, nil
 	}
 
-	ext := strings.ToLower(filepath.Ext(fullPath))
-	mediaType := extToMIME(ext)
+	mediaType := imageMediaType(data, strings.ToLower(filepath.Ext(fullPath)))
 
 	out := FileReadOutput{
 		Type:      "image",
@@ -243,6 +258,17 @@ func (t *fileReadTool) readImage(fullPath string) (*tools.Result, error) {
 		MediaType: mediaType,
 	}
 	return &tools.Result{Content: out}, nil
+}
+
+// imageMediaType labels image data by its content (screenshots are often
+// JPEG saved as .png; the API rejects a mismatched media type), falling back
+// to the extension when the content is not a recognised API image format.
+func imageMediaType(data []byte, ext string) string {
+	switch sniffed := http.DetectContentType(data); sniffed {
+	case "image/png", "image/jpeg", "image/gif", "image/webp":
+		return sniffed
+	}
+	return extToMIME(ext)
 }
 
 // extToMIME maps image file extensions to MIME types.
