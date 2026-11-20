@@ -17,9 +17,15 @@ type TokenUsage struct {
 
 // StatusBar renders the one-line status shown under the input box.
 type StatusBar struct {
-	model  string
-	cwd    string
-	effort string // low, medium, high
+	model string
+	// defaultModel is the model the session started on (settings, env and
+	// --model merged); a different model means /model switched it.
+	defaultModel string
+	// restartModel is the main model /setup wrote to settings.json; it only
+	// takes effect after a restart.
+	restartModel string
+	cwd          string
+	effort       string // low, medium, high
 	// tokenUsage is cumulative for the session (all requests).
 	tokenUsage TokenUsage
 	// contextTokens is the prompt+output size of the latest request — what
@@ -125,8 +131,18 @@ func (s StatusBar) View(width int, theme Theme) string {
 	if s.coordinator {
 		left = append(left, accentStyle(theme).Render("Coordinator"))
 	}
-	left = append(left, primaryStyle(theme).Render(modelStr))
-	leftFixed := strings.Join(left, sep)
+	model := primaryStyle(theme).Render(modelStr)
+	leftFixed := strings.Join(append(left, model), sep)
+	if ann := s.modelAnnotation(); ann != "" {
+		// Use the full note only while it leaves the right side and a
+		// usable cwd (8 cells); otherwise collapse it to a "*".
+		full := strings.Join(append(left, model+mutedStyle(theme).Render(" ("+ann+")")), sep)
+		if displayWidth(full)+displayWidth(strings.Join(right, sep))+displayWidth(sep)+8+1 <= width {
+			leftFixed = full
+		} else {
+			leftFixed = strings.Join(append(left, model+mutedStyle(theme).Render("*")), sep)
+		}
+	}
 
 	// On narrow terminals drop right-side items least-important first
 	// (effort, then memory, then tokens), keeping the context meter longest.
@@ -149,6 +165,19 @@ func (s StatusBar) View(width int, theme Theme) string {
 		return truncateWidth(leftStr, width)
 	}
 	return leftStr + strings.Repeat(" ", gap) + rightStr
+}
+
+// modelAnnotation explains where the shown model comes from: "" when it is
+// the startup default and no /setup change is waiting for a restart.
+func (s StatusBar) modelAnnotation() string {
+	var notes []string
+	if s.defaultModel != "" && s.model != "" && s.model != s.defaultModel {
+		notes = append(notes, "session · default "+s.defaultModel)
+	}
+	if s.restartModel != "" && s.restartModel != s.model {
+		notes = append(notes, "restart → "+s.restartModel)
+	}
+	return strings.Join(notes, " · ")
 }
 
 // formatTokens returns a compact cumulative token count string.

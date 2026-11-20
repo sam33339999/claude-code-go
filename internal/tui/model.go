@@ -304,6 +304,7 @@ func newAppModel(
 		},
 		statusBar: StatusBar{
 			model:         model,
+			defaultModel:  model,
 			cwd:           cwd,
 			contextWindow: compact.ResolveContextWindow(model, mainContextWindow(tiers)),
 		},

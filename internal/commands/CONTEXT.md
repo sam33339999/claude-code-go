@@ -2,7 +2,7 @@
 package: commands
 import_path: internal/commands
 layer: cli
-generated_at: 2026-11-20T05:17:49Z
+generated_at: 2026-11-20T06:16:03Z
 source_files: [builtins.go, mcp.go, modelswitch.go, registry.go, resume.go, setup.go, terminal_setup.go, tier.go]
 ---
 
@@ -111,7 +111,7 @@ type TierManager interface {
 - `SetupInput` → `internal/bootstrap/setup.go`, `internal/bootstrap/setup_test.go` (test), `internal/tui/setup_dialog.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`
 - `SetupModel` → `internal/bootstrap/setup.go`, `internal/tui/setup_dialog.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`, `internal/tui/setupwizard_test.go` (test)
 - `SetupPlan` → `internal/bootstrap/setup.go`, `internal/bootstrap/setup_test.go` (test), `internal/tui/setup_dialog.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`
-- `SetupReport` → `internal/bootstrap/setup.go`, `internal/tui/setup_dialog.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`, `internal/tui/setupwizard_test.go` (test)
+- `SetupReport` → `internal/bootstrap/setup.go`, `internal/tui/setup_dialog.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`, `internal/tui/setupwizard_test.go` (test) + 1 more
 - `TierManager` → `internal/bootstrap/tiers.go`, `internal/tui/init.go`, `internal/tui/model.go`
 
 ## Dependencies
