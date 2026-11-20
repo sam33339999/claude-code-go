@@ -24,8 +24,8 @@ type StatusBar struct {
 	// restartModel is the main model /setup wrote to settings.json; it only
 	// takes effect after a restart.
 	restartModel string
-	cwd    string
-	effort string // low, medium, high
+	cwd          string
+	effort       string // low, medium, high
 	// tokenUsage is cumulative for the session (all requests).
 	tokenUsage TokenUsage
 	// contextTokens is the prompt+output size of the latest request — what

@@ -1,8 +1,11 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/tunsuy/glaude/internal/commands"
 )
 
 func barText(s StatusBar, width int) string {
@@ -46,5 +49,41 @@ func TestStatusBar_NarrowCollapsesAnnotation(t *testing.T) {
 	}
 	if w := displayWidth(got); w > 60 {
 		t.Errorf("width %d > 60", w)
+	}
+}
+
+func TestModelSwitch_MarksSession(t *testing.T) {
+	m, _ := newBTWModel(t, nil)
+	m = m.switchModelRef("other-model")
+	if got := barText(m.statusBar, 160); !strings.Contains(got, "other-model (session · default main-model)") {
+		t.Errorf("bar = %q", got)
+	}
+}
+
+func TestModelSwitch_BackToDefaultClearsMarker(t *testing.T) {
+	m, _ := newBTWModel(t, nil)
+	m = m.switchModelRef("other-model")
+	m = m.switchModelRef("main-model")
+	if got := barText(m.statusBar, 160); strings.Contains(got, "session") {
+		t.Errorf("bar = %q", got)
+	}
+}
+
+func TestSetupApplied_SetsRestartMarker(t *testing.T) {
+	m, _ := newBTWModel(t, nil)
+	m.setupWizard = &setupWizard{step: stepWriting, gen: 1}
+	m = m.onSetupApplied(setupAppliedMsg{gen: 1, mainModel: "new-model",
+		report: commands.SetupReport{SettingsWritten: true, ConfigWritten: true}})
+	if got := barText(m.statusBar, 160); !strings.Contains(got, "restart → new-model") {
+		t.Errorf("bar = %q", got)
+	}
+}
+
+func TestSetupApplied_FailureNoRestartMarker(t *testing.T) {
+	m, _ := newBTWModel(t, nil)
+	m.setupWizard = &setupWizard{step: stepWriting, gen: 1}
+	m = m.onSetupApplied(setupAppliedMsg{gen: 1, mainModel: "new-model", err: errors.New("disk full")})
+	if got := barText(m.statusBar, 160); strings.Contains(got, "restart") {
+		t.Errorf("bar = %q", got)
 	}
 }

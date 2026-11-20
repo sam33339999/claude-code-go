@@ -22,6 +22,8 @@ type setupAppliedMsg struct {
 	gen    int
 	report commands.SetupReport
 	err    error
+	// mainModel is the main model the plan wrote (shown as "restart → …").
+	mainModel string
 }
 
 const (
@@ -78,7 +80,7 @@ func setupApplyCmd(b commands.SetupBackend, plan commands.SetupPlan, gen int) te
 		ctx, cancel := context.WithTimeout(context.Background(), setupApplyTimeout)
 		defer cancel()
 		report, err := b.Apply(ctx, plan)
-		return setupAppliedMsg{gen: gen, report: report, err: err}
+		return setupAppliedMsg{gen: gen, report: report, err: err, mainModel: plan.MainModel}
 	}
 }
 
@@ -94,6 +96,11 @@ func (m AppModel) onSetupModels(msg setupModelsMsg) AppModel {
 func (m AppModel) onSetupApplied(msg setupAppliedMsg) AppModel {
 	if w := m.setupWizard; w != nil && msg.gen == w.gen {
 		w.onApplied(msg.report, msg.err)
+		if msg.err == nil && msg.report.SettingsWritten && msg.mainModel != "" {
+			// settings.json now names a model this session is not running
+			// until a restart; the status bar says so.
+			m.statusBar.restartModel = msg.mainModel
+		}
 	}
 	return m
 }
