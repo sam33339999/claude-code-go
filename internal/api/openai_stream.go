@@ -131,11 +131,15 @@ func (r *openaiSSEReader) Next() (*StreamEvent, error) {
 		// final chunk (often after the finish chunk, with empty choices), so
 		// re-emit a message_delta carrying the final counts; the accumulator
 		// overwrites the earlier zero-usage snapshot.
+		// Some providers (Zhipu GLM) put usage in the SAME chunk as
+		// finish_reason; only short-circuit when the chunk carries no choices,
+		// otherwise fall through so the finish is processed — its
+		// message_delta already carries the counts recorded here.
 		if chunk.Usage != nil {
 			r.inputUsage = chunk.Usage.uncachedInputTokens()
 			r.cachedUsage = chunk.Usage.cachedTokens()
 			r.outputUsage = chunk.Usage.CompletionTokens
-			if r.started {
+			if r.started && len(chunk.Choices) == 0 {
 				r.pendingEvents = append(r.pendingEvents, r.createUsageDeltaEvent())
 				ev := r.pendingEvents[0]
 				r.pendingEvents = r.pendingEvents[1:]
