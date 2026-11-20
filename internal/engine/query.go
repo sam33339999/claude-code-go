@@ -657,26 +657,57 @@ func (e *engineImpl) drainMidTurn(
 	}
 	e.msgQueue.RemoveByIDs(ids)
 
-	// Combine into one user message.
-	var parts []string
-	for _, cmd := range toInject {
-		parts = append(parts, cmd.Value)
-	}
-	combined := strings.Join(parts, "\n\n")
-
-	userMsg := types.Message{
-		Role: types.RoleUser,
-		Content: []types.ContentBlock{
-			{Type: types.ContentTypeText, Text: strPtr(combined)},
-		},
-	}
+	// Engine content may carry a snapshotted expansion. The TUI notification
+	// stays the joined marker text so the on-screen collapse holds.
+	blocks, notify, expanded := midTurnContent(toInject)
+	userMsg := types.Message{Role: types.RoleUser, Content: blocks}
 	*messages = append(*messages, userMsg)
-
-	// Notify TUI that a user message was injected.
+	note := &userMsg
+	if expanded {
+		shown := types.Message{
+			Role: types.RoleUser,
+			Content: []types.ContentBlock{
+				{Type: types.ContentTypeText, Text: strPtr(notify)},
+			},
+		}
+		note = &shown
+	}
 	select {
-	case msgCh <- Msg{Type: MsgTypeUserMessage, UserMsg: &userMsg}:
+	case msgCh <- Msg{Type: MsgTypeUserMessage, UserMsg: note}:
 	case <-ctx.Done():
 	}
+}
+
+// midTurnContent builds the engine blocks and the TUI notification for prompts
+// injected between tool calls. Every nil Content keeps one text block of the
+// joined Values, byte-for-byte. Any snapshot walks items in order: the
+// snapshot's blocks, or one text block of Value when the item is OriginBTW
+// or has no snapshot, with a "\n\n" text block between items.
+func midTurnContent(cmds []msgqueue.QueuedCommand) (blocks []types.ContentBlock, notify string, expanded bool) {
+	parts := make([]string, len(cmds))
+	for i, cmd := range cmds {
+		parts[i] = cmd.Value
+		if cmd.Content != nil {
+			expanded = true
+		}
+	}
+	notify = strings.Join(parts, "\n\n")
+	if !expanded {
+		return []types.ContentBlock{{Type: types.ContentTypeText, Text: strPtr(notify)}}, notify, false
+	}
+	blocks = make([]types.ContentBlock, 0, len(cmds)*2)
+	for i, cmd := range cmds {
+		if i > 0 {
+			blocks = append(blocks, types.ContentBlock{Type: types.ContentTypeText, Text: strPtr("\n\n")})
+		}
+		if cmd.Origin == msgqueue.OriginBTW || cmd.Content == nil {
+			v := cmd.Value
+			blocks = append(blocks, types.ContentBlock{Type: types.ContentTypeText, Text: strPtr(v)})
+			continue
+		}
+		blocks = append(blocks, cmd.Content...)
+	}
+	return blocks, notify, true
 }
 
 // drainInbox appends pending coordinator messages (sub-agent follow-ups) as

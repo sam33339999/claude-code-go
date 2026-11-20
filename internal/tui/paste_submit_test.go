@@ -63,8 +63,18 @@ func TestSubmit_QueuedPromptExpands(t *testing.T) {
 		t.Fatal("loading submit must queue, not start a query")
 	}
 	snap := m.msgQueue.Snapshot()
-	if len(snap) != 1 || snap[0].Value != input {
-		t.Fatalf("queue = %+v, want raw marker text", snap)
+	if len(snap) != 1 || snap[0].Value != input || snap[0].Origin != "" {
+		t.Fatalf("queue = %+v, want raw marker text and empty origin", snap)
+	}
+	if len(snap[0].Content) < 2 || snap[0].Content[0].Type != types.ContentTypeImage {
+		t.Fatalf("snapshot = %+v, want image then text", snap[0].Content)
+	}
+	snapText := ""
+	if snap[0].Content[1].Text != nil {
+		snapText = *snap[0].Content[1].Text
+	}
+	if !strings.Contains(snapText, body) || strings.Contains(snap[0].Value, body) {
+		t.Fatalf("snapshot text = %q, value = %q", snapText, snap[0].Value)
 	}
 
 	m.isLoading = false
@@ -138,6 +148,9 @@ func TestSubmit_BangExpandsTextDropsImages(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected a bash command")
 	}
+	if got := lastDisplayText(m); !strings.Contains(got, txt) || strings.Contains(got, body) {
+		t.Errorf("bubble = %q, want text marker %s, not the pasted body", got, txt)
+	}
 	msg, ok := cmd().(bashResultMsg)
 	if !ok {
 		t.Fatalf("cmd returned %T, want bashResultMsg", msg)
@@ -154,6 +167,27 @@ func TestSubmit_BangExpandsTextDropsImages(t *testing.T) {
 	m, _ = press(m, tea.KeyPressMsg{Code: 'x', Text: "x"})
 	if strings.Contains(m.View().Content, "Images can only be attached") {
 		t.Error("notice must clear on the next key")
+	}
+}
+
+func TestSubmit_SlashMarkerDoesNotExpandIntoCommand(t *testing.T) {
+	m, _ := newBTWModel(t, nil)
+	m.messages = append(m.messages, newUserMessage("keep-this-history"))
+	marker := m.pastes.addText("clear now")
+	m, _ = submit(m, "/"+marker)
+	found := false
+	for _, msg := range m.messages {
+		for _, b := range msg.Content {
+			if b.Text != nil && strings.Contains(*b.Text, "keep-this-history") {
+				found = true
+			}
+			if b.Text != nil && strings.Contains(*b.Text, "Conversation cleared") {
+				t.Fatalf("expanded body ran /clear: %q", *b.Text)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("history was cleared")
 	}
 }
 

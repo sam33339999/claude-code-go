@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync/atomic"
 	"time"
+
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 // seq is a process-wide monotonic counter for generating unique command IDs.
@@ -84,6 +86,12 @@ type QueuedCommand struct {
 	// Origin tags where the command came from ("" = typed by the user,
 	// OriginBTW = a /btw answer handed to the main loop).
 	Origin string
+	// Content is the engine payload snapshotted on the TUI Update goroutine
+	// at enqueue. Nil means send Value as one text block. When set, it is
+	// the content injected for this item (image blocks, then one text block).
+	// Value stays the display and history text. The engine does not read the
+	// paste store; a nil Content is left for anything that is not a user enqueue.
+	Content []types.ContentBlock
 }
 
 // OriginBTW marks a /btw answer handed to the main loop with ctrl+y.

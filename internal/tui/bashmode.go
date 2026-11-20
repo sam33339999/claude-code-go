@@ -119,15 +119,16 @@ func formatBashDisplay(res shell.RunResult, err error) string {
 
 // startBash runs command in the session working directory without going
 // through the model or the permission chain; it runs even while the main
-// loop is busy.
-func (m AppModel) startBash(command string) (AppModel, tea.Cmd) {
+// loop is busy. display is the unexpanded line (markers intact). command is
+// what the process and the <bash-input> note receive.
+func (m AppModel) startBash(display, command string) (AppModel, tea.Cmd) {
 	m = m.cancelBash()
 	m.bashGen++
 	gen := m.bashGen
 	ctx, cancel := context.WithCancel(context.Background())
 	m.bashCancel = cancel
 
-	m.messages = append(m.messages, newUserMessage("! "+command))
+	m.messages = append(m.messages, newUserMessage("! "+display))
 	m.syncViewportContent()
 
 	dir := ""

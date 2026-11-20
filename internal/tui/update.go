@@ -435,10 +435,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleSlashCommand executes a slash command and returns updated model + cmd.
 func (m AppModel) handleSlashCommand(text string) (AppModel, tea.Cmd) {
-	var dropped bool
-	text, dropped = m.pastes.expandTextOnly(text)
-	m.noticeDroppedImages(dropped)
-
+	// Name comes from the raw line. Expanding first would turn "/" plus a
+	// marker whose body is "clear …" into a real /clear.
 	name, args := parseSlashInput(text)
 	if name == "" {
 		return m, nil
@@ -450,6 +448,10 @@ func (m AppModel) handleSlashCommand(text string) (AppModel, tea.Cmd) {
 		m.syncViewportContent()
 		return m, nil
 	}
+
+	var dropped bool
+	args, dropped = m.pastes.expandTextOnly(args)
+	m.noticeDroppedImages(dropped)
 
 	st := m.appState.GetState()
 	cmdCtx := commands.CommandContext{

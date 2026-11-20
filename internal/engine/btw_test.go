@@ -74,6 +74,91 @@ func TestDrainMidTurn_OnlyMainLoop(t *testing.T) {
 	if q.Len() != 0 {
 		t.Errorf("the main loop must drain its queue (len %d)", q.Len())
 	}
+	if len(c2.streams) < 2 {
+		t.Fatal("expected a second request")
+	}
+	last := c2.streams[1].Messages[len(c2.streams[1].Messages)-1].Content
+	var blocks []types.ContentBlock
+	if err := json.Unmarshal(last, &blocks); err != nil {
+		t.Fatal(err)
+	}
+	if len(blocks) != 1 || blocks[0].Text == nil || *blocks[0].Text != "queued for main" {
+		t.Fatalf("nil snapshot must stay one joined text block, got %s", last)
+	}
+}
+
+func TestDrainMidTurn_SnapshotExpandsUserKeepsBTWLiteral(t *testing.T) {
+	q := msgqueue.NewMessageQueue()
+	marker := "see [Pasted text #2]"
+	user := msgqueue.NewCommand(marker, msgqueue.ModePrompt, msgqueue.PriorityNext)
+	user.Content = []types.ContentBlock{
+		{Type: types.ContentTypeImage, Source: &types.ImageSource{Type: "base64", MediaType: "image/png", Data: "QUJD"}},
+		{Type: types.ContentTypeText, Text: strPtr("the cat sat")},
+	}
+	q.Enqueue(user)
+	btw := msgqueue.NewCommand("note [Image #9]", msgqueue.ModePrompt, msgqueue.PriorityNext)
+	btw.Origin = msgqueue.OriginBTW
+	q.Enqueue(btw)
+
+	c := toolThenDone("Read")
+	reg := newTestRegistry(&stubTool{name: "Read", safe: true, readOnly: true})
+	eng := New(Config{Client: c, Registry: reg, Model: "m", MsgQueue: q})
+	msgs := runQuery(t, eng, QueryParams{Messages: []types.Message{userText("main")}})
+	if q.Len() != 0 {
+		t.Fatalf("queue len %d, want 0", q.Len())
+	}
+
+	var note string
+	for _, msg := range msgs {
+		if msg.Type != MsgTypeUserMessage || msg.UserMsg == nil {
+			continue
+		}
+		var text string
+		image := false
+		for _, b := range msg.UserMsg.Content {
+			if b.Type == types.ContentTypeImage {
+				image = true
+			}
+			if b.Text != nil {
+				text += *b.Text
+			}
+		}
+		if !strings.Contains(text, marker) {
+			continue
+		}
+		if image || strings.Contains(text, "the cat sat") {
+			t.Fatalf("TUI notification expanded: %+v", msg.UserMsg.Content)
+		}
+		note = text
+	}
+	wantNote := marker + "\n\n" + "note [Image #9]"
+	if note != wantNote {
+		t.Fatalf("TUI notification = %q, want %q", note, wantNote)
+	}
+
+	if len(c.streams) < 2 {
+		t.Fatal("expected a second request")
+	}
+	raw := c.streams[1].Messages[len(c.streams[1].Messages)-1].Content
+	var blocks []types.ContentBlock
+	if err := json.Unmarshal(raw, &blocks); err != nil {
+		t.Fatal(err)
+	}
+	if len(blocks) != 4 {
+		t.Fatalf("engine blocks = %s", raw)
+	}
+	if blocks[0].Type != types.ContentTypeImage || blocks[0].Source == nil || blocks[0].Source.Data != "QUJD" {
+		t.Fatalf("image block = %+v", blocks[0])
+	}
+	if blocks[1].Text == nil || *blocks[1].Text != "the cat sat" {
+		t.Fatalf("expanded text = %+v", blocks[1])
+	}
+	if blocks[2].Text == nil || *blocks[2].Text != "\n\n" {
+		t.Fatalf("separator = %+v", blocks[2])
+	}
+	if blocks[3].Text == nil || *blocks[3].Text != "note [Image #9]" || blocks[3].Source != nil {
+		t.Fatalf("btw block = %+v", blocks[3])
+	}
 }
 
 func TestToolFilter_BlocksExecutionKeepsSchema(t *testing.T) {

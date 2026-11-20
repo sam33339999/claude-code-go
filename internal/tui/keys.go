@@ -456,10 +456,9 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 		if cmd == "" {
 			return m, nil
 		}
-		var dropped bool
-		cmd, dropped = m.pastes.expandTextOnly(cmd)
+		expanded, dropped := m.pastes.expandTextOnly(cmd)
 		m.noticeDroppedImages(dropped)
-		return m.startBash(cmd)
+		return m.startBash(cmd, expanded)
 	}
 
 	// Check for # quick memory input.
@@ -484,6 +483,10 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 	// P1: If a query is active, enqueue instead of cancelling the current query.
 	if m.isLoading && m.msgQueue != nil {
 		cmd := msgqueue.NewCommand(text, msgqueue.ModePrompt, msgqueue.PriorityNext)
+		// Snapshot on this goroutine. The engine must not read the paste store.
+		// Value stays the marker for the bubble and the between-turn drain.
+		exp := m.pastes.expand(text)
+		cmd.Content = contentWithImages(exp.Images, exp.Text)
 		m.msgQueue.Enqueue(cmd)
 		// Show queued message in UI so the user sees their input was accepted.
 		m.messages = append(m.messages, newUserMessage(text))
