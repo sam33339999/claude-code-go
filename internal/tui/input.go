@@ -93,8 +93,9 @@ func (m InputModel) InsertNewline() InputModel {
 	return m
 }
 
-// InsertString inserts s at the cursor.
+// InsertString inserts s at the cursor, replacing a selection when one is active.
 func (m InputModel) InsertString(s string) InputModel {
+	m.textarea.DeleteSelection()
 	m.textarea.InsertString(s)
 	return m
 }

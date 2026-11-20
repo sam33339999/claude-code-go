@@ -35,3 +35,13 @@ func TestPaste_InsertsAtCursor(t *testing.T) {
 		t.Fatalf("input = %q", got)
 	}
 }
+
+func TestPaste_ReplacesSelection(t *testing.T) {
+	m, _ := newBTWModel(t, nil)
+	m.input = m.input.SetValue("ab")
+	m.input.textarea.SelectAll()
+	updated, _ := m.Update(tea.PasteMsg{Content: "Z"})
+	if got := updated.(AppModel).input.Value(); got != "Z" {
+		t.Fatalf("input = %q", got)
+	}
+}
