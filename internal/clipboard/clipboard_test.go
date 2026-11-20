@@ -1,0 +1,249 @@
+package clipboard
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"os"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+)
+
+const toolHint = "Install wl-clipboard or xclip to paste from the clipboard"
+
+func TestReadImage_DarwinWritesTempFile(t *testing.T) {
+	png := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
+	dir := t.TempDir()
+	var path string
+	r := &Reader{
+		GOOS:    "darwin",
+		TempDir: dir,
+		Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
+			path = darwinScriptPath(t, args)
+			want := []string{
+				"-e", "set d to (the clipboard as «class PNGf»)",
+				"-e", `set f to open for access POSIX file "` + path + `" with write permission`,
+				"-e", "set eof f to 0",
+				"-e", "write d to f",
+				"-e", "close access f",
+			}
+			if name != "osascript" || !slices.Equal(args, want) {
+				t.Fatalf("command = %s %q", name, args)
+			}
+			if err := os.WriteFile(path, png, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			return nil, nil
+		},
+	}
+
+	got, err := r.ReadImage(context.Background())
+	if err != nil {
+		t.Fatalf("ReadImage: %v", err)
+	}
+	if !bytes.Equal(got, png) {
+		t.Fatalf("bytes = %q, want PNG magic", got)
+	}
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+		t.Fatalf("temp file = %v, want removed", statErr)
+	}
+}
+
+func TestReadImage_DarwinNoImage(t *testing.T) {
+	t.Run("osascript error", func(t *testing.T) {
+		dir := t.TempDir()
+		var path string
+		r := &Reader{
+			GOOS:    "darwin",
+			TempDir: dir,
+			Run: func(_ context.Context, _ string, args ...string) ([]byte, error) {
+				path = darwinScriptPath(t, args)
+				return nil, errors.New("osascript failed")
+			},
+		}
+		_, err := r.ReadImage(context.Background())
+		if !errors.Is(err, ErrNoImage) {
+			t.Fatalf("err = %v, want ErrNoImage", err)
+		}
+		if path == "" {
+			t.Fatal("osascript was not invoked")
+		}
+		if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+			t.Fatalf("temp file = %v, want removed", statErr)
+		}
+	})
+
+	t.Run("empty file", func(t *testing.T) {
+		dir := t.TempDir()
+		var path string
+		r := &Reader{
+			GOOS:    "darwin",
+			TempDir: dir,
+			Run: func(_ context.Context, _ string, args ...string) ([]byte, error) {
+				path = darwinScriptPath(t, args)
+				return nil, nil
+			},
+		}
+		_, err := r.ReadImage(context.Background())
+		if !errors.Is(err, ErrNoImage) {
+			t.Fatalf("err = %v, want ErrNoImage", err)
+		}
+		if path == "" {
+			t.Fatal("osascript was not invoked")
+		}
+		if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+			t.Fatalf("temp file = %v, want removed", statErr)
+		}
+	})
+}
+
+func TestReadImage_WaylandPicksPNG(t *testing.T) {
+	png := []byte{0x89, 'P', 'N', 'G'}
+	var calls []runCall
+	r := &Reader{
+		GOOS:     "linux",
+		Getenv:   func(string) string { return "wayland-0" },
+		LookPath: lookPathOK("wl-paste"),
+		Run: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			calls = append(calls, runCall{ctx, name, slices.Clone(args)})
+			if len(calls) == 1 {
+				return []byte("text/plain\nimage/jpeg\nimage/png\n"), nil
+			}
+			return png, nil
+		},
+	}
+
+	got, err := r.ReadImage(context.Background())
+	if err != nil {
+		t.Fatalf("ReadImage: %v", err)
+	}
+	if !bytes.Equal(got, png) {
+		t.Fatalf("bytes = %q, want PNG", got)
+	}
+	if len(calls) < 2 {
+		t.Fatalf("calls = %d, want at least 2", len(calls))
+	}
+	if calls[0].name != "wl-paste" || !slices.Equal(calls[0].args, []string{"--list-types"}) {
+		t.Fatalf("first call = %s %q", calls[0].name, calls[0].args)
+	}
+	if calls[1].name != "wl-paste" || !slices.Equal(calls[1].args, []string{"--type", "image/png"}) {
+		t.Fatalf("second call = %s %q, want wl-paste --type image/png", calls[1].name, calls[1].args)
+	}
+}
+
+func TestReadImage_X11Fallback(t *testing.T) {
+	var calls []runCall
+	r := &Reader{
+		GOOS:     "linux",
+		Getenv:   func(string) string { return "" },
+		LookPath: lookPathOK("xclip"),
+		Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
+			calls = append(calls, runCall{name: name, args: slices.Clone(args)})
+			if len(calls) == 1 {
+				return []byte("TARGETS\nimage/png\n"), nil
+			}
+			return []byte{0x89, 'P', 'N', 'G'}, nil
+		},
+	}
+
+	if _, err := r.ReadImage(context.Background()); err != nil {
+		t.Fatalf("ReadImage: %v", err)
+	}
+	if len(calls) == 0 {
+		t.Fatal("no commands")
+	}
+	want := []string{"-selection", "clipboard", "-t", "TARGETS", "-o"}
+	if calls[0].name != "xclip" || !slices.Equal(calls[0].args, want) {
+		t.Fatalf("first call = %s %q, want xclip %q", calls[0].name, calls[0].args, want)
+	}
+	wantImage := []string{"-selection", "clipboard", "-t", "image/png", "-o"}
+	if len(calls) < 2 || calls[1].name != "xclip" || !slices.Equal(calls[1].args, wantImage) {
+		t.Fatalf("image call = %+v, want xclip %q", calls, wantImage)
+	}
+}
+
+func TestReadImage_LinuxMissingTools(t *testing.T) {
+	r := &Reader{
+		GOOS:   "linux",
+		Getenv: func(string) string { return "" },
+		LookPath: func(string) (string, error) {
+			return "", errors.New("not found")
+		},
+	}
+	_, err := r.ReadImage(context.Background())
+	me, ok := err.(*MissingToolError)
+	if !ok {
+		t.Fatalf("err = %T %v, want *MissingToolError", err, err)
+	}
+	if me.Hint != toolHint || me.Error() != toolHint {
+		t.Fatalf("Hint = %q, want %q", me.Hint, toolHint)
+	}
+}
+
+func TestReadImage_OtherPlatform(t *testing.T) {
+	r := &Reader{GOOS: "windows"}
+	_, err := r.ReadImage(context.Background())
+	if !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("err = %v, want ErrUnsupported", err)
+	}
+}
+
+func TestRun_Timeout(t *testing.T) {
+	r := &Reader{
+		GOOS: "darwin",
+		Run: func(ctx context.Context, _ string, _ ...string) ([]byte, error) {
+			deadline, ok := ctx.Deadline()
+			if !ok {
+				t.Fatal("Run context has no deadline")
+			}
+			remain := time.Until(deadline)
+			if remain <= 0 || remain > 5*time.Second {
+				t.Fatalf("deadline remaining = %s, want > 0 and ≤ 5s", remain)
+			}
+			return []byte("hi"), nil
+		},
+	}
+	got, err := r.ReadText(context.Background())
+	if err != nil {
+		t.Fatalf("ReadText: %v", err)
+	}
+	if got != "hi" {
+		t.Fatalf("text = %q, want hi", got)
+	}
+}
+
+type runCall struct {
+	ctx  context.Context
+	name string
+	args []string
+}
+
+func lookPathOK(want string) func(string) (string, error) {
+	return func(name string) (string, error) {
+		if name == want {
+			return "/usr/bin/" + name, nil
+		}
+		return "", errors.New("not found")
+	}
+}
+
+func darwinScriptPath(t *testing.T, args []string) string {
+	t.Helper()
+	const marker = `POSIX file "`
+	for _, arg := range args {
+		i := strings.Index(arg, marker)
+		if i < 0 {
+			continue
+		}
+		rest := arg[i+len(marker):]
+		end := strings.IndexByte(rest, '"')
+		if end < 0 {
+			t.Fatalf("unclosed path in %q", arg)
+		}
+		return rest[:end]
+	}
+	t.Fatalf("osascript args missing POSIX path: %q", args)
+	return ""
+}
