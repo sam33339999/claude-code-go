@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -49,6 +50,124 @@ func TestReadImage_DarwinWritesTempFile(t *testing.T) {
 	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 		t.Fatalf("temp file = %v, want removed", statErr)
 	}
+}
+
+func TestReadImage_DarwinEscapesQuotedTempDir(t *testing.T) {
+	parent := t.TempDir()
+	dir := filepath.Join(parent, `qu"ote`)
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	var args []string
+	var actual string
+	r := &Reader{
+		GOOS:    "darwin",
+		TempDir: dir,
+		Run: func(_ context.Context, name string, got ...string) ([]byte, error) {
+			if name != "osascript" {
+				t.Fatalf("command = %s", name)
+			}
+			args = slices.Clone(got)
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != 1 {
+				t.Fatalf("entries = %v", entries)
+			}
+			actual = filepath.Join(dir, entries[0].Name())
+			return nil, errors.New("stop")
+		},
+	}
+	_, err := r.ReadImage(context.Background())
+	if !errors.Is(err, ErrNoImage) {
+		t.Fatalf("err = %v, want ErrNoImage", err)
+	}
+
+	script, ok := singlePOSIXScript(args)
+	if !ok {
+		t.Fatalf("args = %q, want exactly one POSIX file statement", args)
+	}
+	const prefix = `set f to open for access POSIX file "`
+	const suffix = `" with write permission`
+	if !strings.HasPrefix(script, prefix) || !strings.HasSuffix(script, suffix) {
+		t.Fatalf("script = %q, want a single POSIX open statement", script)
+	}
+	inner := strings.TrimSuffix(strings.TrimPrefix(script, prefix), suffix)
+	gotPath, ok := unescapeAppleScriptString(inner)
+	if !ok || gotPath != actual {
+		t.Fatalf("escaped path = %q, want %q", inner, actual)
+	}
+	if !strings.Contains(inner, `qu\"ote`) {
+		t.Fatalf("script = %q, want escaped quote", script)
+	}
+	if _, statErr := os.Stat(actual); !os.IsNotExist(statErr) {
+		t.Fatalf("temp file = %v, want removed", statErr)
+	}
+}
+
+func TestEscapeAppleScriptString(t *testing.T) {
+	in := "a\\b\"c\rd\ne"
+	got := escapeAppleScriptString(in)
+	want := `a\\b\"c\rd\ne`
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	back, ok := unescapeAppleScriptString(got)
+	if !ok || back != in {
+		t.Fatalf("round trip = %q ok=%v", back, ok)
+	}
+}
+
+func singlePOSIXScript(args []string) (string, bool) {
+	n := 0
+	script := ""
+	for i := 0; i < len(args); i += 2 {
+		if i+1 >= len(args) || args[i] != "-e" {
+			return "", false
+		}
+		n++
+		if strings.Contains(args[i+1], "POSIX file") {
+			if script != "" {
+				return "", false
+			}
+			script = args[i+1]
+		}
+	}
+	if n != 5 || script == "" {
+		return "", false
+	}
+	return script, true
+}
+
+func unescapeAppleScriptString(s string) (string, bool) {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' {
+			if s[i] == '"' || s[i] == '\n' || s[i] == '\r' {
+				return "", false
+			}
+			b.WriteByte(s[i])
+			continue
+		}
+		if i+1 >= len(s) {
+			return "", false
+		}
+		i++
+		switch s[i] {
+		case '\\':
+			b.WriteByte('\\')
+		case '"':
+			b.WriteByte('"')
+		case 'r':
+			b.WriteByte('\r')
+		case 'n':
+			b.WriteByte('\n')
+		default:
+			return "", false
+		}
+	}
+	return b.String(), true
 }
 
 func TestReadImage_DarwinNoImage(t *testing.T) {
