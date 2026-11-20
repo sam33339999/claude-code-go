@@ -46,12 +46,22 @@ type ContentBlock struct {
 	ToolUseID string          `json:"tool_use_id,omitempty"`
 	Content   json.RawMessage `json:"content,omitempty"`
 	IsError   bool            `json:"is_error,omitempty"`
+	// image
+	Source *ImageSource `json:"source,omitempty"`
 	// thinking
 	Thinking  string `json:"thinking,omitempty"`
 	Signature string `json:"signature,omitempty"`
 	// CacheControl optionally marks this block as a prompt-cache breakpoint
 	// (request-side only; response blocks never carry it).
 	CacheControl *CacheControl `json:"cache_control,omitempty"`
+}
+
+// ImageSource is the source of an image content block (Anthropic shape).
+type ImageSource struct {
+	Type      string `json:"type"` // "base64" | "url"
+	MediaType string `json:"media_type,omitempty"`
+	Data      string `json:"data,omitempty"`
+	URL       string `json:"url,omitempty"`
 }
 
 // CacheControl marks a prompt-cache breakpoint ("ephemeral") on a system

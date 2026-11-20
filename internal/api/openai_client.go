@@ -274,7 +274,11 @@ func (c *openaiClient) convertMessage(msg MessageParam) []openaiMessage {
 		return result
 	}
 
-	// For user messages, process each block
+	// For user messages, process each block. Images inside tool results are
+	// deferred to one user message after the tool messages: role "tool"
+	// accepts text only, and tool messages must directly follow the
+	// assistant's tool_calls.
+	var deferredImages []openaiContentPart
 	for _, block := range blocks {
 		switch block.Type {
 		case "text":
@@ -283,10 +287,18 @@ func (c *openaiClient) convertMessage(msg MessageParam) []openaiMessage {
 				Role:    c.convertRole(msg.Role),
 				Content: &text,
 			})
+		case "image":
+			if part, ok := imagePart(block.Source); ok {
+				result = append(result, openaiMessage{
+					Role:  c.convertRole(msg.Role),
+					Parts: []openaiContentPart{part},
+				})
+			}
 		case "tool_result":
 			// Tool result from user
 			// Content can be a string or an array of content blocks
-			contentStr := extractToolResultContent(block.Content)
+			contentStr, images := splitToolResultContent(block.Content)
+			deferredImages = append(deferredImages, images...)
 			toolCallID := block.ToolUseID
 			// Debug: log tool result conversion.
 			if c.debugLogger.Enabled() {
@@ -303,44 +315,59 @@ func (c *openaiClient) convertMessage(msg MessageParam) []openaiMessage {
 			})
 		}
 	}
+	if len(deferredImages) > 0 {
+		parts := append([]openaiContentPart{{Type: "text", Text: toolImagesNote}}, deferredImages...)
+		result = append(result, openaiMessage{Role: "user", Parts: parts})
+	}
 
 	return result
 }
 
-// extractToolResultContent extracts text content from tool_result.
+// splitToolResultContent extracts the text of a tool_result and its images.
 // Content can be:
 // - A simple string: "result text"
-// - An array of content blocks: [{"type":"text","text":"result text"}]
-func extractToolResultContent(content json.RawMessage) string {
+// - An array of content blocks: [{"type":"text","text":"result text"}, {"type":"image",...}]
+//
+// Images are returned as image_url parts (never as base64 text); when a
+// result holds only images the text is a short placeholder.
+func splitToolResultContent(content json.RawMessage) (string, []openaiContentPart) {
 	if len(content) == 0 {
-		return ""
+		return "", nil
 	}
 
 	// Try to unmarshal as string first
 	var strContent string
 	if err := json.Unmarshal(content, &strContent); err == nil {
-		return strContent
+		return strContent, nil
 	}
 
 	// Try to unmarshal as array of content blocks
-	var blocks []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	}
+	var blocks []ContentBlock
 	if err := json.Unmarshal(content, &blocks); err == nil {
 		var texts []string
+		var images []openaiContentPart
 		for _, b := range blocks {
-			if b.Type == "text" && b.Text != "" {
-				texts = append(texts, b.Text)
+			switch b.Type {
+			case "text":
+				if b.Text != "" {
+					texts = append(texts, b.Text)
+				}
+			case "image":
+				if part, ok := imagePart(b.Source); ok {
+					images = append(images, part)
+				}
 			}
 		}
+		if len(images) > 0 && len(texts) == 0 {
+			texts = append(texts, toolImagePlaceholder)
+		}
 		if len(texts) > 0 {
-			return joinStrings(texts, "\n")
+			return joinStrings(texts, "\n"), images
 		}
 	}
 
 	// Fallback: return raw JSON string
-	return string(content)
+	return string(content), nil
 }
 
 // joinStrings joins non-empty strings with separator.

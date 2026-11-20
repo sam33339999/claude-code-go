@@ -33,12 +33,41 @@ type openaiStreamOptions struct {
 // Content uses *string so that we can distinguish between absent and empty:
 //   - nil  → field omitted (e.g., pure tool messages)
 //   - ""   → field present as "content":"" (needed for assistant + tool_calls)
+//
+// Parts, when non-empty, replaces Content with an array of content parts
+// (text / image_url) — used only for messages that carry images, so
+// image-free requests serialise byte-for-byte as before.
 type openaiMessage struct {
-	Role       string           `json:"role"`
-	Content    *string          `json:"content,omitempty"`
-	Name       string           `json:"name,omitempty"`
-	ToolCalls  []openaiToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string           `json:"tool_call_id,omitempty"`
+	Role       string              `json:"role"`
+	Content    *string             `json:"content,omitempty"`
+	Parts      []openaiContentPart `json:"-"`
+	Name       string              `json:"name,omitempty"`
+	ToolCalls  []openaiToolCall    `json:"tool_calls,omitempty"`
+	ToolCallID string              `json:"tool_call_id,omitempty"`
+}
+
+// MarshalJSON emits Parts as the content array when present.
+func (m openaiMessage) MarshalJSON() ([]byte, error) {
+	type plain openaiMessage
+	if len(m.Parts) == 0 {
+		return json.Marshal(plain(m))
+	}
+	return json.Marshal(struct {
+		plain
+		Content []openaiContentPart `json:"content"`
+	}{plain: plain(m), Content: m.Parts})
+}
+
+// openaiContentPart is one element of an array-form message content.
+type openaiContentPart struct {
+	Type     string          `json:"type"` // "text" | "image_url"
+	Text     string          `json:"text,omitempty"`
+	ImageURL *openaiImageURL `json:"image_url,omitempty"`
+}
+
+// openaiImageURL references an image by URL or data URL.
+type openaiImageURL struct {
+	URL string `json:"url"`
 }
 
 // openaiTool represents a tool definition.

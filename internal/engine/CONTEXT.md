@@ -2,13 +2,13 @@
 package: engine
 import_path: internal/engine
 layer: core
-generated_at: 2026-11-20T03:43:08Z
-source_files: [budget.go, cache_params.go, compaction.go, engine.go, forked_agent.go, msg.go, orchestration.go, query.go, stop_hooks.go]
+generated_at: 2026-11-20T09:43:00Z
+source_files: [budget.go, cache_params.go, compaction.go, engine.go, forked_agent.go, msg.go, orchestration.go, query.go, stop_hooks.go, tool_images.go]
 ---
 
 # internal/engine
 
-> Layer: **Core** · Files: 9 · Interfaces: 1 · Structs: 15 · Functions: 9
+> Layer: **Core** · Files: 10 · Interfaces: 1 · Structs: 15 · Functions: 9
 
 ## Interfaces
 
@@ -130,3 +130,4 @@ type QueryEngine interface {
   - C5：`SetModel` 加 `modelMu`；摘要模型在呼叫當下解析，`/model` 後立即生效。C6：帶 `Client` 的查詢忽略 `FallbackModel`（它指的是主腦 provider 上的模型）。`[main] context_window` 經 `Config.MainContextWindow` 只套用在跑主腦模型、未帶 Client 的查詢。
 - **2026-11-20 `MainTarget`（/model 切換主腦）**：主腦的 client、ProviderID、model、context window、max_tokens 合成 `MainTarget`，以 `mainMu` 保護；`SetMainTarget` 讓 /model 在會話中換到別的 provider。`runQueryLoop` 開始時取一次快照，整輪不換（切換只影響下一個查詢）。換 provider 時移除歷史中的 thinking 區塊（簽章只對原 provider 有效，切換本來就讓快取失效）；被中斷的查詢稍後寫回時若主腦已換 provider 會再清一次，鎖順序固定為 `e.mu → mainMu`。`CacheSafeParams` 記錄請求的 client、context window、max_tokens，讓 fork 與它的續跑停在原本的 provider。沒有切換時主腦請求位元組不變（golden 測試）。
 - **2026-11-20 /btw 開關與佇列修正**：`QueryParams` +`ToolFilter`（執行時過濾，送出的工具 schema 不變以保住快取）、`NonInteractivePermissions`（只用 `CanUseTool`，Ask 視為 Deny，不跳對話框也不記錄拒絕）、`NoCompaction`。開關經 `UseContext` 的**私有副本**傳到 orchestration（絕不改呼叫端的 UseContext；呼叫端沒給時也會建立，避免失效放行）。修正：只有主腦（`NoWriteBack=false`）會在工具邊界接收主腦佇列訊息，sub-agent、fork、記憶抽取、btw 不再搶走它們。快照除了寫入 `CacheParams`，也寫進 `UseContext.Snapshot`（mutex 保護），讓 TUI 從別的 goroutine 安全讀取。
+- **2026-11-20 tool result 保留圖片 + 不支援視覺時降級（feat/tool-result-images）**：此前 `executeTool` 把 `MapResultToToolResultBlock` 的 `content` 解析成字串，Read 讀圖時 content 是陣列，解析失敗後退回把整段原始 JSON（含 base64）當文字送出——模型看不到圖，token 卻照算（實測 GLM 只好自己跑 Python 解 PNG）。現在 `toolResultContent`：字串 content 照舊一個 text block；**含圖片的陣列**原樣保留成 blocks（Anthropic 路徑直接送 image，OpenAI 路徑由 api 層轉 image_url）；其他形狀維持舊的原始 JSON 退路，既有工具的位元組不變。TUI 的 ToolResultMsg 顯示 `[image image/png, N KB]`，不帶 base64。降級：串流回 `api.IsImageUnsupportedError` 且本輪訊息帶圖、該模型尚未標記時，`imageRejected`（sync.Map，key 為模型 ID，session 內有效）記下模型、送 system 提示，`buildRequest` 對已標記模型一律以 `stripImages` 把圖片換成 `imageOmittedText` 後重送一次；之後每輪都在送出前先過濾，不會每輪白打一次 400。`stripImages` 只回傳副本，不改共用 history（切回支援視覺的模型時圖片仍在）。守護測試 tool_images_test.go（含 TestQueryLoop_ImageRejectedRetriesWithoutImages）。Cache-first：無圖對話前綴不變；已標記模型的請求從第一次降級起前綴固定；不新增呼叫，僅在 400 時重送一次。

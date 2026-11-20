@@ -310,3 +310,52 @@ func TestFileReadTool_MapResultToToolResultBlock_Image(t *testing.T) {
 func TestFileReadTool_ImplementsToolInterface(t *testing.T) {
 	var _ tools.Tool = fileops.FileReadTool
 }
+
+func TestFileReadTool_Call_ImageTooLarge(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "big.png")
+	_ = os.WriteFile(path, make([]byte, 4*1024*1024), 0o644)
+
+	in, _ := json.Marshal(fileops.FileReadInput{FilePath: path})
+	result, err := fileops.FileReadTool.Call(in, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatalf("oversized image must be an error result, got %T", result.Content)
+	}
+	if msg, _ := result.Content.(string); !strings.Contains(msg, "too large") {
+		t.Errorf("error should explain the size limit, got %v", result.Content)
+	}
+}
+
+func TestFileReadTool_Call_SVGReadAsText(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "icon.svg")
+	_ = os.WriteFile(path, []byte("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n"), 0o644)
+
+	in, _ := json.Marshal(fileops.FileReadInput{FilePath: path})
+	result, err := fileops.FileReadTool.Call(in, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	out, ok := result.Content.(fileops.FileReadOutput)
+	if !ok || out.Type != "text" || !strings.Contains(out.Content, "<svg") {
+		t.Errorf("svg should be read as text, got %+v", result.Content)
+	}
+}
+
+func TestFileReadTool_Call_UnsupportedImageFormat(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.bmp")
+	_ = os.WriteFile(path, []byte("BM fake"), 0o644)
+
+	in, _ := json.Marshal(fileops.FileReadInput{FilePath: path})
+	result, err := fileops.FileReadTool.Call(in, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if !result.IsError {
+		t.Errorf("bmp must be an error result (APIs accept only png/jpeg/gif/webp), got %T", result.Content)
+	}
+}

@@ -2,13 +2,13 @@
 package: api
 import_path: internal/api
 layer: services
-generated_at: 2026-11-20T09:14:06Z
-source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, listmodels.go, openai_client.go, openai_stream.go, openai_types.go, ratelimit.go, retry.go, stream.go, usage.go]
+generated_at: 2026-11-20T09:43:00Z
+source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, listmodels.go, openai_client.go, openai_images.go, openai_stream.go, openai_types.go, ratelimit.go, retry.go, stream.go, usage.go]
 ---
 
 # internal/api
 
-> Layer: **Services** · Files: 14 · Interfaces: 2 · Structs: 30 · Functions: 8
+> Layer: **Services** · Files: 15 · Interfaces: 2 · Structs: 31 · Functions: 9
 
 ## Interfaces
 
@@ -40,12 +40,13 @@ type StreamReader interface {
 - **CacheCreationUsage** — 2 fields: Ephemeral1hInputTokens, Ephemeral5mInputTokens
 - **CannotRetryError** — 2 fields: Cause, RetryContext
 - **ClientConfig** — 14 fields: Provider, APIKey, BaseURL, MaxRetries, TimeoutSeconds, RatePolicy, CustomHeaders, AWSRegion, ...
-- **ContentBlock** — 11 fields: Type, Text, ID, Name, Input, ToolUseID, Content, IsError, ...
+- **ContentBlock** — 12 fields: Type, Text, ID, Name, Input, ToolUseID, Content, IsError, ...
 - **ContentBlockDeltaData** — 2 fields: Index, Delta
 - **DebugLogger** — 4 fields
 - **Delta** — 4 fields: Type, Text, PartialJSON, Thinking
 - **ExtraUsage** — 4 fields: IsEnabled, MonthlyLimit, UsedCredits, Utilization
 - **FallbackTriggeredError** — 2 fields: OriginalModel, FallbackModel
+- **ImageSource** — 4 fields: Type, MediaType, Data, URL
 - **ListModelsError** — 3 fields: Kind, StatusCode, Message
 - **MessageDeltaData** — 2 fields: Delta, Usage
 - **MessageParam** — 2 fields: Role, Content
@@ -71,6 +72,7 @@ type StreamReader interface {
 ## Functions
 
 - `Is529Error(err error) bool`
+- `IsImageUnsupportedError(err error) bool`
 - `IsOAuthTokenRevokedError(err error) bool`
 - `ListModels(ctx context.Context, cfg ClientConfig, httpClient *http.Client) ([]ModelListing, error)`
 - `NewClient(cfg ClientConfig, httpClient *http.Client) (Client, error)`
@@ -126,9 +128,9 @@ type StreamReader interface {
 - `mockClient` in `test/integration/engine_e2e_test.go`
 
 **Exported type references (files that use types from this package):**
-- `APIError` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/retry_wiring_test.go` (test), `internal/engine/tiers_test.go` (test)
+- `APIError` → `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/retry_wiring_test.go` (test), `internal/engine/tiers_test.go` (test), `internal/engine/tool_images_test.go` (test)
 - `Accumulator` → `internal/engine/query.go`
-- `Client` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/setup.go`, `internal/bootstrap/tiers.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go` + 6 more
+- `Client` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/setup.go`, `internal/bootstrap/tiers.go`, `internal/bootstrap/tiers_test.go` (test), `internal/bootstrap/wire.go` + 7 more
 - `ClientConfig` → `internal/bootstrap/setup.go`, `internal/bootstrap/tiers.go`, `internal/bootstrap/wire.go`
 - `ContentBlock` → `internal/compact/auto_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test), `internal/engine/tiers_test.go` (test)
 - `ContentBlockDeltaData` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
@@ -136,15 +138,15 @@ type StreamReader interface {
 - `ListModelsError` → `internal/bootstrap/setup.go`
 - `MessageDeltaData` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
 - `MessageParam` → `internal/compact/auto.go`, `internal/engine/query.go`
-- `MessageRequest` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto.go`, `internal/compact/auto_test.go` (test), `internal/engine/btw_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test) + 9 more
+- `MessageRequest` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto.go`, `internal/compact/auto_test.go` (test), `internal/engine/btw_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test) + 10 more
 - `MessageResponse` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto.go`, `internal/compact/auto_test.go` (test), `internal/engine/engine_test.go` (test), `internal/engine/query.go` + 2 more
 - `MessageStartData` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
 - `RetryOptions` → `internal/engine/query.go`
 - `StreamEvent` → `internal/engine/engine_test.go` (test), `internal/engine/thinking_display_test.go` (test)
-- `StreamReader` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto_test.go` (test), `internal/engine/btw_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test) + 8 more
+- `StreamReader` → `internal/bootstrap/tiers_test.go` (test), `internal/compact/auto_test.go` (test), `internal/engine/btw_test.go` (test), `internal/engine/cache_breakpoints_test.go` (test), `internal/engine/engine_test.go` (test) + 9 more
 - `SystemBlock` → `internal/engine/query.go`
 - `ToolSchema` → `internal/engine/compaction.go`
-- `Usage` → `internal/engine/compaction.go`, `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test)
+- `Usage` → `internal/engine/compaction.go`, `internal/engine/engine_test.go` (test), `internal/engine/query.go`, `internal/engine/thinking_display_test.go` (test), `internal/engine/tool_images.go`
 
 ## Dependencies
 
@@ -167,3 +169,4 @@ type StreamReader interface {
 - **2026-11-19 `ListModels`（/setup 驗證）**：獨立函式，**不加進 `api.Client` 介面**（避免改動所有測試用的假 client）。只打 `GET {base}/v1/models`，不呼叫 LLM、不花 token；路徑沿用既有 client 的 `normalizeBaseURL` + `/v1/...` 慣例。Anthropic 依 `has_more`/`last_id` 分頁（上限 10 頁）；OpenAI 相容讀 `context_length`。錯誤分類為 `ListModelsError`，金鑰在**截斷前**先遮蔽（避免金鑰跨過截斷點時部分外洩）；200 但沒有 `data` 欄位視為不支援。OpenRouter 的模型清單是公開的，所以另外打 `/api/v1/key` 驗證金鑰。
 - **2026-11-20 帶其他版本號的 base URL（fix/versioned-base-url）**：OpenAI 相容的路徑（`/chat/completions`、`/models`、OpenRouter `/key`）改由 `openAIURL(base, path)` 組合。`normalizeBaseURL` 只去掉 `/v1`，原本之後一律接 `/v1`，所以 z.ai 文件給的 `https://api.z.ai/api/coding/paas/v4` 會變成 `…/v4/v1/chat/completions`（404）。現在 base 結尾是 `/v<數字>` 就直接接 path，否則照舊插入 `/v1`，`/v1`、無版本的 base 行為不變。只比對完整路徑段，`/v4beta` 這種不算。Anthropic 的 `/v1/messages` 不變。守護測試 TestOpenAIURL、TestOpenAIClient_V4BaseURL、TestListModels_BaseURLWithV4；另以實際 z.ai 端點驗證過取得模型與對話。
 - **2026-11-20 finish_reason 與 usage 同一個 chunk（fix/openai-finish-with-usage）**：智譜 GLM（z.ai）串流把 `finish_reason` 和 `usage` 放在**同一個** chunk。原本 reader 只要看到 `usage` 且已 started 就提早 return usage delta，同 chunk 的 finish 沒被處理 → stop reason 為空 → engine 當成 `end_turn` 結束回合，**模型要求的工具從未執行**（TUI 只顯示 tool_use、沒有結果，回應看起來「很短就停」）。現在只有 choices 為空的獨立 usage chunk 才走提早 return；有 choices 時 fall through，由 finish 的 message_delta 帶出已記錄的 usage。守護測試 TestOpenAIStream_FinishAndUsageInSameChunk（chunk 形狀取自實測 z.ai 回應）；另以 glm-5.3-flash 實機對照修改前後驗證。
+- **2026-11-20 圖片送達 OpenAI 相容 provider（feat/tool-result-images）**：`ContentBlock` 加 `Source *ImageSource`。`convertMessage` 把 user 訊息的 image block 轉成 `image_url` content part（base64 → data URL）；tool_result 裡的圖片因為 `role:"tool"` 只吃文字，改成在所有 tool 訊息之後補一則 user 訊息（`toolImagesNote` + image_url），tool 訊息本身只放文字或 `toolImagePlaceholder`。`openaiMessage.Parts` 用自訂 `MarshalJSON`，**只有帶圖的訊息**才輸出陣列 content，沒有圖片的請求位元組與以前完全相同（cache-first，守護測試 TestOpenAIConvert_NoImageBytesUnchanged）。`splitToolResultContent` 取代 `extractToolResultContent`，不再把含圖的陣列以原始 JSON（含 base64）當文字送出。`IsImageUnsupportedError`：400 且訊息符合 z.ai／OpenAI／DeepSeek 等「不接受圖片」措辭的啟發式判斷，呼叫端只在請求真的帶圖時才採信。實測 z.ai：glm-5.3-flash 接受圖片，glm-5.3／glm-4.5 回 400 `messages.content.type is invalid, allowed values: ['text']`。

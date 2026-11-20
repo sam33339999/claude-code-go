@@ -172,6 +172,9 @@ func (e *engineImpl) runQueryLoop(ctx context.Context, params QueryParams, msgCh
 		// Stream the LLM response.
 		reqMsgCount := len(messages)
 		assistantMsg, toolCalls, stopReason, usage, streamErr := e.streamResponse(ctx, client, req, msgCh)
+		if streamErr != nil && e.shouldRetryWithoutImages(streamErr, messages, activeModel) {
+			assistantMsg, toolCalls, stopReason, usage, streamErr = e.retryWithoutImages(ctx, client, params, messages, activeModel, mt.MaxTokens, msgCh)
+		}
 		if streamErr != nil {
 			// If a context-window overflow error occurred and a fallback model is set,
 			// retry the same turn with the fallback model.
@@ -465,6 +468,9 @@ func (e *engineImpl) buildRequestWithModel(params QueryParams, messages []types.
 // buildRequest builds the API request with an explicit default max_tokens
 // (the loop's MainTarget snapshot).
 func (e *engineImpl) buildRequest(params QueryParams, messages []types.Message, model string, defaultMaxTokens int) (*api.MessageRequest, error) {
+	if e.imagesRejected(model) {
+		messages = stripImages(messages)
+	}
 	maxTokens := defaultMaxTokens
 	if params.MaxOutputTokensOverride > 0 {
 		maxTokens = params.MaxOutputTokensOverride
