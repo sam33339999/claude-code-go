@@ -87,3 +87,15 @@ func TestSetupApplied_FailureNoRestartMarker(t *testing.T) {
 		t.Errorf("bar = %q", got)
 	}
 }
+
+func TestSetupApplied_PartialWriteStillMarksRestart(t *testing.T) {
+	// settings.json (which holds the main model) was written; config.toml
+	// failed afterwards. The new model still applies after a restart.
+	m, _ := newBTWModel(t, nil)
+	m.setupWizard = &setupWizard{step: stepWriting, gen: 1}
+	m = m.onSetupApplied(setupAppliedMsg{gen: 1, mainModel: "new-model", err: errors.New("config.toml: permission denied"),
+		report: commands.SetupReport{SettingsWritten: true}})
+	if got := barText(m.statusBar, 160); !strings.Contains(got, "restart → new-model") {
+		t.Errorf("bar = %q", got)
+	}
+}

@@ -96,9 +96,10 @@ func (m AppModel) onSetupModels(msg setupModelsMsg) AppModel {
 func (m AppModel) onSetupApplied(msg setupAppliedMsg) AppModel {
 	if w := m.setupWizard; w != nil && msg.gen == w.gen {
 		w.onApplied(msg.report, msg.err)
-		if msg.err == nil && msg.report.SettingsWritten && msg.mainModel != "" {
+		if msg.report.SettingsWritten && msg.mainModel != "" {
 			// settings.json now names a model this session is not running
-			// until a restart; the status bar says so.
+			// until a restart; the status bar says so. This holds even when
+			// a later step (config.toml) failed.
 			m.statusBar.restartModel = msg.mainModel
 		}
 	}
