@@ -119,7 +119,8 @@ func (a *AutoCompactor) Compact(
 	summarySystem := buildSummarySystemPrompt(params)
 	maxOut := summaryMaxOut(t)
 	budget := t.Window() - maxOut - min(AutoCompactBufferTokens, t.Window()/10) - len(summarySystem)/4
-	apiMessages, err := messagesToAPIParams(fitForSummary(messages, budget))
+	summaryInput, _ := withoutImages(fitForSummary(messages, budget))
+	apiMessages, err := messagesToAPIParams(summaryInput)
 	if err != nil {
 		tr.recordFailure()
 		return nil, fmt.Errorf("compact: marshal messages: %w", err)
@@ -268,13 +269,15 @@ func messagesToAPIParams(messages []types.Message) ([]api.MessageParam, error) {
 }
 
 // EstimateTokens approximates the token count for a message list using the
-// rough heuristic of 4 characters per token (JSON bytes ÷ 4).
+// rough heuristic of 4 characters per token (JSON bytes ÷ 4). Images count
+// as a fixed imageTokenEstimate each instead of their base64 length.
 func EstimateTokens(messages []types.Message) int {
-	raw, err := json.Marshal(messages)
+	textOnly, images := withoutImages(messages)
+	raw, err := json.Marshal(textOnly)
 	if err != nil {
 		return 0
 	}
-	return len(raw) / 4
+	return len(raw)/4 + images*imageTokenEstimate
 }
 
 func strPtr(s string) *string { return &s }

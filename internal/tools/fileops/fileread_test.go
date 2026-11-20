@@ -359,3 +359,21 @@ func TestFileReadTool_Call_UnsupportedImageFormat(t *testing.T) {
 		t.Errorf("bmp must be an error result (APIs accept only png/jpeg/gif/webp), got %T", result.Content)
 	}
 }
+
+// A screenshot saved as .png but encoded as JPEG must be labelled by its
+// content, or the API rejects it as a media-type mismatch.
+func TestFileReadTool_Call_ImageMediaTypeSniffed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "shot.png")
+	_ = os.WriteFile(path, append([]byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0x00}, make([]byte, 64)...), 0o644)
+
+	in, _ := json.Marshal(fileops.FileReadInput{FilePath: path})
+	result, err := fileops.FileReadTool.Call(in, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	out, ok := result.Content.(fileops.FileReadOutput)
+	if !ok || out.MediaType != "image/jpeg" {
+		t.Errorf("media type = %+v, want image/jpeg sniffed from content", result.Content)
+	}
+}

@@ -2,7 +2,7 @@
 package: api
 import_path: internal/api
 layer: services
-generated_at: 2026-11-20T09:43:00Z
+generated_at: 2026-11-20T09:47:10Z
 source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, listmodels.go, openai_client.go, openai_images.go, openai_stream.go, openai_types.go, ratelimit.go, retry.go, stream.go, usage.go]
 ---
 
@@ -170,3 +170,4 @@ type StreamReader interface {
 - **2026-11-20 帶其他版本號的 base URL（fix/versioned-base-url）**：OpenAI 相容的路徑（`/chat/completions`、`/models`、OpenRouter `/key`）改由 `openAIURL(base, path)` 組合。`normalizeBaseURL` 只去掉 `/v1`，原本之後一律接 `/v1`，所以 z.ai 文件給的 `https://api.z.ai/api/coding/paas/v4` 會變成 `…/v4/v1/chat/completions`（404）。現在 base 結尾是 `/v<數字>` 就直接接 path，否則照舊插入 `/v1`，`/v1`、無版本的 base 行為不變。只比對完整路徑段，`/v4beta` 這種不算。Anthropic 的 `/v1/messages` 不變。守護測試 TestOpenAIURL、TestOpenAIClient_V4BaseURL、TestListModels_BaseURLWithV4；另以實際 z.ai 端點驗證過取得模型與對話。
 - **2026-11-20 finish_reason 與 usage 同一個 chunk（fix/openai-finish-with-usage）**：智譜 GLM（z.ai）串流把 `finish_reason` 和 `usage` 放在**同一個** chunk。原本 reader 只要看到 `usage` 且已 started 就提早 return usage delta，同 chunk 的 finish 沒被處理 → stop reason 為空 → engine 當成 `end_turn` 結束回合，**模型要求的工具從未執行**（TUI 只顯示 tool_use、沒有結果，回應看起來「很短就停」）。現在只有 choices 為空的獨立 usage chunk 才走提早 return；有 choices 時 fall through，由 finish 的 message_delta 帶出已記錄的 usage。守護測試 TestOpenAIStream_FinishAndUsageInSameChunk（chunk 形狀取自實測 z.ai 回應）；另以 glm-5.3-flash 實機對照修改前後驗證。
 - **2026-11-20 圖片送達 OpenAI 相容 provider（feat/tool-result-images）**：`ContentBlock` 加 `Source *ImageSource`。`convertMessage` 把 user 訊息的 image block 轉成 `image_url` content part（base64 → data URL）；tool_result 裡的圖片因為 `role:"tool"` 只吃文字，改成在所有 tool 訊息之後補一則 user 訊息（`toolImagesNote` + image_url），tool 訊息本身只放文字或 `toolImagePlaceholder`。`openaiMessage.Parts` 用自訂 `MarshalJSON`，**只有帶圖的訊息**才輸出陣列 content，沒有圖片的請求位元組與以前完全相同（cache-first，守護測試 TestOpenAIConvert_NoImageBytesUnchanged）。`splitToolResultContent` 取代 `extractToolResultContent`，不再把含圖的陣列以原始 JSON（含 base64）當文字送出。`IsImageUnsupportedError`：400 且訊息符合 z.ai／OpenAI／DeepSeek 等「不接受圖片」措辭的啟發式判斷，呼叫端只在請求真的帶圖時才採信。實測 z.ai：glm-5.3-flash 接受圖片，glm-5.3／glm-4.5 回 400 `messages.content.type is invalid, allowed values: ['text']`。
+- **2026-11-20 `IsImageUnsupportedError` 收緊**：只認「模型根本不收圖」的措辭（`allowed values: ['text']`、`only supported by certain models`、`unknown variant image_url`、`does not support … image`、`image … not supported`）。單一張圖的問題（media type 不符、超過 8000 px、超過 5 MB）不算，否則支援視覺的模型會因為一張壞圖被整個 session 停用圖片。守護案例在 TestIsImageUnsupportedError。

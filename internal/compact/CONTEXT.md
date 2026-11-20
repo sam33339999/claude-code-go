@@ -2,13 +2,13 @@
 package: compact
 import_path: internal/compact
 layer: services
-generated_at: 2026-11-19T18:29:52Z
-source_files: [auto.go, compact.go, micro.go, snip.go, target.go, window.go]
+generated_at: 2026-11-20T09:47:10Z
+source_files: [auto.go, compact.go, images.go, micro.go, snip.go, target.go, window.go]
 ---
 
 # internal/compact
 
-> Layer: **Services** · Files: 6 · Interfaces: 1 · Structs: 13 · Functions: 9
+> Layer: **Services** · Files: 7 · Interfaces: 1 · Structs: 13 · Functions: 9
 
 ## Interfaces
 
@@ -89,3 +89,4 @@ type Compressor interface {
   - 段落審查後補修：snip 每個壓縮週期最多一次（歷史已有被剪過的區塊就不再 snip，交給自動壓縮），否則估算值停在 [0.8T, T) 時會逐輪改寫前綴、重現 C9。`fitForSummary` 保留第一則 plain user（任務 prompt，附截斷說明），之後從 assistant 邊界切，保留最近的工具往返；修正前 sub-agent 的摘要會只剩任務 prompt。
   - 最終審查後補修：`AutoCompactThreshold` 的保留量按窗口比例設上限——輸出保留 `min(max_tokens, 20000, Window/4)`、buffer `min(13000, Window/10)`。200k 窗口數值不變；32k 窗口的門檻從 3k～11k（低於工具 schema 等固定開銷，會每輪壓縮）變成約 21k。另外 `Tracker.RecordPostCompact` 記下壓縮後的估算值，之後要成長 Window/10 才會再壓縮，避免固定開銷本身就超過門檻時每輪重複摘要。
 - **2026-11-19 `KnownContextWindow`**：讓 /setup 判斷主腦模型是否在內建表（`claude-*`），不在才寫 `[main] context_window`。
+- **2026-11-20 圖片不當文字估算、摘要請求不帶圖（feat/tool-result-images）**：engine 改成以 image block 送出工具回傳的圖片後，`EstimateTokens`（JSON 位元組 ÷ 4）會把 base64 當文字算——一張 1 MB 截圖約被估成 33 萬 tokens，下一輪立刻觸發 auto-compact，`fitForSummary` 還會依膨脹的數字砍歷史。現在估算前以 `withoutImages` 把圖片換成佔位文字，每張圖另計固定 `imageTokenEstimate`（1600，對應 provider 依像素計費、Anthropic 縮圖後約 1.6k 上限）。摘要請求是文字進文字出，且摘要模型可能不收圖（例如已被 engine 標記的 glm-5.3），所以送出前一律以 `withoutImages` 換成 `[image]`，避免 400 累積失敗打開熔斷器。`withoutImages` 只複製有圖的訊息，不改呼叫端的 history。守護測試 images_test.go。

@@ -34,11 +34,14 @@ func imagePart(src *ImageSource) (openaiContentPart, bool) {
 	return openaiContentPart{Type: "image_url", ImageURL: &openaiImageURL{URL: url}}, true
 }
 
-// imageUnsupportedRe matches provider messages rejecting image input, e.g.
-// z.ai "messages.content.type is invalid, allowed values: ['text']", OpenAI
-// "image_url is only supported by certain models", DeepSeek "unknown variant
-// `image_url`, expected `text`".
-var imageUnsupportedRe = regexp.MustCompile(`(?i)image|content\.type|content type|expected .?text`)
+// imageUnsupportedRe matches provider messages saying the model does not
+// accept image input at all, e.g. z.ai "messages.content.type is invalid,
+// allowed values: ['text']", OpenAI "image_url is only supported by certain
+// models", DeepSeek "unknown variant `image_url`, expected `text`". It must
+// NOT match problems with one particular image (media-type mismatch, too
+// many pixels, too large): those would wrongly disable images for the whole
+// session on a vision-capable model.
+var imageUnsupportedRe = regexp.MustCompile(`(?i)allowed values: \[\s*'text'\s*\]|only supported by certain models|unknown variant .?image|(does not|doesn't|not) support[^.]{0,40}image|image[^.]{0,40}not supported`)
 
 // IsImageUnsupportedError reports whether err is a 400 rejecting the request
 // because the model does not accept image input. The check is a heuristic

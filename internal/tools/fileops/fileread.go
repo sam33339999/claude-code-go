@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -248,8 +249,7 @@ func (t *fileReadTool) readImage(fullPath string) (*tools.Result, error) {
 		return &tools.Result{IsError: true, Content: fmt.Sprintf("cannot read image: %v", err)}, nil
 	}
 
-	ext := strings.ToLower(filepath.Ext(fullPath))
-	mediaType := extToMIME(ext)
+	mediaType := imageMediaType(data, strings.ToLower(filepath.Ext(fullPath)))
 
 	out := FileReadOutput{
 		Type:      "image",
@@ -258,6 +258,17 @@ func (t *fileReadTool) readImage(fullPath string) (*tools.Result, error) {
 		MediaType: mediaType,
 	}
 	return &tools.Result{Content: out}, nil
+}
+
+// imageMediaType labels image data by its content (screenshots are often
+// JPEG saved as .png; the API rejects a mismatched media type), falling back
+// to the extension when the content is not a recognised API image format.
+func imageMediaType(data []byte, ext string) string {
+	switch sniffed := http.DetectContentType(data); sniffed {
+	case "image/png", "image/jpeg", "image/gif", "image/webp":
+		return sniffed
+	}
+	return extToMIME(ext)
 }
 
 // extToMIME maps image file extensions to MIME types.

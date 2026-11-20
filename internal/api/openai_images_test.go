@@ -86,6 +86,9 @@ func TestIsImageUnsupportedError(t *testing.T) {
 		{"anthropic-ish", &APIError{StatusCode: 400, Message: "This model does not support image input."}, true},
 		{"wrapped", fmt.Errorf("stream: %w", &CannotRetryError{Cause: &APIError{StatusCode: 400, Message: "image input not supported"}}), true},
 		{"other 400", &APIError{StatusCode: 400, Message: "max_tokens must be positive"}, false},
+		{"media type mismatch", &APIError{StatusCode: 400, Message: "messages.0.content.1.image.source.base64.data: Image does not match the provided media type image/png"}, false},
+		{"too many pixels", &APIError{StatusCode: 400, Message: "messages.0.content.1.image.source.base64: image dimensions exceed max allowed size: 8000 pixels"}, false},
+		{"image too big", &APIError{StatusCode: 400, Message: "image exceeds 5 MB maximum: 6000000 bytes > 5242880 bytes"}, false},
 		{"500 mentioning image", &APIError{StatusCode: 500, Message: "image service down"}, false},
 		{"plain", errors.New("image"), false},
 	}
