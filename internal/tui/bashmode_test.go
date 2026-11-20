@@ -185,3 +185,20 @@ func TestBashEsc_DiscardsPending(t *testing.T) {
 		t.Error("Esc must discard pending shell output")
 	}
 }
+
+func TestInputBashMode(t *testing.T) {
+	in := NewInput(false).SetValue("!ls")
+	if !in.IsBashMode() {
+		t.Error("!ls must be bash mode")
+	}
+	if v := in.View(DefaultDarkTheme); strings.Contains(v, ">") {
+		t.Errorf("bash-mode prompt must replace > with !: %q", v)
+	}
+	plain := NewInput(false).SetValue("ls")
+	if plain.IsBashMode() {
+		t.Error("ls must not be bash mode")
+	}
+	if !strings.Contains(plain.View(DefaultDarkTheme), ">") {
+		t.Error("normal prompt must show >")
+	}
+}
