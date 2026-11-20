@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/tunsuy/glaude/internal/clipboard"
+	"github.com/tunsuy/glaude/internal/engine"
 	"github.com/tunsuy/glaude/internal/msgqueue"
 	"github.com/tunsuy/glaude/pkg/types"
 )
@@ -381,6 +382,137 @@ func TestCtrlV_QueuedDuplicateTextCountsBoth(t *testing.T) {
 	if !strings.Contains(m.View().Content, "already has 20 images") {
 		t.Fatalf("view missing cap notice: %q", m.View().Content)
 	}
+}
+
+func TestCtrlV_MidTurnEchoCountsOnce(t *testing.T) {
+	m := startQueuedTurn(t)
+	text := imageMarkers(m, 10)
+	m = queueUser(t, m, text)
+	m = echoQueuedPrompt(t, m)
+	if len(m.queryEngine.GetMessages()) != 0 {
+		t.Fatal("GetMessages filled without running Query")
+	}
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatal("mid-turn echo was counted again")
+	}
+	if !m.pastes.isMarker(m.input.Value()) {
+		t.Fatalf("input = %q, want a new image marker", m.input.Value())
+	}
+}
+
+func TestCtrlV_ConsumedQueueDroppedOnDone(t *testing.T) {
+	m := startQueuedTurn(t)
+	m = queueUser(t, m, imageMarkers(m, 10))
+	m = echoQueuedPrompt(t, m)
+	m.queryEngine.SetMessages(messagesWithImages(10, 0))
+	m = drainNextPrompt(t, m)
+	if m.isLoading {
+		t.Fatal("done path left the turn loading")
+	}
+	if countImages(m.queryEngine.GetMessages()) != 10 {
+		t.Fatalf("history images = %d, want 10", countImages(m.queryEngine.GetMessages()))
+	}
+	m.input = m.input.SetValue("next")
+	var cmd tea.Cmd
+	m, cmd = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil || !m.isLoading {
+		t.Fatal("follow-up submit did not start a turn")
+	}
+	if countImages(m.queryEngine.GetMessages()) != 10 {
+		t.Fatal("follow-up submit wrote GetMessages")
+	}
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatal("written-back queue bubble was counted again")
+	}
+	if !m.pastes.isMarker(m.input.Value()) {
+		t.Fatalf("input = %q, want a new image marker", m.input.Value())
+	}
+	if len(m.unsentUsers) != 0 {
+		t.Fatalf("stale unsent = %v", m.unsentUsers)
+	}
+}
+
+func TestCtrlV_PromptQueuedAfterEchoStillCounts(t *testing.T) {
+	m := startQueuedTurn(t)
+	m = queueUser(t, m, imageMarkers(m, 10))
+	m = echoQueuedPrompt(t, m)
+	later := imageMarkers(m, 10)
+	m = queueUser(t, m, later)
+	m.queryEngine.SetMessages(messagesWithImages(10, 0))
+	m = drainNextPrompt(t, m)
+	if !m.isLoading {
+		t.Fatal("prompt queued after the echo was not started")
+	}
+	if countImages(m.queryEngine.GetMessages()) != 10 {
+		t.Fatal("drain wrote or cleared GetMessages")
+	}
+	if m.inflightUser < 0 || m.inflightUser >= len(m.messages) ||
+		messagePlainText(m.messages[m.inflightUser]) != later {
+		t.Fatal("claim kept the prompt drainMidTurn already consumed")
+	}
+	got := unsentTexts(m)
+	if len(got) != 1 || got[0] != later {
+		t.Fatalf("unsent = %q, want only the prompt queued after the echo", got)
+	}
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if got := m.input.Value(); got != "" {
+		t.Fatalf("input = %q, want no new marker", got)
+	}
+	if !strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatal("prompt queued after the echo was not counted")
+	}
+}
+
+func startQueuedTurn(t *testing.T) AppModel {
+	t.Helper()
+	m := newTestModel()
+	m.msgQueue = msgqueue.NewMessageQueue()
+	m.input = m.input.SetValue("turn")
+	m, cmd := press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil || !m.isLoading {
+		t.Fatal("submit did not start a turn")
+	}
+	if len(m.queryEngine.GetMessages()) != 0 {
+		t.Fatal("GetMessages filled without running Query")
+	}
+	return m
+}
+
+// echoQueuedPrompt removes the one queued command, as drainMidTurn does, and
+// appends the marker-text bubble StreamUserTurnMsg delivers.
+func echoQueuedPrompt(t *testing.T, m AppModel) AppModel {
+	t.Helper()
+	snap := m.msgQueue.Snapshot()
+	if len(snap) != 1 {
+		t.Fatalf("queue len = %d, want 1", len(snap))
+	}
+	if n := m.msgQueue.RemoveByIDs([]string{snap[0].ID}); n != 1 {
+		t.Fatalf("removed %d commands, want 1", n)
+	}
+	m.streamCh = make(chan engine.Msg)
+	msg := newUserMessage(snap[0].Value)
+	updated, _ := m.Update(StreamUserTurnMsg{FinalMessage: &msg})
+	m = updated.(AppModel)
+	if messagePlainText(m.messages[len(m.messages)-1]) != snap[0].Value {
+		t.Fatal("echo bubble was not appended")
+	}
+	return m
+}
+
+func unsentTexts(m AppModel) []string {
+	out := make([]string, 0, len(m.unsentUsers))
+	for _, u := range m.unsentUsers {
+		if u.idx < 0 || u.idx >= len(m.messages) {
+			continue
+		}
+		out = append(out, messagePlainText(m.messages[u.idx]))
+	}
+	return out
 }
 
 func queueUser(t *testing.T, m AppModel, text string) AppModel {

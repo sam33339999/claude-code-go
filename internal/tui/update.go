@@ -155,6 +155,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.FinalMessage != nil {
 			m.messages = append(m.messages, *msg.FinalMessage)
+			m = m.noteStreamUserTurn()
 		}
 		// A user turn after tool use carries the tool results: the tools ran.
 		m.activeTool = ""

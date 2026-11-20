@@ -190,17 +190,17 @@ func imageBlockCount(block types.ContentBlock) int {
 
 // sessionImageCount is history plus images not yet written back to the engine.
 // While idle, that is GetMessages plus distinct markers in the input.
-// While loading, the turn tail supplies tool-result blocks and any bubble
-// appended after the window opened. Queued user bubbles from earlier turns
-// are counted from unsentUsers, one submission at a time. Bubbles already
-// written back are not scanned: their markers are image blocks in GetMessages.
+// While loading, the turn tail supplies tool-result blocks and marker text
+// except StreamUserTurnMsg echoes. Queued bubbles from earlier turns are
+// counted from unsentUsers, one submission at a time. Bubbles already written
+// back are not scanned: their markers are image blocks in GetMessages.
 func (m AppModel) sessionImageCount() int {
 	n := countImages(m.queryEngine.GetMessages())
 	texts := []string{m.input.Value()}
 	if m.isLoading {
 		tail := m.inflightTail()
 		n += countImages(tail)
-		texts = append(texts, messageTexts(tail)...)
+		texts = append(texts, m.tailMarkerTexts()...)
 		texts = append(texts, m.unsentMarkerTexts()...)
 	}
 	return n + distinctImageMarkers(m.pastes, texts)
@@ -214,25 +214,67 @@ func (m AppModel) inflightTail() []types.Message {
 	return m.messages[m.inflightBase:]
 }
 
+// queuedBubble is one user submission still absent from GetMessages.
+// id is the queue command, so a mid-turn drain can drop it after write-back
+// without releasing prompts that are still queued.
+type queuedBubble struct {
+	idx int
+	id  string
+}
+
+// tailMarkerTexts is marker text from the open turn, skipping StreamUserTurnMsg
+// echoes. Tool-result image blocks are counted separately from the same tail.
+func (m AppModel) tailMarkerTexts() []string {
+	if m.inflightBase < 0 || m.inflightBase > len(m.messages) {
+		return nil
+	}
+	var out []string
+	for i := m.inflightBase; i < len(m.messages); i++ {
+		if m.isEchoed(i) {
+			continue
+		}
+		out = append(out, messagePlainText(m.messages[i]))
+	}
+	return out
+}
+
+func (m AppModel) isEchoed(idx int) bool {
+	for _, echo := range m.echoedUsers {
+		if echo == idx {
+			return true
+		}
+	}
+	return false
+}
+
+// noteStreamUserTurn records the bubble StreamUserTurnMsg just appended.
+func (m AppModel) noteStreamUserTurn() AppModel {
+	if len(m.messages) == 0 {
+		return m
+	}
+	m.echoedUsers = append(m.echoedUsers, len(m.messages)-1)
+	return m
+}
+
 // unsentMarkerTexts is queued user bubbles still outside GetMessages and
 // outside the current turn tail. Each submission is its own text.
 func (m AppModel) unsentMarkerTexts() []string {
 	var out []string
-	for _, idx := range m.unsentUsers {
-		if idx < 0 || idx >= len(m.messages) || idx >= m.inflightBase {
+	for _, u := range m.unsentUsers {
+		if u.idx < 0 || u.idx >= len(m.messages) || u.idx >= m.inflightBase {
 			continue
 		}
-		out = append(out, messagePlainText(m.messages[idx]))
+		out = append(out, messagePlainText(m.messages[u.idx]))
 	}
 	return out
 }
 
 // noteQueuedUser records the user bubble just appended by a mid-turn enqueue.
-func (m AppModel) noteQueuedUser() AppModel {
+func (m AppModel) noteQueuedUser(id string) AppModel {
 	if len(m.messages) == 0 {
 		return m
 	}
-	m.unsentUsers = append(m.unsentUsers, len(m.messages)-1)
+	m.unsentUsers = append(m.unsentUsers, queuedBubble{idx: len(m.messages) - 1, id: id})
 	return m
 }
 
@@ -243,44 +285,46 @@ func (m AppModel) claimQueuedUser() AppModel {
 		m.inflightUser = -1
 		return m
 	}
-	m.inflightUser = m.unsentUsers[0]
+	m.inflightUser = m.unsentUsers[0].idx
 	return m
 }
 
-// releaseWrittenUser drops the bubble whose query just exited. Later queued
-// bubbles stay, because their images are still not in GetMessages.
+// releaseWrittenUser drops the bubble this query claimed, and every queued
+// bubble whose command this turn already removed. Prompts still in the queue
+// stay, including one submitted after a mid-turn echo.
 func (m AppModel) releaseWrittenUser() AppModel {
-	if m.inflightUser < 0 {
-		return m
+	kept := make([]queuedBubble, 0, len(m.unsentUsers))
+	for _, u := range m.unsentUsers {
+		if u.idx == m.inflightUser {
+			continue
+		}
+		if m.commandStillQueued(u.id) {
+			kept = append(kept, u)
+		}
 	}
-	m.unsentUsers = dropUserIndex(m.unsentUsers, m.inflightUser)
+	m.unsentUsers = kept
 	m.inflightUser = -1
 	return m
+}
+
+func (m AppModel) commandStillQueued(id string) bool {
+	if m.msgQueue == nil || id == "" {
+		return false
+	}
+	for _, cmd := range m.msgQueue.Snapshot() {
+		if cmd.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // dropUnsentUsers forgets queued bubbles when display history is replaced.
 func (m AppModel) dropUnsentUsers() AppModel {
 	m.unsentUsers = nil
+	m.echoedUsers = nil
 	m.inflightUser = -1
 	return m
-}
-
-func dropUserIndex(idxs []int, target int) []int {
-	out := make([]int, 0, len(idxs))
-	for _, idx := range idxs {
-		if idx != target {
-			out = append(out, idx)
-		}
-	}
-	return out
-}
-
-func messageTexts(msgs []types.Message) []string {
-	out := make([]string, len(msgs))
-	for i, msg := range msgs {
-		out[i] = messagePlainText(msg)
-	}
-	return out
 }
 
 func messagePlainText(msg types.Message) string {

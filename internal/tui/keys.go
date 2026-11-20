@@ -496,7 +496,7 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 		m.msgQueue.Enqueue(cmd)
 		// Show queued message in UI so the user sees their input was accepted.
 		m.messages = append(m.messages, newUserMessage(text))
-		m = m.noteQueuedUser()
+		m = m.noteQueuedUser(cmd.ID)
 		m.syncViewportContent()
 		return m, nil // No startQueryCmd — will drain later.
 	}

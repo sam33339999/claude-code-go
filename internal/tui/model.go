@@ -75,10 +75,13 @@ type AppModel struct {
 	// inflightBase is the m.messages index at turn start. While isLoading,
 	// bubbles from here on are not in GetMessages yet.
 	inflightBase int
-	// unsentUsers are queued user-bubble indices whose images are not in
-	// GetMessages yet. The running one stays until that query writes back.
-	unsentUsers []int
-	// inflightUser is the unsentUsers entry this query will write back, or -1.
+	// unsentUsers are queued user bubbles whose images are not in GetMessages
+	// yet. The running one stays until that query writes back.
+	unsentUsers []queuedBubble
+	// echoedUsers are StreamUserTurnMsg indices. Their marker text repeats a
+	// submission already on screen.
+	echoedUsers []int
+	// inflightUser is the unsent bubble index this query will write back, or -1.
 	inflightUser int
 	abortFn      context.CancelFunc // nil when idle
 	abortCtx     context.Context    // current query context
