@@ -2,7 +2,7 @@
 package: commands
 import_path: internal/commands
 layer: cli
-generated_at: 2026-11-19T18:38:04Z
+generated_at: 2026-11-20T05:17:49Z
 source_files: [builtins.go, mcp.go, modelswitch.go, registry.go, resume.go, setup.go, terminal_setup.go, tier.go]
 ---
 
@@ -104,7 +104,7 @@ type TierManager interface {
 - `ModelOption` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/modelswitch_test.go` (test), `internal/tui/model.go`, `internal/tui/modelpicker.go`, `internal/tui/modelpicker_test.go` (test)
 - `ModelSwitcher` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`, `internal/tui/modelpicker_test.go` (test)
 - `Registry` → `internal/tui/completion.go`, `internal/tui/model.go`
-- `Result` → `internal/tui/btw_send_test.go` (test), `internal/tui/btw_test.go` (test), `internal/tui/mcp_resume_test.go` (test), `internal/tui/modelpicker_test.go` (test), `internal/tui/setup_dialog_test.go` (test) + 3 more
+- `Result` → `internal/tui/bashmode_test.go` (test), `internal/tui/btw_send_test.go` (test), `internal/tui/btw_test.go` (test), `internal/tui/mcp_resume_test.go` (test), `internal/tui/modelpicker_test.go` (test) + 4 more
 - `SessionSummary` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/resumepicker.go`
 - `SetupBackend` → `internal/bootstrap/setup.go`, `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`, `internal/tui/setup_dialog.go` + 1 more
 - `SetupDefaults` → `internal/bootstrap/setup.go`, `internal/tui/setup_dialog_test.go` (test), `internal/tui/setupwizard.go`, `internal/tui/setupwizard_test.go` (test)

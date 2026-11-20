@@ -1,6 +1,6 @@
 ---
 type: auto-generated-index
-generated_at: 2026-11-19T18:38:04Z
+generated_at: 2026-11-20T05:17:49Z
 package_count: 42
 ---
 
@@ -42,7 +42,7 @@ package_count: 42
 | `internal/tools/mcp` | Tools | ListMcpResourcesInput, ReadMcpResourceInput | [CONTEXT](../../internal/tools/mcp/CONTEXT.md) |
 | `internal/tools/memory` | Tools | MemoryDeleteInput, MemoryReadInput, MemoryWriteInput | [CONTEXT](../../internal/tools/memory/CONTEXT.md) |
 | `internal/tools/misc` | Tools | BriefInput, SkillInput, SleepInput, SyntheticOutputInput, ToolSearchInput | [CONTEXT](../../internal/tools/misc/CONTEXT.md) |
-| `internal/tools/shell` | Tools | BashInput, BashOutput, SecurityFinding | [CONTEXT](../../internal/tools/shell/CONTEXT.md) |
+| `internal/tools/shell` | Tools | BashInput, BashOutput, RunResult, SecurityFinding | [CONTEXT](../../internal/tools/shell/CONTEXT.md) |
 | `internal/tools/tasks` | Tools | Task, TaskCreateInput, TaskGetInput, TaskListInput, TaskOutputInput | [CONTEXT](../../internal/tools/tasks/CONTEXT.md) |
 | `internal/tools/web` | Tools | HTTPClient(1m), WebFetchInput, WebFetchOutput, WebSearchInput, WebSearchOutput | [CONTEXT](../../internal/tools/web/CONTEXT.md) |
 | `internal/tui` | TUI | AgentColorManager, AgentProgressMsg, AgentStatusMsg, AgentTaskState, AppModel | [CONTEXT](../../internal/tui/CONTEXT.md) |

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -165,45 +164,24 @@ func (t *bashTool) Call(input tools.Input, ctx *tools.UseContext, _ tools.OnProg
 	// TODO(dep): ShouldUseSandbox(in.Command, in.DangerouslyDisableSandbox, settings)
 
 	var parentCtx context.Context = context.Background()
-	if ctx != nil && ctx.Ctx != nil {
-		parentCtx = ctx.Ctx
-	}
-
-	timeoutCtx, cancel := context.WithTimeout(parentCtx, time.Duration(timeoutMs)*time.Millisecond)
-	defer cancel()
-
-	cmd := exec.CommandContext(timeoutCtx, "bash", "-c", in.Command)
-	// Run against the session working directory (delegated agents and
-	// worktree sessions inherit it); empty falls back to the process CWD.
-	if ctx != nil && ctx.WorkingDir != "" {
-		cmd.Dir = ctx.WorkingDir
-	}
-	var stdout, stderr strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-
-	out := BashOutput{
-		Stdout: stdout.String(),
-		Stderr: stderr.String(),
-	}
-
-	if err != nil {
-		if timeoutCtx.Err() == context.DeadlineExceeded {
-			out.TimedOut = true
-			out.ExitCode = -1
-			return &tools.Result{
-				IsError: true,
-				Content: fmt.Sprintf("Command timed out after %d ms.\nstdout: %s\nstderr: %s",
-					timeoutMs, out.Stdout, out.Stderr),
-			}, nil
+	dir := ""
+	if ctx != nil {
+		if ctx.Ctx != nil {
+			parentCtx = ctx.Ctx
 		}
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			out.ExitCode = exitErr.ExitCode()
-		} else {
-			out.ExitCode = -1
-		}
+		// Run against the session working directory (delegated agents and
+		// worktree sessions inherit it); empty falls back to the process CWD.
+		dir = ctx.WorkingDir
+	}
+
+	res, _ := Run(parentCtx, dir, in.Command, time.Duration(timeoutMs)*time.Millisecond)
+	out := BashOutput{Stdout: res.Stdout, Stderr: res.Stderr, ExitCode: res.ExitCode, TimedOut: res.TimedOut}
+	if res.TimedOut {
+		return &tools.Result{
+			IsError: true,
+			Content: fmt.Sprintf("Command timed out after %d ms.\nstdout: %s\nstderr: %s",
+				timeoutMs, out.Stdout, out.Stderr),
+		}, nil
 	}
 
 	return &tools.Result{Content: out}, nil

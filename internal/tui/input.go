@@ -261,13 +261,22 @@ func (m InputModel) VimIndicator(theme Theme) string {
 // textarea (which grows with its content) to its right.
 func (m InputModel) View(theme Theme) string {
 	rows := strings.Count(m.textarea.View(), "\n") + 1
-	prompt := accentStyle(theme).Bold(true).Render(">") + " " + strings.Repeat("\n", rows-1)
+	symbol, promptStyle, border := ">", accentStyle(theme), theme.Muted
+	if m.IsBashMode() {
+		symbol, promptStyle, border = "!", lipgloss.NewStyle().Foreground(theme.Warning), theme.Warning
+	}
+	prompt := promptStyle.Bold(true).Render(symbol) + " " + strings.Repeat("\n", rows-1)
 	body := lipgloss.JoinHorizontal(lipgloss.Top, prompt, m.textarea.View())
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Muted).
+		BorderForeground(border).
 		Padding(0, 1)
 	return box.Render(body)
+}
+
+// IsBashMode reports whether the input is a ! shell command.
+func (m InputModel) IsBashMode() bool {
+	return strings.HasPrefix(m.textarea.Value(), "!")
 }
 
 // IsSlashCommand returns true when the current value starts with '/'.

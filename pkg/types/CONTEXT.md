@@ -2,7 +2,7 @@
 package: types
 import_path: pkg/types
 layer: types
-generated_at: 2026-11-19T18:29:52Z
+generated_at: 2026-11-20T05:24:51Z
 source_files: [command.go, hooks.go, ids.go, logs.go, message.go, permissions.go, plugin.go, question.go, todo.go, types.go]
 ---
 
@@ -169,7 +169,7 @@ type MCPConnection interface {
 - `HookResult` → `internal/hooks/hooks.go`
 - `LoadedPlugin` → `internal/plugin/plugin.go`, `internal/state/store.go`
 - `MCPConnection` → `internal/state/store.go`
-- `Message` → `internal/bootstrap/run.go`, `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 50 more
+- `Message` → `internal/bootstrap/run.go`, `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 51 more
 - `PluginConfig` → `internal/plugin/plugin.go`
 - `PluginError` → `internal/plugin/plugin.go`
 - `QuestionRequest` → `internal/bootstrap/wire.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/init.go`, `internal/tui/model.go` + 1 more

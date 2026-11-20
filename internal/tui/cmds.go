@@ -64,6 +64,8 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 
 	// Attach a pending /btw note (ctrl+y while the main loop was idle).
 	userText = m.takeBTWPending(userText)
+	// Attach shell outputs from ! commands run since the last message.
+	userText = m.takeBashPending(userText)
 
 	// Build user message for the engine.
 	userMsg := types.Message{
