@@ -1055,6 +1055,10 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 
 ---
 
+### 8.8 `!` bash 模式：輸出暫存到下一句
+
+輸入以 `!` 開頭時直接用 `shell.Run` 執行（session 工作目錄、2 分鐘逾時、不走權限鏈），結果顯示在 TUI 本地訊息，並以 `<bash-input>/<bash-stdout>/<bash-stderr>` 格式存入 `bashPending`，由 `startQueryCmd` 接在下一則使用者訊息前面。**不**立即寫入 engine 歷史：注入點在 turn 尾部，不移動快取前綴、不產生連續 user 訊息、不新增呼叫；代價是未送出下一句前退出或 resume 會遺失。Esc 先取消執行中的 `!`，閒置時丟棄 pending；`/clear` 以 `bashGen` 丟棄過期結果。
+
 ## 变更记录
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
@@ -1080,3 +1084,4 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 | v2.5 | 2026-11-20 | 主會話 | /model 選單：`commands` +`ModelOption`、`ModelSwitcher`、`Result.ModelRef`；`tui` +`dialogModelPicker`、`dialogModelConfirm`、`modelPicker`；`tui.New`/`newAppModel` 在 `setup` 後新增 `models commands.ModelSwitcher` 參數。 |
 | v2.6 | 2026-11-20 | 主會話 | /btw：TUI 本地 btw 區塊、`btwChunkMsg` 串流、Esc 分派、ctrl+y 交給主腦（`msgqueue.QueuedCommand.Origin`）、`buildMainSystemPrompt`；`tui.New`/`newAppModel` 在 `models` 後新增 `btwTarget` 參數。 |
 | v2.7 | 2026-11-20 | 主會話 | 每輪耗時：`turntiming.go`（`beginQuery`/`finishTurn`），每輪結束顯示 `✻ Worked for …`（TUI 本地訊息）並附加 JSONL 到 `~/.glaude/turn-timings.jsonl`；無導出介面變更。 |
+| v2.8 | 2026-11-20 | 主會話 | `!` bash 模式：`bashmode.go`（`parseBang`/`startBash`/`onBashResult`/`takeBashPending`、`bashResultMsg`），`InputModel.IsBashMode`；共用 `shell.Run`。無導出介面簽名變更。 |
