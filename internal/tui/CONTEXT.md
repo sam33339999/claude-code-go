@@ -2,7 +2,7 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-20T05:52:36Z
+generated_at: 2026-11-20T06:16:03Z
 source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, memstat.go, memstat_darwin.go, memstat_linux.go, memstat_other.go, memstat_windows.go, messagelist.go, messages.go, model.go, modelpicker.go, permissions.go, rendercache.go, resumepicker.go, setup_dialog.go, setupwizard.go, setupwizard_view.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, turntiming.go, update.go, view.go, welcome.go]
 ---
 
@@ -32,7 +32,7 @@ source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coor
 - **QuestionRequestMsg** — 4 fields: RequestID, Question, Options, RespFn
 - **SlashCommandMsg** — 2 fields: Name, Args
 - **SpinnerModel** — 4 fields
-- **StatusBar** — 10 fields
+- **StatusBar** — 12 fields
 - **StreamAssistantTurnMsg** — 2 fields: FinalMessage, Usage
 - **StreamDoneMsg** — 2 fields: FinalMessage, Usage
 - **StreamErrorMsg** — 1 fields: Err
@@ -115,3 +115,4 @@ source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coor
 - **2026-11-20 每輪耗時（turntiming.go）**：所有查詢起點（直送、queue 的 Prompt/ExternalPrompt、slash `DisplayNone`）統一走 `beginQuery()`，記 `turnStart` 並歸零 `turnStats`；`StreamDoneMsg`／`StreamErrorMsg`／`doAbort` 呼叫 `finishTurn(done|error|interrupted)`。用實際時鐘（可注入 `now`）而非 spinner tick 累加，因為 tick 會漂移。done/interrupted 附加 TUI 本地系統訊息（`✻ Worked for …`／`✻ Interrupted after …`），不進 engine 歷史與 transcript，不動前綴。每輪一筆 JSONL 以 `tea.Cmd` 附加到 `~/.glaude/turn-timings.jsonl`（全域檔，`cwd` 欄位區分專案；不記 prompt 內容；寫檔失敗靜默）。`turnLogPath` 只在 `tui.New` 設定，`newAppModel`（測試路徑）為空即不寫檔。`finishTurn` 在沒有 `turnStart` 時是 no-op，所以中斷後、下一輪開始前抵達的過期結束事件不會重複記錄；若過期事件在新一輪已開始後才到，會提早結束新一輪（`StreamDoneMsg` 沒有 queryGen 比對，屬既有問題）。`input_tokens` 不含快取命中，另記 `cache_read_tokens`／`cache_creation_tokens`。
 - **2026-11-20 `!` bash 模式（bashmode.go）**：`handleSubmit` 在 `/btw` 之後、排隊判斷之前攔下 `!`，查詢進行中也立即執行（不排隊）。執行用 `shell.Run` 在 `appState` 的 live WorkingDir，不走權限鏈。結果顯示為 TUI 本地訊息（code fence 長度自動大於輸出中的反引號串），同時把 `<bash-input>/<bash-stdout>/<bash-stderr>` 存進 `bashPending`，由 `startQueryCmd` 接在下一則使用者文字前面（所有查詢起點都經過它，含佇列送出）。**不**立刻寫進 engine 歷史：注入在 turn 尾部不動快取前綴、不產生連續 user 訊息、不多打 API；代價是送出下一句前就退出或 resume，這段輸出會遺失。每段輸出各截到 30,000 rune。只有一個 `bashCancel` 槽：Esc 先停 `!`、再按才中斷主腦；閒置時 Esc 連同 `btwPending` 一起丟棄。關閉補全選單或離開 vim insert 模式的 Esc 屬於輸入框，不取消 `!`、不丟 pending（`forInput`）。`bashGen` 在每次啟動、`/clear` 與 `/resume` 遞增，過期結果丟棄；`/resume` 也清掉 pending，避免舊對話的輸出流進新對話。顯示端同樣截到 30,000 rune，避免大量輸出拖慢渲染。輸入以 `!` 開頭時提示符號改成 `!`、邊框改用 `theme.Warning`。守護測試 bashmode_test.go。
 - **2026-11-20 ctx 用量條字元**：`contextMeter` 由 `▰/▱` 改成 `█/░`。前者在部分終端字型缺字，會被替代字型畫成寬度不一的方框，狀態列看起來像亂碼；`█/░` 幾乎所有等寬字型都有。守護測試 TestStatusBar_ContextMeterUsesBlockGlyphs。
+- **2026-11-20 狀態列模型來源**：`StatusBar` 加 `defaultModel`（啟動時的 `MainLoopModel.ModelID`）與 `restartModel`（`/setup` 寫入的主模型，經 `setupAppliedMsg.mainModel` 帶回，只在成功且 `SettingsWritten` 時設定）。`/model` 切換不寫回設定檔、`/setup` 要重開才生效，兩者都會讓「實際在用的模型」與設定檔不一致，所以模型名後標示 `(session · default X)`／`(restart → Y)`。寬度不夠放「完整右側＋8 欄 cwd」時縮成 `model*`。純顯示，不動前綴。守護測試 statusbar_source_test.go×9。

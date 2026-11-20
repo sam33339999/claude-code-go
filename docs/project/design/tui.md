@@ -1085,3 +1085,4 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 | v2.6 | 2026-11-20 | 主會話 | /btw：TUI 本地 btw 區塊、`btwChunkMsg` 串流、Esc 分派、ctrl+y 交給主腦（`msgqueue.QueuedCommand.Origin`）、`buildMainSystemPrompt`；`tui.New`/`newAppModel` 在 `models` 後新增 `btwTarget` 參數。 |
 | v2.7 | 2026-11-20 | 主會話 | 每輪耗時：`turntiming.go`（`beginQuery`/`finishTurn`），每輪結束顯示 `✻ Worked for …`（TUI 本地訊息）並附加 JSONL 到 `~/.glaude/turn-timings.jsonl`；無導出介面變更。 |
 | v2.8 | 2026-11-20 | 主會話 | `!` bash 模式：`bashmode.go`（`parseBang`/`startBash`/`onBashResult`/`takeBashPending`、`bashResultMsg`），`InputModel.IsBashMode`；共用 `shell.Run`。無導出介面簽名變更。 |
+| v2.9 | 2026-11-20 | 主會話 | 狀態列模型來源：`StatusBar` +`defaultModel`/`restartModel`、`modelAnnotation()`；`setupAppliedMsg` +`mainModel`。標示 session 切換與 /setup 待重開；窄螢幕縮為 `model*`。無導出介面變更。 |
