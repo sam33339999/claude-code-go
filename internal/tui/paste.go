@@ -90,6 +90,62 @@ func (s *pasteStore) addImage(src *types.ImageSource) string {
 	return marker
 }
 
+// expansion is one paste-marker pass. Text markers are replaced by their
+// stored body. Image markers stay in the text and are collected once each,
+// in first-seen order. The replacement is not scanned again.
+type expansion struct {
+	Text   string
+	Images []types.ContentBlock
+}
+
+// expand rewrites paste markers in a single ReplaceAllStringFunc pass.
+// A stored body that itself contains marker-shaped text stays literal.
+func (s *pasteStore) expand(text string) expansion {
+	if s == nil {
+		return expansion{Text: text}
+	}
+	seen := make(map[int]bool)
+	var images []types.ContentBlock
+	out := markerRe.ReplaceAllStringFunc(text, func(tok string) string {
+		if !s.isMarker(tok) {
+			return tok
+		}
+		item := s.items[markerID(tok)]
+		switch item.kind {
+		case pasteText:
+			return item.text
+		case pasteImage:
+			id := markerID(tok)
+			if !seen[id] {
+				seen[id] = true
+				images = append(images, types.ContentBlock{
+					Type:   types.ContentTypeImage,
+					Source: item.image,
+				})
+			}
+			return tok
+		default:
+			return tok
+		}
+	})
+	return expansion{Text: out, Images: images}
+}
+
+// expandTextOnly expands text markers and reports whether any image marker
+// was dropped instead of attached.
+func (s *pasteStore) expandTextOnly(text string) (string, bool) {
+	exp := s.expand(text)
+	return exp.Text, len(exp.Images) > 0
+}
+
+// contentWithImages builds [images…, text]. No images means one text block.
+func contentWithImages(images []types.ContentBlock, text string) []types.ContentBlock {
+	blocks := make([]types.ContentBlock, 0, len(images)+1)
+	blocks = append(blocks, images...)
+	blocks = append(blocks, types.ContentBlock{Type: types.ContentTypeText, Text: strPtr(text)})
+	return blocks
+}
+
 // isMarker reports whether tok is exactly the marker stored for its id.
 func (s *pasteStore) isMarker(tok string) bool {
 	if markerRe.FindString(tok) != tok {

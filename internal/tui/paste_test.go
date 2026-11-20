@@ -50,6 +50,20 @@ func TestPasteStore_Markers(t *testing.T) {
 	}
 }
 
+func TestExpand_SinglePass(t *testing.T) {
+	s := newPasteStore()
+	inner := "quoted [Image #2] and [Pasted text #1 +1 lines]\n" + strings.Repeat("x", 900)
+	m1 := s.addText(inner)
+	m2 := s.addImage(&types.ImageSource{Type: "base64", MediaType: "image/png", Data: "AA=="})
+	exp := s.expand(m1 + " " + m2 + " " + m2)
+	if exp.Text != inner+" [Image #2] [Image #2]" {
+		t.Errorf("text = %q", exp.Text)
+	}
+	if len(exp.Images) != 1 {
+		t.Errorf("images = %d, want 1 (dedup, inner text not re-expanded)", len(exp.Images))
+	}
+}
+
 func TestTokenSpan(t *testing.T) {
 	valid := func(s string) bool { return s == "[Image #1]" }
 	line := []rune("see [Image #1] now") // marker 在 [4,14)

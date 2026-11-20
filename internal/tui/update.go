@@ -435,6 +435,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleSlashCommand executes a slash command and returns updated model + cmd.
 func (m AppModel) handleSlashCommand(text string) (AppModel, tea.Cmd) {
+	var dropped bool
+	text, dropped = m.pastes.expandTextOnly(text)
+	m.noticeDroppedImages(dropped)
+
 	name, args := parseSlashInput(text)
 	if name == "" {
 		return m, nil
@@ -504,7 +508,7 @@ func processQueueCmd(m *AppModel) tea.Cmd {
 		// The user message was already appended to m.messages when enqueued
 		// (in handleSubmit), so we don't append again. Just start the query.
 		*m = m.beginQuery()
-		return startQueryCmd(m, cmd.Value)
+		return startQueryCmd(m, cmd.Value, cmd.Origin == "")
 	case msgqueue.ModeExternalPrompt:
 		// EV-01: externally injected event (e.g. MCP server notification).
 		// The display message was NOT appended at enqueue time — do it here,
@@ -513,7 +517,7 @@ func processQueueCmd(m *AppModel) tea.Cmd {
 		m.pinnedToBottom = true
 		m.syncViewportContent()
 		*m = m.beginQuery()
-		return startQueryCmd(m, cmd.Value)
+		return startQueryCmd(m, cmd.Value, false)
 	}
 	return nil
 }
@@ -686,7 +690,7 @@ func (m AppModel) applyDisplayResult(result commands.Result) (AppModel, tea.Cmd)
 	case commands.DisplayNone:
 		if result.Text != "" {
 			m = m.beginQuery()
-			return m, startQueryCmd(&m, result.Text)
+			return m, startQueryCmd(&m, result.Text, false)
 		}
 	}
 	return m, nil

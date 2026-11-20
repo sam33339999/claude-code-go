@@ -14,9 +14,6 @@ import (
 	"github.com/tunsuy/glaude/pkg/types"
 )
 
-// startQueryCmd builds a tea.Cmd that launches a new query against the engine.
-// It cancels any in-flight query first, then opens a new context and channel.
-// The userText message is already appended to m.messages by the caller (handleSubmit).
 // buildMainSystemPrompt returns the main loop's stable system prefix:
 // GLAUDE.md content, then the resident-coordinator role prompt when
 // coordinator mode is active, with one cache breakpoint at the end. Dynamic
@@ -38,7 +35,13 @@ func buildMainSystemPrompt(m *AppModel) engine.SystemPrompt {
 	return sysPrompt
 }
 
-func startQueryCmd(m *AppModel, userText string) tea.Cmd {
+// startQueryCmd builds a tea.Cmd that launches a new query against the engine.
+// It cancels any in-flight query first, then opens a new context and channel.
+// The userText message is already appended to m.messages by the caller.
+// fromUser is true only for the user's own input. Only then are paste markers
+// expanded and images attached, and that happens before pending /btw notes and
+// shell output are prepended. Those tails are not expanded.
+func startQueryCmd(m *AppModel, userText string, fromUser bool) tea.Cmd {
 	// Cancel any running query.
 	if m.abortFn != nil {
 		m.abortFn()
@@ -62,18 +65,10 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 	m.abortFn = cancel
 	m.queryGen = gen
 
-	// Attach a pending /btw note (ctrl+y while the main loop was idle).
-	userText = m.takeBTWPending(userText)
-	// Attach shell outputs from ! commands run since the last message.
-	userText = m.takeBashPending(userText)
-
-	// Build user message for the engine.
-	userMsg := types.Message{
-		Role: types.RoleUser,
-		Content: []types.ContentBlock{
-			{Type: types.ContentTypeText, Text: strPtr(userText)},
-		},
-	}
+	// Expand the user's own text first. Pending notes and shell output are
+	// appended after that and are not paste input.
+	userText, content := userContent(m, userText, fromUser)
+	userMsg := types.Message{Role: types.RoleUser, Content: content}
 
 	// Snapshot current messages (already includes the user message for display).
 	messages := m.queryEngine.GetMessages()
@@ -143,6 +138,21 @@ func startQueryCmd(m *AppModel, userText string) tea.Cmd {
 		}
 		return streamChanReady{ch: ch, gen: gen}
 	}
+}
+
+// userContent expands userText when fromUser, then prepends pending btw notes
+// and shell output. Those tails are not expanded. Images precede the one text
+// block; with no images the result is a single text block, as before.
+func userContent(m *AppModel, userText string, fromUser bool) (string, []types.ContentBlock) {
+	var images []types.ContentBlock
+	if fromUser {
+		exp := m.pastes.expand(userText)
+		userText = exp.Text
+		images = exp.Images
+	}
+	userText = m.takeBTWPending(userText)
+	userText = m.takeBashPending(userText)
+	return userText, contentWithImages(images, userText)
 }
 
 // streamChanReady is an internal Msg that carries the newly-opened stream

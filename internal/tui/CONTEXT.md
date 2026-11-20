@@ -2,13 +2,13 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-20T06:16:03Z
-source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, memstat.go, memstat_darwin.go, memstat_linux.go, memstat_other.go, memstat_windows.go, messagelist.go, messages.go, model.go, modelpicker.go, permissions.go, rendercache.go, resumepicker.go, setup_dialog.go, setupwizard.go, setupwizard_view.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, turntiming.go, update.go, view.go, welcome.go]
+generated_at: 2026-11-20T12:08:03Z
+source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, memstat.go, memstat_darwin.go, memstat_linux.go, memstat_other.go, memstat_windows.go, messagelist.go, messages.go, model.go, modelpicker.go, paste.go, paste_input.go, permissions.go, rendercache.go, resumepicker.go, setup_dialog.go, setupwizard.go, setupwizard_view.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, turntiming.go, update.go, view.go, welcome.go]
 ---
 
 # internal/tui
 
-> Layer: **TUI** · Files: 34 · Interfaces: 0 · Structs: 38 · Functions: 6
+> Layer: **TUI** · Files: 36 · Interfaces: 0 · Structs: 38 · Functions: 6
 
 ## Structs
 
@@ -16,7 +16,7 @@ source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coor
 - **AgentProgressMsg** — 3 fields: TaskID, Activity, Detail
 - **AgentStatusMsg** — 5 fields: TaskID, Status, Description, Result, Summary
 - **AgentTaskState** — 12 fields: ID, Name, AgentType, Description, Status, StartTime, ElapsedMs, OutputTokens, ...
-- **AppModel** — 80 fields
+- **AppModel** — 82 fields
 - **CommandResultMsg** — 2 fields: Text, IsError
 - **CompactDoneMsg** — 1 fields: Summary
 - **CoordinatorPanel** — 3 fields: Tasks, SelectedIndex, TaskOrder
@@ -116,3 +116,4 @@ source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coor
 - **2026-11-20 `!` bash 模式（bashmode.go）**：`handleSubmit` 在 `/btw` 之後、排隊判斷之前攔下 `!`，查詢進行中也立即執行（不排隊）。執行用 `shell.Run` 在 `appState` 的 live WorkingDir，不走權限鏈。結果顯示為 TUI 本地訊息（code fence 長度自動大於輸出中的反引號串），同時把 `<bash-input>/<bash-stdout>/<bash-stderr>` 存進 `bashPending`，由 `startQueryCmd` 接在下一則使用者文字前面（所有查詢起點都經過它，含佇列送出）。**不**立刻寫進 engine 歷史：注入在 turn 尾部不動快取前綴、不產生連續 user 訊息、不多打 API；代價是送出下一句前就退出或 resume，這段輸出會遺失。每段輸出各截到 30,000 rune。只有一個 `bashCancel` 槽：Esc 先停 `!`、再按才中斷主腦；閒置時 Esc 連同 `btwPending` 一起丟棄。關閉補全選單或離開 vim insert 模式的 Esc 屬於輸入框，不取消 `!`、不丟 pending（`forInput`）。`bashGen` 在每次啟動、`/clear` 與 `/resume` 遞增，過期結果丟棄；`/resume` 也清掉 pending，避免舊對話的輸出流進新對話。顯示端同樣截到 30,000 rune，避免大量輸出拖慢渲染。輸入以 `!` 開頭時提示符號改成 `!`、邊框改用 `theme.Warning`。守護測試 bashmode_test.go。
 - **2026-11-20 ctx 用量條字元**：`contextMeter` 由 `▰/▱` 改成 `█/░`。前者在部分終端字型缺字，會被替代字型畫成寬度不一的方框，狀態列看起來像亂碼；`█/░` 幾乎所有等寬字型都有。守護測試 TestStatusBar_ContextMeterUsesBlockGlyphs。
 - **2026-11-20 狀態列模型來源**：`StatusBar` 加 `defaultModel`（啟動時的 `MainLoopModel.ModelID`）與 `restartModel`（`/setup` 寫入的主模型，經 `setupAppliedMsg.mainModel` 帶回，只要 `SettingsWritten` 就設定，config.toml 寫入失敗也一樣，因為主模型在 settings.json）。`/model` 切換不寫回設定檔、`/setup` 要重開才生效，兩者都會讓「實際在用的模型」與設定檔不一致，所以模型名後標示 `(session · default X)`／`(restart → Y)`。寬度不夠放「完整右側＋8 欄 cwd」時縮成 `model*`。純顯示，不動前綴。守護測試 statusbar_source_test.go×9。
+- **2026-11-20 貼上收合（送出時展開）**：`pasteStore` 跟著整個會話活著（`newAppModel` 建立，`/clear` 也不換）。標記可能先留在輸入框、佇列、`!` 或 `/btw`，要等真正送進模型才對得回原文；中途換 store，那些還沒送出的標記就變成無法展開的字面。展開只發生在使用者自己的輸入：主迴圈直送、`Origin == ""` 的佇列訊息，以及 `/btw` 的問題。btw 筆記、`!` 的輸出、外部事件（`ModeExternalPrompt`）與 slash `DisplayNone` 的結果都不展開——`takeBTWPending`／`takeBashPending` 接在展開之後，避免把模型或工具塞回來的字樣再當成貼上。圖片只附在一般訊息與 `/btw`；`!`、`# ` 與 slash 只展開文字，並在既有 hint 列提示。顯示與歷史仍留標記。單趟 `ReplaceAllStringFunc`，剛代入的原文不再掃。展開改的是這一則使用者訊息（turn 尾部），不移動 system 前綴、不加大穩定窗口、不新增 API 呼叫。

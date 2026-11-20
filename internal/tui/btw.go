@@ -152,7 +152,8 @@ func (m AppModel) startBTW(args string) (AppModel, tea.Cmd) {
 		}
 		target, label = t, tier+" · "+t.Model
 	}
-	q := types.Message{Role: types.RoleUser, Content: []types.ContentBlock{{Type: types.ContentTypeText, Text: strPtr(question + btwNote)}}}
+	exp := m.pastes.expand(question)
+	q := types.Message{Role: types.RoleUser, Content: contentWithImages(exp.Images, exp.Text+btwNote)}
 	limit := compact.Target{Model: target.Model, ContextWindow: target.ContextWindow, MaxOutputTokens: target.MaxTokens}
 	if compact.EstimateTokens(append(history, q)) >= compact.AutoCompactThreshold(limit) {
 		return m.systemError("Error: the conversation is too large for /btw; ask the main conversation instead."), nil

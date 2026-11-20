@@ -15,7 +15,7 @@ func TestStartQueryCmd_CoordinatorPromptInjected(t *testing.T) {
 	m.memdirPrompt = "GLAUDE.md content"
 	fe := m.queryEngine.(*fakeEngine)
 
-	cmd := startQueryCmd(&m, "hello")
+	cmd := startQueryCmd(&m, "hello", true)
 	if cmd == nil {
 		t.Fatal("startQueryCmd returned nil")
 	}
@@ -47,7 +47,7 @@ func TestStartQueryCmd_NoCoordinatorMode(t *testing.T) {
 	m.memdirPrompt = "GLAUDE.md content"
 	fe := m.queryEngine.(*fakeEngine)
 
-	cmd := startQueryCmd(&m, "hello")
+	cmd := startQueryCmd(&m, "hello", true)
 	if cmd == nil {
 		t.Fatal("startQueryCmd returned nil")
 	}
@@ -66,7 +66,7 @@ func TestStartQueryCmd_WorkingDirFromAppState(t *testing.T) {
 	m := newTestModel() // appState WorkingDir = "/tmp"
 	fe := m.queryEngine.(*fakeEngine)
 
-	cmd := startQueryCmd(&m, "hello")
+	cmd := startQueryCmd(&m, "hello", true)
 	if cmd == nil {
 		t.Fatal("startQueryCmd returned nil")
 	}

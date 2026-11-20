@@ -5,6 +5,34 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// pasteImageNotice is shown when a path that cannot carry images sees one.
+const pasteImageNotice = "Images can only be attached to a normal message or /btw"
+
+// setPasteNotice records a one-shot hint shown above the input.
+func (m *AppModel) setPasteNotice(s string) {
+	m.pasteNotice = s
+}
+
+// clearPasteNotice drops the hint. The next idle key does this.
+func (m *AppModel) clearPasteNotice() {
+	m.pasteNotice = ""
+}
+
+// noticeDroppedImages sets pasteImageNotice when expandTextOnly dropped images.
+func (m *AppModel) noticeDroppedImages(dropped bool) {
+	if dropped {
+		m.setPasteNotice(pasteImageNotice)
+	}
+}
+
+// pasteNoticeHint is the hint-row rendering of pasteNotice, or "" when unset.
+func (m AppModel) pasteNoticeHint() string {
+	if m.pasteNotice == "" {
+		return ""
+	}
+	return mutedStyle(m.theme).Render(m.pasteNotice)
+}
+
 // insertPaste inserts text at the input cursor. Over-threshold text is stored
 // and replaced by its marker; shorter text is inserted with newlines normalized.
 func (m AppModel) insertPaste(text string) (AppModel, tea.Cmd) {

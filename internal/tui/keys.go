@@ -206,6 +206,8 @@ func (m AppModel) handleExitKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // navigate the completion popup while it is open. The conversation scrolls
 // with PgUp/PgDn, shift+↑/↓ and the mouse wheel.
 func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	m.clearPasteNotice()
+
 	// v2: shift+tab arrives as Tab with ModShift (no dedicated KeyShiftTab).
 	if key.Code == tea.KeyTab && key.Mod.Contains(tea.ModShift) {
 		return m.cyclePermissionMode()
@@ -454,13 +456,18 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 		if cmd == "" {
 			return m, nil
 		}
+		var dropped bool
+		cmd, dropped = m.pastes.expandTextOnly(cmd)
+		m.noticeDroppedImages(dropped)
 		return m.startBash(cmd)
 	}
 
 	// Check for # quick memory input.
 	if strings.HasPrefix(text, "# ") {
+		body, dropped := m.pastes.expandTextOnly(strings.TrimPrefix(text, "# "))
+		m.noticeDroppedImages(dropped)
 		m.input = m.input.SetValue("")
-		return m.handleQuickMemory(strings.TrimPrefix(text, "# "))
+		return m.handleQuickMemory(body)
 	}
 
 	// Check for slash commands.
@@ -491,7 +498,7 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 
 	// Normal query.
 	m = m.beginQuery()
-	queryCmd := startQueryCmd(&m, text)
+	queryCmd := startQueryCmd(&m, text, true)
 	return m, queryCmd
 }
 

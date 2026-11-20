@@ -2,8 +2,8 @@
 
 > 负责 Agent：Agent-TUI
 > 状态：已实现（维护期回填中）
-> 版本：v1.4
-> 日期：2026-11-18（初稿 2026-04-02）
+> 版本：v2.10
+> 日期：2026-11-20（初稿 2026-04-02）
 
 ---
 
@@ -1059,6 +1059,21 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 
 輸入以 `!` 開頭時直接用 `shell.Run` 執行（session 工作目錄、2 分鐘逾時、不走權限鏈），結果顯示在 TUI 本地訊息，並以 `<bash-input>/<bash-stdout>/<bash-stderr>` 格式存入 `bashPending`，由 `startQueryCmd` 接在下一則使用者訊息前面。**不**立即寫入 engine 歷史：注入點在 turn 尾部，不移動快取前綴、不產生連續 user 訊息、不新增呼叫；代價是未送出下一句前退出或 resume 會遺失。Esc 先取消執行中的 `!`，閒置時丟棄 pending；`/clear` 以 `bashGen` 丟棄過期結果。
 
+### 8.9 貼上收合
+
+超過 800 rune 或 10 行的貼上文字收進會話級 `pasteStore`，輸入框只留標記（`[Pasted text #N +L lines]` 或 `[Pasted text #N C chars]`）。圖片標記為 `[Image #N]`。文字與圖片共用從 1 起的 ID，不回收。`/clear` 不換這個 store：標記可能還在輸入框、佇列，或尚未送出的 `!`／`/btw` 裡，換掉就對不回原文。
+
+送進模型時才展開，而且只展開使用者自己的輸入：
+
+- 主迴圈直接送出，以及佇列裡 `Origin == ""` 的 `ModePrompt`：`startQueryCmd(..., fromUser=true)`。文字標記換成原文；圖片標記留在字串裡，image block 依首次出現各附一次，排在文字 block 前面。沒有圖片時仍是單一 text block。
+- `/btw` 的問題同樣展開並附圖。畫面上的問題，以及之後交給主腦的筆記，仍是標記。
+- `!`、`# ` 快速記憶、slash 指令只展開文字。若遇到圖片標記，既有 hint 列顯示 `Images can only be attached to a normal message or /btw`，下一個閒置按鍵清掉。
+- `OriginBTW` 的佇列訊息、`ModeExternalPrompt`、slash `DisplayNone` 的結果不展開、不附圖。`takeBTWPending` 與 `takeBashPending` 接在展開之後，那兩段尾巴也不展開。
+
+展開是單趟 `ReplaceAllStringFunc`：剛代入的原文若長得像標記，保持字面。顯示用的 `newUserMessage` 與輸入歷史不展開。
+
+快取：展開只改這一則使用者訊息的內容（turn 尾部），不移動 system 前綴、不加大穩定窗口、不新增 API 呼叫。
+
 ## 变更记录
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
@@ -1086,3 +1101,4 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 | v2.7 | 2026-11-20 | 主會話 | 每輪耗時：`turntiming.go`（`beginQuery`/`finishTurn`），每輪結束顯示 `✻ Worked for …`（TUI 本地訊息）並附加 JSONL 到 `~/.glaude/turn-timings.jsonl`；無導出介面變更。 |
 | v2.8 | 2026-11-20 | 主會話 | `!` bash 模式：`bashmode.go`（`parseBang`/`startBash`/`onBashResult`/`takeBashPending`、`bashResultMsg`），`InputModel.IsBashMode`；共用 `shell.Run`。無導出介面簽名變更。 |
 | v2.9 | 2026-11-20 | 主會話 | 狀態列模型來源：`StatusBar` +`defaultModel`/`restartModel`、`modelAnnotation()`；`setupAppliedMsg` +`mainModel`。標示 session 切換與 /setup 待重開；窄螢幕縮為 `model*`。無導出介面變更。 |
+| v2.10 | 2026-11-20 | 主會話 | 貼上收合：送出時展開使用者輸入的貼上標記並附圖（`startQueryCmd` 新增 `fromUser bool`）；`!`／`#`／slash 只展開文字。顯示仍留標記。見 §8.9。 |

@@ -110,6 +110,8 @@ type AppModel struct {
 	input InputModel
 	// pastes is the session paste store. Created in newAppModel and not replaced, including on /clear.
 	pastes *pasteStore
+	// pasteNotice is a one-shot hint cleared by the next idle key.
+	pasteNotice string
 
 	// --- Style ---
 	theme    Theme

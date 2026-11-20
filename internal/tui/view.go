@@ -52,6 +52,9 @@ func (m AppModel) layout() screenLayout {
 		if hint := m.bashPendingHint(); hint != "" {
 			l.bottom = hint + "\n" + l.bottom
 		}
+		if hint := m.pasteNoticeHint(); hint != "" {
+			l.bottom = hint + "\n" + l.bottom
+		}
 		if popup := renderCompletion(m.completion, m.termWidth, m.theme); popup != "" {
 			l.bottom += "\n" + popup
 		}
