@@ -189,21 +189,40 @@ func imageBlockCount(block types.ContentBlock) int {
 }
 
 // sessionImageCount is history plus images not yet written back to the engine.
-// While idle, that is GetMessages plus distinct markers in the input.
-// While loading, the turn tail supplies tool-result blocks and marker text
-// except StreamUserTurnMsg echoes. Queued bubbles from earlier turns are
-// counted from unsentUsers, one submission at a time. Bubbles already written
-// back are not scanned: their markers are image blocks in GetMessages.
+// While idle, that is GetMessages, distinct markers in the input, and distinct
+// markers on every prompt still in unsentUsers. Abort and stream errors leave
+// those prompts queued, including bubbles at or after inflightBase.
+// unsentMarkerTexts skips that range, so the idle path must not call it.
+// Ordinary history text is not scanned, and the idle path does not walk the
+// turn tail. While loading, the tail supplies tool-result blocks and marker
+// text except StreamUserTurnMsg echoes. Earlier queued bubbles still come from
+// unsentMarkerTexts, one submission at a time. Bubbles already written back
+// are not scanned: their markers are image blocks in GetMessages.
 func (m AppModel) sessionImageCount() int {
 	n := countImages(m.queryEngine.GetMessages())
 	texts := []string{m.input.Value()}
 	if m.isLoading {
-		tail := m.inflightTail()
-		n += countImages(tail)
+		n += countImages(m.inflightTail())
 		texts = append(texts, m.tailMarkerTexts()...)
 		texts = append(texts, m.unsentMarkerTexts()...)
+	} else {
+		texts = append(texts, m.idleUnsentMarkerTexts()...)
 	}
 	return n + distinctImageMarkers(m.pastes, texts)
+}
+
+// idleUnsentMarkerTexts is every queued prompt still outside GetMessages.
+// Unlike unsentMarkerTexts, it keeps idx >= inflightBase. It does not walk
+// ordinary history bubbles.
+func (m AppModel) idleUnsentMarkerTexts() []string {
+	var out []string
+	for _, u := range m.unsentUsers {
+		if u.idx < 0 || u.idx >= len(m.messages) {
+			continue
+		}
+		out = append(out, messagePlainText(m.messages[u.idx]))
+	}
+	return out
 }
 
 // inflightTail is the display bubbles appended after this turn's window opened.

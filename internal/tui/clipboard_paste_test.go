@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -557,5 +558,76 @@ func TestCtrlV_MissingToolNotice(t *testing.T) {
 	}
 	if !strings.Contains(m.View().Content, hint) {
 		t.Fatalf("view missing hint: %q", m.View().Content)
+	}
+}
+
+func TestCtrlV_AbortKeepsQueuedImagesInCap(t *testing.T) {
+	m := startQueuedTurn(t)
+	m = queueUser(t, m, imageMarkers(m, 20))
+	updated, _ := m.doAbort()
+	m = updated.(AppModel)
+	if m.isLoading {
+		t.Fatal("abort left the turn loading")
+	}
+	if n := countImages(m.queryEngine.GetMessages()); n != 0 {
+		t.Fatalf("history images = %d, want 0", n)
+	}
+	if m.msgQueue == nil || m.msgQueue.Len() == 0 {
+		t.Fatal("abort drained the queued images")
+	}
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if got := m.input.Value(); got != "" {
+		t.Fatalf("input = %q, want no new marker", got)
+	}
+	if !strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatalf("view missing cap notice: %q", m.View().Content)
+	}
+}
+
+func TestCtrlV_AbortDoesNotDoubleCountQueued(t *testing.T) {
+	m := startQueuedTurn(t)
+	m = queueUser(t, m, imageMarkers(m, 10))
+	updated, _ := m.doAbort()
+	m = updated.(AppModel)
+	if m.isLoading {
+		t.Fatal("abort left the turn loading")
+	}
+	if n := countImages(m.queryEngine.GetMessages()); n != 0 {
+		t.Fatalf("history images = %d, want 0", n)
+	}
+	if m.msgQueue == nil || m.msgQueue.Len() == 0 {
+		t.Fatal("abort drained the queued images")
+	}
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatal("queued bubble was counted twice")
+	}
+	if !m.pastes.isMarker(m.input.Value()) {
+		t.Fatalf("input = %q, want a new image marker", m.input.Value())
+	}
+}
+
+func TestCtrlV_StreamErrorKeepsQueuedImagesInCap(t *testing.T) {
+	m := startQueuedTurn(t)
+	m = queueUser(t, m, imageMarkers(m, 20))
+	m = applyMsg(m, StreamErrorMsg{Err: errors.New("boom")})
+	if m.isLoading {
+		t.Fatal("stream error left the turn loading")
+	}
+	if n := countImages(m.queryEngine.GetMessages()); n != 0 {
+		t.Fatalf("history images = %d, want 0", n)
+	}
+	if m.msgQueue == nil || m.msgQueue.Len() == 0 {
+		t.Fatal("stream error drained the queued images")
+	}
+	m.clip = &fakeClip{image: png10(t)}
+	m = applyCtrlV(t, m)
+	if got := m.input.Value(); got != "" {
+		t.Fatalf("input = %q, want no new marker", got)
+	}
+	if !strings.Contains(m.View().Content, "already has 20 images") {
+		t.Fatalf("view missing cap notice: %q", m.View().Content)
 	}
 }
