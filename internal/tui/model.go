@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/glamour"
+	"github.com/tunsuy/glaude/internal/clipboard"
 	"github.com/tunsuy/glaude/internal/commands"
 	"github.com/tunsuy/glaude/internal/compact"
 	"github.com/tunsuy/glaude/internal/coordinator"
@@ -112,6 +113,8 @@ type AppModel struct {
 	pastes *pasteStore
 	// pasteNotice is a one-shot hint cleared by the next idle key.
 	pasteNotice string
+	// clip reads the system clipboard. newAppModel sets clipboard.New; tests replace it.
+	clip clipboardReader
 
 	// --- Style ---
 	theme    Theme
@@ -300,6 +303,7 @@ func newAppModel(
 		spinner:             newSpinner(),
 		input:               NewInput(vimEnabled),
 		pastes:              newPasteStore(),
+		clip:                clipboard.New(),
 		lastTickTime:        time.Now(),
 		expandedToolResults: make(map[string]bool),
 		surfacedMemories:    make(map[string]bool),

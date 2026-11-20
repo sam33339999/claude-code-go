@@ -57,6 +57,9 @@ func NewInput(vimEnabled bool) InputModel {
 	styles.Focused.CursorLine = lipgloss.NewStyle()
 	ta.SetStyles(styles)
 	ta.Focus()
+	// The app handles ctrl+v so a paste can be an image. Leaving this on would
+	// also read the clipboard as text from inside the textarea.
+	ta.KeyMap.Paste.SetEnabled(false)
 
 	return InputModel{
 		textarea:   ta,

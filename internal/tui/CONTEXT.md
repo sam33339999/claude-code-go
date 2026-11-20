@@ -2,13 +2,13 @@
 package: tui
 import_path: internal/tui
 layer: tui
-generated_at: 2026-11-20T12:08:03Z
-source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, memstat.go, memstat_darwin.go, memstat_linux.go, memstat_other.go, memstat_windows.go, messagelist.go, messages.go, model.go, modelpicker.go, paste.go, paste_input.go, permissions.go, rendercache.go, resumepicker.go, setup_dialog.go, setupwizard.go, setupwizard_view.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, turntiming.go, update.go, view.go, welcome.go]
+generated_at: 2026-11-20T14:06:37Z
+source_files: [agentcolors.go, bashmode.go, btw.go, clipboard_paste.go, cmds.go, completion.go, coordinator.go, init.go, input.go, keys.go, memstat.go, memstat_darwin.go, memstat_linux.go, memstat_other.go, memstat_windows.go, messagelist.go, messages.go, model.go, modelpicker.go, paste.go, paste_input.go, permissions.go, rendercache.go, resumepicker.go, setup_dialog.go, setupwizard.go, setupwizard_view.go, spinner.go, statusbar.go, styles.go, textwidth.go, theme.go, toolview.go, turntiming.go, update.go, view.go, welcome.go]
 ---
 
 # internal/tui
 
-> Layer: **TUI** · Files: 36 · Interfaces: 0 · Structs: 38 · Functions: 6
+> Layer: **TUI** · Files: 37 · Interfaces: 0 · Structs: 38 · Functions: 6
 
 ## Structs
 
@@ -16,7 +16,7 @@ source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coor
 - **AgentProgressMsg** — 3 fields: TaskID, Activity, Detail
 - **AgentStatusMsg** — 5 fields: TaskID, Status, Description, Result, Summary
 - **AgentTaskState** — 12 fields: ID, Name, AgentType, Description, Status, StartTime, ElapsedMs, OutputTokens, ...
-- **AppModel** — 82 fields
+- **AppModel** — 83 fields
 - **CommandResultMsg** — 2 fields: Text, IsError
 - **CompactDoneMsg** — 1 fields: Summary
 - **CoordinatorPanel** — 3 fields: Tasks, SelectedIndex, TaskOrder
@@ -82,7 +82,7 @@ source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coor
 
 ## Dependencies
 
-**Imports:** `internal/agenttype`, `internal/commands`, `internal/compact`, `internal/coordinator`, `internal/engine`, `internal/memdir`, `internal/msgqueue`, `internal/permissions`, `internal/state`, `internal/tools`, `internal/tools/shell`, `internal/transcript`, `pkg/types`
+**Imports:** `internal/agenttype`, `internal/clipboard`, `internal/commands`, `internal/compact`, `internal/coordinator`, `internal/engine`, `internal/memdir`, `internal/msgqueue`, `internal/permissions`, `internal/state`, `internal/tools`, `internal/tools/shell`, `internal/transcript`, `pkg/types`
 
 **Imported by:** `internal/bootstrap`
 
@@ -118,3 +118,4 @@ source_files: [agentcolors.go, bashmode.go, btw.go, cmds.go, completion.go, coor
 - **2026-11-20 狀態列模型來源**：`StatusBar` 加 `defaultModel`（啟動時的 `MainLoopModel.ModelID`）與 `restartModel`（`/setup` 寫入的主模型，經 `setupAppliedMsg.mainModel` 帶回，只要 `SettingsWritten` 就設定，config.toml 寫入失敗也一樣，因為主模型在 settings.json）。`/model` 切換不寫回設定檔、`/setup` 要重開才生效，兩者都會讓「實際在用的模型」與設定檔不一致，所以模型名後標示 `(session · default X)`／`(restart → Y)`。寬度不夠放「完整右側＋8 欄 cwd」時縮成 `model*`。純顯示，不動前綴。守護測試 statusbar_source_test.go×9。
 - **2026-11-20 貼上收合（送出時展開）**：`pasteStore` 跟著整個會話活著（`newAppModel` 建立，`/clear` 也不換）。標記可能先留在輸入框、佇列、`!` 或 `/btw`，要等真正送進模型才對得回原文；中途換 store，那些還沒送出的標記就變成無法展開的字面。展開只發生在使用者自己的輸入：主迴圈直送、`Origin == ""` 的佇列訊息，以及 `/btw` 的問題。btw 筆記、`!` 的輸出、外部事件（`ModeExternalPrompt`）與 slash `DisplayNone` 的結果都不展開——`takeBTWPending`／`takeBashPending` 接在展開之後，避免把模型或工具塞回來的字樣再當成貼上。圖片只附在一般訊息與 `/btw`；`!`、`# ` 與 slash 只展開文字，並在既有 hint 列提示。顯示與歷史仍留標記。單趟 `ReplaceAllStringFunc`，剛代入的原文不再掃。展開改的是這一則使用者訊息（turn 尾部），不移動 system 前綴、不加大穩定窗口、不新增 API 呼叫。
 - **2026-11-20 工具邊界的佇列貼上**：查詢進行中送出的使用者訊息，在入隊時把 `expand` 的結果寫進 `QueuedCommand.Content`，Value 維持標記。回合之間的 `processQueueCmd` 仍從 Value 展開，不用這份快照。`!` 的氣泡顯示未展開的那一行；行程與 `<bash-input>` 用展開後的文字，圖片標記留字面。slash 先依未展開字串解析名稱與參數，只對參數做 `expandTextOnly`；原始名稱不是已註冊命令時，不執行從展開本文變出來的命令。
+- **2026-11-20 Ctrl+V**：停用 textarea 內建貼上（`KeyMap.Paste`）。讀取是 `tea.Cmd`，不在 `Update` 裡同步執行。20 張上限在結果回到時才算：engine 歷史的 image block（含 `tool_result` 的一層 `Content`）加上輸入框裡不重複的有效圖片標記。對話框開著時，晚到的結果丟棄。標記插在當下游標，不寫進已送出的訊息。圖片只屬於那一則使用者訊息（不移動 system 前綴、不新增 API 呼叫）。

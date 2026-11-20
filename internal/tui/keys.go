@@ -259,6 +259,11 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// ctrl+v reads the clipboard in a command. Builtin textarea paste is off.
+	if key.String() == "ctrl+v" {
+		return m.startClipboardPaste()
+	}
+
 	switch key.Code {
 	case tea.KeyEsc:
 		// A running /btw is stopped first; the next Esc reaches the main loop.

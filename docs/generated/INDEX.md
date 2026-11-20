@@ -1,7 +1,7 @@
 ---
 type: auto-generated-index
-generated_at: 2026-11-20T05:17:49Z
-package_count: 42
+generated_at: 2026-11-20T14:06:37Z
+package_count: 43
 ---
 
 # Package Index
@@ -50,4 +50,4 @@ package_count: 42
 | `internal/commands` | CLI | MCPServerLister(1m), ModelSwitcher(3m), SetupBackend(5m), TierManager(6m), Command | [CONTEXT](../../internal/commands/CONTEXT.md) |
 
 ---
-*42 packages across 8 layers.*
+*43 packages across 8 layers.*

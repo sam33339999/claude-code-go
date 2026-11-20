@@ -2,7 +2,7 @@
 
 > 负责 Agent：Agent-TUI
 > 状态：已实现（维护期回填中）
-> 版本：v2.10
+> 版本：v2.11
 > 日期：2026-11-20（初稿 2026-04-02）
 
 ---
@@ -1074,6 +1074,14 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 
 快取：展開只改這一則使用者訊息的內容（turn 尾部），不移動 system 前綴、不加大穩定窗口、不新增 API 呼叫。
 
+### 8.10 Ctrl+V 圖片
+
+Ctrl+V 不走 textarea 內建貼上（`KeyMap.Paste` 已關閉）。按下後以 `tea.Cmd` 讀剪貼簿：有圖則 `NormalizeImage`，在結果回到時的游標插入 `[Image #N]`；沒有圖或此平台不支援讀圖則改貼文字（過長仍收合）。對話框開著時，晚到的結果直接丟棄，不插入。
+
+20 張上限也在結果回到時才算：engine 歷史裡的 image block（含 `tool_result` 的一層 `Content`）加上輸入框中不重複的有效圖片標記。已達 20 張就拒絕，並在既有 hint 列提示先 `/compact`。標記只進當前輸入，不寫進已送出的訊息或 engine 歷史。
+
+快取：圖片只在使用者送出那一則訊息時展開並附在該則（turn 尾部）。它只讓那一則使用者訊息變大，不移動 system 前綴、不加大穩定窗口、不新增 API 呼叫。
+
 ## 变更记录
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
@@ -1102,3 +1110,4 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 | v2.8 | 2026-11-20 | 主會話 | `!` bash 模式：`bashmode.go`（`parseBang`/`startBash`/`onBashResult`/`takeBashPending`、`bashResultMsg`），`InputModel.IsBashMode`；共用 `shell.Run`。無導出介面簽名變更。 |
 | v2.9 | 2026-11-20 | 主會話 | 狀態列模型來源：`StatusBar` +`defaultModel`/`restartModel`、`modelAnnotation()`；`setupAppliedMsg` +`mainModel`。標示 session 切換與 /setup 待重開；窄螢幕縮為 `model*`。無導出介面變更。 |
 | v2.10 | 2026-11-20 | 主會話 | 貼上收合：送出時展開使用者輸入的貼上標記並附圖（`startQueryCmd` 新增 `fromUser bool`）；`!`／`#`／slash 只展開文字。顯示仍留標記。見 §8.9。 |
+| v2.11 | 2026-11-20 | 主會話 | Ctrl+V 貼上剪貼簿圖片：停用 textarea 內建貼上，以 tea.Cmd 讀圖或退回文字；20 張上限在結果回到時計算。圖片只讓那一則使用者訊息變大。見 §8.10。 |

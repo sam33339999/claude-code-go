@@ -400,6 +400,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.insertPaste(msg.Content)
 
+	case clipboardImageMsg:
+		return m.onClipboardImage(msg)
+	case clipboardTextMsg:
+		return m.onClipboardText(msg)
+	case clipboardNoticeMsg:
+		return m.onClipboardNotice(msg)
+
 	// --- ! bash mode result ---
 	case bashResultMsg:
 		return m.onBashResult(msg)
