@@ -81,3 +81,69 @@ func defaultTurnLogPath() string {
 	}
 	return filepath.Join(home, ".glaude", "turn-timings.jsonl")
 }
+
+// clock returns the current time from the injected clock (time.Now by default).
+func (m AppModel) clock() time.Time {
+	if m.now != nil {
+		return m.now()
+	}
+	return time.Now()
+}
+
+// beginQuery switches the model into the loading state and starts timing a
+// new turn. Every query start point goes through here so the timer and the
+// spinner can never disagree about when a turn began.
+func (m AppModel) beginQuery() AppModel {
+	m.isLoading = true
+	m.showSpinner = true
+	m.spinner = m.spinner.Reset()
+	m.turnStart = m.clock()
+	m.turnStats = turnStats{}
+	return m
+}
+
+// noteTurnUsage folds one API response's usage into the running turn.
+func (m AppModel) noteTurnUsage(u *TokenUsage) AppModel {
+	if u == nil {
+		return m
+	}
+	m.turnStats.apiRequests++
+	m.turnStats.inputTokens += u.Input
+	m.turnStats.outputTokens += u.Output
+	return m
+}
+
+// finishTurn ends the timed turn with outcome (done | error | interrupted):
+// it appends the display-only duration line (done/interrupted) and returns
+// the Cmd that logs the record. Without a running turn it is a no-op, which
+// also makes stale end events harmless. The line lives only in m.messages —
+// never in engine messages or the transcript — so the prompt is unaffected.
+func (m AppModel) finishTurn(outcome string) (AppModel, tea.Cmd) {
+	if m.turnStart.IsZero() {
+		return m, nil
+	}
+	end := m.clock()
+	dur := end.Sub(m.turnStart)
+	rec := turnRecord{
+		Start:        m.turnStart,
+		End:          end,
+		DurationMs:   dur.Milliseconds(),
+		Outcome:      outcome,
+		SessionID:    m.sessionID,
+		Cwd:          m.statusBar.cwd,
+		Model:        m.statusBar.model,
+		APIRequests:  m.turnStats.apiRequests,
+		ToolCalls:    m.turnStats.toolCalls,
+		InputTokens:  m.turnStats.inputTokens,
+		OutputTokens: m.turnStats.outputTokens,
+	}
+	switch outcome {
+	case "done":
+		m.messages = append(m.messages, newSystemMessage("✻ Worked for "+formatDuration(dur)))
+	case "interrupted":
+		m.messages = append(m.messages, newSystemMessage("✻ Interrupted after "+formatDuration(dur)))
+	}
+	m.turnStart = time.Time{}
+	m.turnStats = turnStats{}
+	return m, writeTurnRecordCmd(m.turnLogPath, rec)
+}

@@ -467,9 +467,7 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 	m.syncViewportContent()
 
 	// Normal query.
-	m.isLoading = true
-	m.showSpinner = true
-	m.spinner = m.spinner.Reset()
+	m = m.beginQuery()
 	queryCmd := startQueryCmd(&m, text)
 	return m, queryCmd
 }
@@ -525,7 +523,9 @@ func (m AppModel) doAbort() (tea.Model, tea.Cmd) {
 	if m.queryGuard != nil {
 		m.queryGuard.ForceEnd()
 	}
-	return m, abortCmd
+	m, timingCmd := m.finishTurn("interrupted")
+	m.syncViewportContent()
+	return m, tea.Batch(abortCmd, timingCmd)
 }
 
 // toggleAllToolResults toggles the expansion state of all tool results and

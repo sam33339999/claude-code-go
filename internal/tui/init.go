@@ -56,6 +56,7 @@ func New(
 	commands.RegisterBuiltins(reg)
 
 	m := newAppModel(qe, appStore, vimEnabled, dark, reg, permAskCh, permRespCh, agentCoord, agentEventCh, mq, qg, memoryStore, mcpPool, tiers, setup, models, btwTarget, rec, questionAskCh, questionRespCh)
+	m.turnLogPath = defaultTurnLogPath()
 	return m
 }
 
