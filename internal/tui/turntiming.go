@@ -16,23 +16,29 @@ type turnStats struct {
 	toolCalls    int
 	inputTokens  int
 	outputTokens int
+	cacheRead    int
+	cacheCreated int
 }
 
 // turnRecord is one JSONL line in the turn-timing log: the wall-clock span
 // of a turn (prompt submitted → turn fully finished) plus what it did.
 // It never carries prompt text.
 type turnRecord struct {
-	Start        time.Time `json:"start"`
-	End          time.Time `json:"end"`
-	DurationMs   int64     `json:"duration_ms"`
-	Outcome      string    `json:"outcome"` // done | error | interrupted
-	SessionID    string    `json:"session_id"`
-	Cwd          string    `json:"cwd"`
-	Model        string    `json:"model"`
-	APIRequests  int       `json:"api_requests"`
-	ToolCalls    int       `json:"tool_calls"`
-	InputTokens  int       `json:"input_tokens"`
-	OutputTokens int       `json:"output_tokens"`
+	Start       time.Time `json:"start"`
+	End         time.Time `json:"end"`
+	DurationMs  int64     `json:"duration_ms"`
+	Outcome     string    `json:"outcome"` // done | error | interrupted
+	SessionID   string    `json:"session_id"`
+	Cwd         string    `json:"cwd"`
+	Model       string    `json:"model"`
+	APIRequests int       `json:"api_requests"`
+	ToolCalls   int       `json:"tool_calls"`
+	// InputTokens excludes cache hits (Anthropic semantics); the full prompt
+	// size is InputTokens + CacheReadTokens + CacheCreationTokens.
+	InputTokens         int `json:"input_tokens"`
+	OutputTokens        int `json:"output_tokens"`
+	CacheReadTokens     int `json:"cache_read_tokens"`
+	CacheCreationTokens int `json:"cache_creation_tokens"`
 }
 
 // appendTurnRecord appends rec as one JSON line to path, creating the
@@ -110,6 +116,8 @@ func (m AppModel) noteTurnUsage(u *TokenUsage) AppModel {
 	m.turnStats.apiRequests++
 	m.turnStats.inputTokens += u.Input
 	m.turnStats.outputTokens += u.Output
+	m.turnStats.cacheRead += u.CacheRead
+	m.turnStats.cacheCreated += u.CacheCreated
 	return m
 }
 
@@ -125,17 +133,19 @@ func (m AppModel) finishTurn(outcome string) (AppModel, tea.Cmd) {
 	end := m.clock()
 	dur := end.Sub(m.turnStart)
 	rec := turnRecord{
-		Start:        m.turnStart,
-		End:          end,
-		DurationMs:   dur.Milliseconds(),
-		Outcome:      outcome,
-		SessionID:    m.sessionID,
-		Cwd:          m.statusBar.cwd,
-		Model:        m.statusBar.model,
-		APIRequests:  m.turnStats.apiRequests,
-		ToolCalls:    m.turnStats.toolCalls,
-		InputTokens:  m.turnStats.inputTokens,
-		OutputTokens: m.turnStats.outputTokens,
+		Start:               m.turnStart,
+		End:                 end,
+		DurationMs:          dur.Milliseconds(),
+		Outcome:             outcome,
+		SessionID:           m.sessionID,
+		Cwd:                 m.statusBar.cwd,
+		Model:               m.statusBar.model,
+		APIRequests:         m.turnStats.apiRequests,
+		ToolCalls:           m.turnStats.toolCalls,
+		InputTokens:         m.turnStats.inputTokens,
+		OutputTokens:        m.turnStats.outputTokens,
+		CacheReadTokens:     m.turnStats.cacheRead,
+		CacheCreationTokens: m.turnStats.cacheCreated,
 	}
 	switch outcome {
 	case "done":

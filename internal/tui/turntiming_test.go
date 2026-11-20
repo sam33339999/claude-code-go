@@ -151,9 +151,9 @@ func TestTurnTiming_DoneShowsAndLogs(t *testing.T) {
 	m, clk, path := newTimingModel(t)
 	m = startTimedTurn(m)
 	m = applyRun(m, StreamToolUseStartMsg{ToolName: "Bash"})
-	m = applyRun(m, StreamAssistantTurnMsg{Usage: &TokenUsage{Input: 100, Output: 20}})
+	m = applyRun(m, StreamAssistantTurnMsg{Usage: &TokenUsage{Input: 100, Output: 20, CacheRead: 4000, CacheCreated: 300}})
 	clk.t = clk.t.Add(83 * time.Second)
-	m = applyRun(m, StreamDoneMsg{Usage: &TokenUsage{Input: 50, Output: 10}})
+	m = applyRun(m, StreamDoneMsg{Usage: &TokenUsage{Input: 50, Output: 10, CacheRead: 4300}})
 
 	text := lastTurnMsgText(m)
 	for _, w := range []string{"Worked", "1m23s"} {
@@ -170,6 +170,7 @@ func TestTurnTiming_DoneShowsAndLogs(t *testing.T) {
 		"outcome": "done", "duration_ms": float64(83000), "api_requests": float64(2),
 		"tool_calls": float64(1), "input_tokens": float64(150), "output_tokens": float64(30),
 		"model": "test-model", "cwd": "/tmp",
+		"cache_read_tokens": float64(8300), "cache_creation_tokens": float64(300),
 	}
 	for k, v := range want {
 		if r[k] != v {

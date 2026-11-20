@@ -45,7 +45,8 @@ API 請求次數；`StreamToolUse` 類訊息累加工具呼叫次數。
 ```json
 {"start":"2026-11-20T10:00:00.123+08:00","end":"…","duration_ms":83123,
  "outcome":"done","session_id":"…","cwd":"/path","model":"claude-…",
- "api_requests":4,"tool_calls":7,"input_tokens":12034,"output_tokens":1820}
+ "api_requests":4,"tool_calls":7,"input_tokens":12034,"output_tokens":1820,
+ "cache_read_tokens":80000,"cache_creation_tokens":1500}
 ```
 
 不記 prompt 內容（隱私；session_id 可對回 transcript）。寫檔以 `tea.Cmd` 在 Update loop 外執行（同 `persistTranscriptCmd`），
