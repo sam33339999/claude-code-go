@@ -367,6 +367,15 @@ func TestStatusBar_ContextMeterPercent(t *testing.T) {
 	}
 }
 
+func TestStatusBar_ContextMeterUsesBlockGlyphs(t *testing.T) {
+	// 75% of 5 cells rounds to 4 filled. █/░ render in common terminal
+	// fonts; ▰/▱ fell back to odd-width glyphs in some.
+	s := StatusBar{contextWindow: 200_000}.addUsage(TokenUsage{Input: 150_000})
+	if got := stripANSI(s.contextMeter(DefaultDarkTheme)); !strings.Contains(got, "ctx ████░ 75%") {
+		t.Errorf("meter = %q, want ctx ████░ 75%%", got)
+	}
+}
+
 func TestStatusBar_FitsWidthWithCJKPath(t *testing.T) {
 	s := StatusBar{model: "claude-opus-5-5", cwd: "/Users/someone/專案目錄/非常長的子目錄/glaude", contextWindow: 200_000,
 		mode: types.PermissionModeAcceptEdits}.addUsage(TokenUsage{Input: 5000, Output: 100})
