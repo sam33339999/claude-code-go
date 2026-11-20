@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/tunsuy/glaude/pkg/types"
@@ -96,6 +97,66 @@ func (s *pasteStore) isMarker(tok string) bool {
 	}
 	item := s.items[markerID(tok)]
 	return item != nil && item.marker == tok
+}
+
+// deleteDir selects which cursor relationship removes a paste marker.
+type deleteDir int
+
+const (
+	delBackward deleteDir = iota
+	delForward
+	delWordBackward
+)
+
+// tokenSpan returns the half-open rune range of one markerRe hit on line that
+// isToken accepts and that dir would delete at col. A regex hit that isToken
+// rejects is not a token.
+func tokenSpan(line []rune, col int, dir deleteDir, isToken func(string) bool) (start, end int, ok bool) {
+	if isToken == nil {
+		return 0, 0, false
+	}
+	if col < 0 {
+		col = 0
+	} else if col > len(line) {
+		col = len(line)
+	}
+	probe := col
+	if dir == delWordBackward {
+		probe = skipSpaceLeft(line, col)
+	}
+	text := string(line)
+	for _, loc := range markerRe.FindAllStringIndex(text, -1) {
+		s := utf8.RuneCountInString(text[:loc[0]])
+		e := s + utf8.RuneCountInString(text[loc[0]:loc[1]])
+		if e > len(line) || !isToken(string(line[s:e])) {
+			continue
+		}
+		if spanMatches(dir, s, e, col, probe) {
+			return s, e, true
+		}
+	}
+	return 0, 0, false
+}
+
+func spanMatches(dir deleteDir, s, e, col, probe int) bool {
+	switch dir {
+	case delBackward:
+		return s < col && col <= e
+	case delForward:
+		return s <= col && col < e
+	case delWordBackward:
+		return s < probe && probe <= e
+	default:
+		return false
+	}
+}
+
+// skipSpaceLeft walks left over whitespace immediately before col.
+func skipSpaceLeft(line []rune, col int) int {
+	for col > 0 && unicode.IsSpace(line[col-1]) {
+		col--
+	}
+	return col
 }
 
 // markerID reads the paste id after '#'. It returns 0 when tok has no id.

@@ -340,6 +340,11 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.updateInput(key)
 	}
 
+	// A stored paste marker is one token for backspace, delete, word-delete, and vim x.
+	if updated, ok := m.tryDeleteToken(key); ok {
+		return updated, updated.refreshCompletion()
+	}
+
 	// Vim normal mode uses j/k for navigation when vim is enabled.
 	if m.input.vimEnabled && m.input.vimMode == VimModeNormal {
 		switch key.String() {

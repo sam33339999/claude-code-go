@@ -100,6 +100,32 @@ func (m InputModel) InsertString(s string) InputModel {
 	return m
 }
 
+// DeleteToken removes one whole paste marker on the current line when dir and
+// the cursor select a span that isToken accepts. The cursor moves to the end
+// of that span and one backspace is sent per rune, directly to the textarea,
+// so the edit cannot cross onto the previous line. A selection is left for
+// the normal delete path. It reports whether a marker was removed.
+func (m InputModel) DeleteToken(dir deleteDir, isToken func(string) bool) (InputModel, bool) {
+	if m.textarea.HasSelection() {
+		return m, false
+	}
+	lines := strings.Split(m.Value(), "\n")
+	row := m.textarea.Line()
+	if row < 0 || row >= len(lines) {
+		return m, false
+	}
+	start, end, ok := tokenSpan([]rune(lines[row]), m.textarea.Column(), dir, isToken)
+	if !ok {
+		return m, false
+	}
+	m.textarea.SetCursorColumn(end)
+	backspace := tea.KeyPressMsg{Code: tea.KeyBackspace}
+	for range end - start {
+		m.textarea, _ = m.textarea.Update(backspace)
+	}
+	return m, true
+}
+
 // SetMaxRows caps how many rows the box grows to (short terminals).
 func (m InputModel) SetMaxRows(n int) InputModel {
 	if n < 1 {

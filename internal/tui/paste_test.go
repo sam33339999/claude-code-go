@@ -49,3 +49,26 @@ func TestPasteStore_Markers(t *testing.T) {
 		}
 	}
 }
+
+func TestTokenSpan(t *testing.T) {
+	valid := func(s string) bool { return s == "[Image #1]" }
+	line := []rune("see [Image #1] now") // marker 在 [4,14)
+	cases := []struct {
+		col int
+		dir deleteDir
+		ok  bool
+	}{
+		{14, delBackward, true}, {9, delBackward, true}, {4, delBackward, false},
+		{4, delForward, true}, {13, delForward, true}, {14, delForward, false},
+		{15, delWordBackward, true}, {18, delWordBackward, false},
+	}
+	for _, c := range cases {
+		s, e, ok := tokenSpan(line, c.col, c.dir, valid)
+		if ok != c.ok || (ok && (s != 4 || e != 14)) {
+			t.Errorf("col=%d dir=%d → %d,%d,%v", c.col, c.dir, s, e, ok)
+		}
+	}
+	if _, _, ok := tokenSpan([]rune("[Image #9]"), 10, delBackward, valid); ok {
+		t.Error("invalid marker must not match")
+	}
+}
