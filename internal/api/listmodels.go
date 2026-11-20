@@ -51,7 +51,8 @@ func (e *ListModelsError) Error() string {
 // listModelsMaxPages caps Anthropic pagination.
 const listModelsMaxPages = 10
 
-// ListModels fetches the model list from cfg's endpoint with GET /v1/models.
+// ListModels fetches the model list from cfg's endpoint with GET /v1/models
+// (OpenAI-compatible bases ending in another version, e.g. /v4, use <base>/models).
 // It verifies reachability and credentials without calling an LLM (no tokens
 // are spent). Results are sorted by ID. A nil httpClient uses
 // http.DefaultClient; the caller bounds the call with ctx.
@@ -75,7 +76,7 @@ func ListModels(ctx context.Context, cfg ClientConfig, httpClient *http.Client) 
 		models, err = listOpenAIModels(ctx, httpClient, base, cfg.APIKey)
 		if err == nil && openRouterHostMatch(base) {
 			// OpenRouter serves /models without auth; verify the key too.
-			err = getJSON(ctx, httpClient, base+"/v1/key", map[string]string{"Authorization": "Bearer " + cfg.APIKey}, cfg.APIKey, &struct{}{})
+			err = getJSON(ctx, httpClient, openAIURL(base, "/key"), map[string]string{"Authorization": "Bearer " + cfg.APIKey}, cfg.APIKey, &struct{}{})
 		}
 	default:
 		return nil, &ListModelsError{Kind: ListModelsNotSupported, Message: fmt.Sprintf("provider %q cannot list models", cfg.Provider)}
@@ -127,7 +128,7 @@ func listOpenAIModels(ctx context.Context, c *http.Client, base, key string) ([]
 			ContextLength int    `json:"context_length"`
 		} `json:"data"`
 	}
-	if err := getJSON(ctx, c, base+"/v1/models", map[string]string{"Authorization": "Bearer " + key}, key, &resp); err != nil {
+	if err := getJSON(ctx, c, openAIURL(base, "/models"), map[string]string{"Authorization": "Bearer " + key}, key, &resp); err != nil {
 		return nil, err
 	}
 	if resp.Data == nil {

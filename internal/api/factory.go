@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -61,13 +62,28 @@ func buildDefaultHeaders(version string) map[string]string {
 // normalizeBaseURL removes a trailing version segment from baseURL so that
 // clients can append their own versioned path without duplicating it.
 //
-// Both clients append a versioned path ("/v1/messages", "/v1/chat/completions"),
-// but most OpenAI-compatible endpoints document their base URL with the version
-// already included (e.g. "https://host/compatible-mode/v1"). Without this trim the
-// request would go to ".../v1/v1/chat/completions" and the server answers 404.
+// Most OpenAI-compatible endpoints document their base URL with the version
+// already included (e.g. "https://host/compatible-mode/v1"). The Anthropic
+// client appends "/v1/messages" and OpenAI-compatible calls go through
+// openAIURL (which adds "/v1" back), so without this trim a request would go
+// to ".../v1/v1/chat/completions" and the server answers 404.
 func normalizeBaseURL(baseURL string) string {
 	trimmed := strings.TrimRight(baseURL, "/")
 	return strings.TrimSuffix(trimmed, "/v1")
+}
+
+// versionSegment matches a trailing API version path segment such as "/v4".
+var versionSegment = regexp.MustCompile(`/v[0-9]+$`)
+
+// openAIURL joins an OpenAI-compatible endpoint path ("/chat/completions",
+// "/models") onto base. A base that already ends in a version segment other
+// than /v1 (normalizeBaseURL has removed /v1) is used as-is — z.ai documents
+// ".../api/coding/paas/v4" — otherwise the conventional "/v1" is inserted.
+func openAIURL(base, path string) string {
+	if versionSegment.MatchString(base) {
+		return base + path
+	}
+	return base + "/v1" + path
 }
 
 // NewClient creates an API client based on the provided configuration.
