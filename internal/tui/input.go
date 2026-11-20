@@ -93,6 +93,12 @@ func (m InputModel) InsertNewline() InputModel {
 	return m
 }
 
+// InsertString inserts s at the cursor.
+func (m InputModel) InsertString(s string) InputModel {
+	m.textarea.InsertString(s)
+	return m
+}
+
 // SetMaxRows caps how many rows the box grows to (short terminals).
 func (m InputModel) SetMaxRows(n int) InputModel {
 	if n < 1 {

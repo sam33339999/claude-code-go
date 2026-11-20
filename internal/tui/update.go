@@ -398,9 +398,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.activeDialog != dialogNone {
 			return m, nil
 		}
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
-		return m, tea.Batch(cmd, m.refreshCompletion())
+		return m.insertPaste(msg.Content)
 
 	// --- ! bash mode result ---
 	case bashResultMsg:

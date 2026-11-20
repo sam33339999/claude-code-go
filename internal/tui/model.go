@@ -108,6 +108,8 @@ type AppModel struct {
 
 	// --- Input ---
 	input InputModel
+	// pastes is the session paste store. Created in newAppModel and not replaced, including on /clear.
+	pastes *pasteStore
 
 	// --- Style ---
 	theme    Theme
@@ -295,6 +297,7 @@ func newAppModel(
 		commandRegistry:     reg,
 		spinner:             newSpinner(),
 		input:               NewInput(vimEnabled),
+		pastes:              newPasteStore(),
 		lastTickTime:        time.Now(),
 		expandedToolResults: make(map[string]bool),
 		surfacedMemories:    make(map[string]bool),
