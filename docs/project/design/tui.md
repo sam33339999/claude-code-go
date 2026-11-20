@@ -265,6 +265,7 @@ internal/tui/
 ├── input.go        // 输入框子 Model（PromptInput）
 ├── messagelist.go  // 消息列表渲染
 ├── spinner.go      // 加载动画
+├── turntiming.go  // 每輪耗時：顯示 + ~/.glaude/turn-timings.jsonl
 ├── statusbar.go    // 顶部状态栏
 ├── permissions.go  // 权限对话框子 Model
 ├── theme.go        // Lip Gloss 样式定义
@@ -1078,3 +1079,4 @@ TUI 层对 Core 层的唯一接入点是 `QueryEngine` 接口（见第 3 节）�
 | v2.4 | 2026-11-19 | 主會話 | /setup 首次設定引導：`commands` +`SetupBackend` 介面與 `Setup*` 型別、`ErrModelListUnsupported`、`/setup`；`tui` +`dialogSetup`、`setupWizard` 狀態機、`setupModelsMsg`/`setupAppliedMsg`；`tui.New`/`newAppModel` 在 `tiers` 後新增 `setup commands.SetupBackend` 參數；未設定認證時的啟動提示。 |
 | v2.5 | 2026-11-20 | 主會話 | /model 選單：`commands` +`ModelOption`、`ModelSwitcher`、`Result.ModelRef`；`tui` +`dialogModelPicker`、`dialogModelConfirm`、`modelPicker`；`tui.New`/`newAppModel` 在 `setup` 後新增 `models commands.ModelSwitcher` 參數。 |
 | v2.6 | 2026-11-20 | 主會話 | /btw：TUI 本地 btw 區塊、`btwChunkMsg` 串流、Esc 分派、ctrl+y 交給主腦（`msgqueue.QueuedCommand.Origin`）、`buildMainSystemPrompt`；`tui.New`/`newAppModel` 在 `models` 後新增 `btwTarget` 參數。 |
+| v2.7 | 2026-11-20 | 主會話 | 每輪耗時：`turntiming.go`（`beginQuery`/`finishTurn`），每輪結束顯示 `✻ Worked for …`（TUI 本地訊息）並附加 JSONL 到 `~/.glaude/turn-timings.jsonl`；無導出介面變更。 |
