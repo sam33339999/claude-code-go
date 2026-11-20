@@ -58,3 +58,13 @@ func TestRun_Canceled(t *testing.T) {
 		t.Fatalf("got %+v, want Canceled", res)
 	}
 }
+
+func TestRun_BackgroundChildSucceeds(t *testing.T) {
+	res, err := shell.Run(context.Background(), "", "sleep 2 & echo started", 5*time.Second)
+	if err != nil {
+		t.Fatalf("backgrounded child must not fail the command: %v", err)
+	}
+	if res.ExitCode != 0 || res.Stdout != "started\n" {
+		t.Fatalf("got %+v", res)
+	}
+}

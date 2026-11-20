@@ -657,6 +657,10 @@ func (m AppModel) applyResumeResult(result commands.Result) (AppModel, bool) {
 	}
 	m.messages = msgs
 	m.queryEngine.SetMessages(msgs)
+	// Shell output from the old session must not leak into the resumed one.
+	m = m.cancelBash()
+	m.bashPending = nil
+	m.bashGen++
 	if result.NewSessionID != "" {
 		m.sessionID = result.NewSessionID
 	}

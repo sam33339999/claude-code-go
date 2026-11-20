@@ -58,6 +58,13 @@ func Run(ctx context.Context, dir, command string, timeout time.Duration) (RunRe
 		return res, nil
 	}
 
+	// A backgrounded child (`server &`) keeps the pipes open after bash
+	// exits; WaitDelay then reports ErrWaitDelay even though bash finished.
+	if errors.Is(err, exec.ErrWaitDelay) && cmd.ProcessState != nil {
+		res.ExitCode = cmd.ProcessState.ExitCode()
+		return res, nil
+	}
+
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
 		res.ExitCode = exitErr.ExitCode()

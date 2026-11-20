@@ -9,6 +9,7 @@ import (
 
 	"github.com/tunsuy/glaude/internal/commands"
 	"github.com/tunsuy/glaude/internal/tools/shell"
+	"github.com/tunsuy/glaude/pkg/types"
 )
 
 func lastDisplayText(m AppModel) string {
@@ -200,5 +201,56 @@ func TestInputBashMode(t *testing.T) {
 	}
 	if !strings.Contains(plain.View(DefaultDarkTheme), ">") {
 		t.Error("normal prompt must show >")
+	}
+}
+
+func TestBashEsc_ClosingPopupKeepsPending(t *testing.T) {
+	m, _ := newBTWModel(t, nil)
+	m = runBash(t, m, "!echo hi")
+	m.completion = completionState{kind: completionFile, items: []completionItem{{}}}
+	m, _ = press(m, tea.KeyPressMsg{Code: tea.KeyEsc})
+	if m.completion.visible() {
+		t.Error("Esc must close the popup")
+	}
+	if len(m.bashPending) != 1 {
+		t.Error("Esc that closes the popup must keep pending output")
+	}
+}
+
+func TestBashEsc_VimInsertKeepsPending(t *testing.T) {
+	m, _ := newBTWModel(t, nil)
+	m.input = NewInput(true)
+	m = runBash(t, m, "!echo hi")
+	m, _ = press(m, tea.KeyPressMsg{Code: tea.KeyEsc})
+	if m.input.vimMode != VimModeNormal {
+		t.Error("Esc in vim insert mode must switch to normal")
+	}
+	if len(m.bashPending) != 1 {
+		t.Error("vim Esc must keep pending output")
+	}
+}
+
+func TestBashResume_ClearsPendingAndRunning(t *testing.T) {
+	m, _ := newBTWModel(t, nil)
+	m = runBash(t, m, "!echo secret")
+	m, cmd := submit(m, "!echo late")
+	m, _ = m.applyResumeResult(commands.Result{NewMessages: []types.Message{}})
+	if len(m.bashPending) != 0 {
+		t.Error("resume must drop pending output from the old session")
+	}
+	updated, _ := m.Update(cmd())
+	m = updated.(AppModel)
+	if len(m.bashPending) != 0 {
+		t.Error("result started before resume must be dropped")
+	}
+}
+
+func TestFormatBashDisplay_Truncates(t *testing.T) {
+	out := formatBashDisplay(shell.RunResult{Stdout: strings.Repeat("中", 40_000)}, nil)
+	if n := strings.Count(out, "中"); n > bashContextLimit {
+		t.Errorf("display kept %d runes, limit %d", n, bashContextLimit)
+	}
+	if !strings.Contains(out, "truncated") {
+		t.Error("missing truncation note")
 	}
 }

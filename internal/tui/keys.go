@@ -212,6 +212,7 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// --- Completion popup navigation ---
+	popupClosed := false
 	if m.completion.visible() {
 		switch key.Code {
 		case tea.KeyUp:
@@ -226,6 +227,7 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// Close the popup, then fall through so Esc still interrupts a
 			// running query (and still switches Vim to normal mode).
 			m.completion = completionState{dismissedFor: m.input.Value()}
+			popupClosed = true
 		case tea.KeyEnter:
 			if key.Mod.Contains(tea.ModAlt) {
 				break
@@ -267,14 +269,17 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.refreshBTWBlock()
 			return m, nil
 		}
+		// An Esc that closed the popup or leaves vim insert mode belongs to
+		// the input: it must not cancel a ! command or discard pending notes.
+		forInput := popupClosed || (m.input.vimEnabled && m.input.vimMode == VimModeInsert)
 		// A running ! command is stopped before the main loop.
-		if m.bashCancel != nil {
+		if m.bashCancel != nil && !forInput {
 			return m.cancelBash(), nil
 		}
 		if m.isLoading {
 			return m.doAbort()
 		}
-		if m.btwPending != "" || len(m.bashPending) > 0 {
+		if !forInput && (m.btwPending != "" || len(m.bashPending) > 0) {
 			m.btwPending = ""
 			m.bashPending = nil
 			return m, nil

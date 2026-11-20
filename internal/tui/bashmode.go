@@ -99,7 +99,12 @@ func formatBashDisplay(res shell.RunResult, err error) string {
 		out = strings.TrimRight(out+"\n"+res.Stderr, "\n")
 	}
 	if out != "" {
-		parts = append(parts, codeFence(out))
+		// Cap what reaches the renderer too: a multi-MB `!cat` would stall it.
+		kept, cut := truncateRunes(out, bashContextLimit)
+		parts = append(parts, codeFence(kept))
+		if cut {
+			parts = append(parts, fmt.Sprintf("[output truncated to %d characters]", bashContextLimit))
+		}
 	}
 	if res.TimedOut {
 		parts = append(parts, "command timed out")
