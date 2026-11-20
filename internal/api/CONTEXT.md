@@ -2,7 +2,7 @@
 package: api
 import_path: internal/api
 layer: services
-generated_at: 2026-11-19T18:29:52Z
+generated_at: 2026-11-20T09:14:06Z
 source_files: [accumulate.go, client.go, debug_logger.go, errors.go, factory.go, json.go, listmodels.go, openai_client.go, openai_stream.go, openai_types.go, ratelimit.go, retry.go, stream.go, usage.go]
 ---
 
@@ -166,3 +166,4 @@ type StreamReader interface {
 - **2026-11-19 OpenAI 相容 usage 語意**：`Usage.InputTokens` 改為 `prompt_tokens − cached`（`openaiUsage.uncachedInputTokens`，下限 0），對齊 Anthropic「input_tokens 不含快取讀取」的語意。修正前同時回報含快取的 `prompt_tokens` 與 `CacheReadInputTokens`，壓縮門檻（engine 以 input+cache read+cache creation 計算 prompt 大小）和 TUI 狀態列的上下文用量都會重複計算快取部分。
 - **2026-11-19 `ListModels`（/setup 驗證）**：獨立函式，**不加進 `api.Client` 介面**（避免改動所有測試用的假 client）。只打 `GET {base}/v1/models`，不呼叫 LLM、不花 token；路徑沿用既有 client 的 `normalizeBaseURL` + `/v1/...` 慣例。Anthropic 依 `has_more`/`last_id` 分頁（上限 10 頁）；OpenAI 相容讀 `context_length`。錯誤分類為 `ListModelsError`，金鑰在**截斷前**先遮蔽（避免金鑰跨過截斷點時部分外洩）；200 但沒有 `data` 欄位視為不支援。OpenRouter 的模型清單是公開的，所以另外打 `/api/v1/key` 驗證金鑰。
 - **2026-11-20 帶其他版本號的 base URL（fix/versioned-base-url）**：OpenAI 相容的路徑（`/chat/completions`、`/models`、OpenRouter `/key`）改由 `openAIURL(base, path)` 組合。`normalizeBaseURL` 只去掉 `/v1`，原本之後一律接 `/v1`，所以 z.ai 文件給的 `https://api.z.ai/api/coding/paas/v4` 會變成 `…/v4/v1/chat/completions`（404）。現在 base 結尾是 `/v<數字>` 就直接接 path，否則照舊插入 `/v1`，`/v1`、無版本的 base 行為不變。只比對完整路徑段，`/v4beta` 這種不算。Anthropic 的 `/v1/messages` 不變。守護測試 TestOpenAIURL、TestOpenAIClient_V4BaseURL、TestListModels_BaseURLWithV4；另以實際 z.ai 端點驗證過取得模型與對話。
+- **2026-11-20 finish_reason 與 usage 同一個 chunk（fix/openai-finish-with-usage）**：智譜 GLM（z.ai）串流把 `finish_reason` 和 `usage` 放在**同一個** chunk。原本 reader 只要看到 `usage` 且已 started 就提早 return usage delta，同 chunk 的 finish 沒被處理 → stop reason 為空 → engine 當成 `end_turn` 結束回合，**模型要求的工具從未執行**（TUI 只顯示 tool_use、沒有結果，回應看起來「很短就停」）。現在只有 choices 為空的獨立 usage chunk 才走提早 return；有 choices 時 fall through，由 finish 的 message_delta 帶出已記錄的 usage。守護測試 TestOpenAIStream_FinishAndUsageInSameChunk（chunk 形狀取自實測 z.ai 回應）；另以 glm-5.3-flash 實機對照修改前後驗證。

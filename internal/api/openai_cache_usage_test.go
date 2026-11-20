@@ -167,3 +167,74 @@ func TestOpenAIUsage_UncachedInputClamps(t *testing.T) {
 		t.Errorf("no cache: uncachedInputTokens = %d, want 100", got)
 	}
 }
+
+// TestOpenAIStream_FinishAndUsageInSameChunk reproduces Zhipu GLM's stream
+// shape: finish_reason and usage arrive in ONE chunk. The finish must still
+// be processed, or the stop reason is lost (empty → engine ends the turn and
+// never runs the requested tools).
+func TestOpenAIStream_FinishAndUsageInSameChunk(t *testing.T) {
+	sseData := `data: {"id":"g1","object":"chat.completion.chunk","created":1,"model":"glm","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"thinking"}}]}
+
+data: {"id":"g1","object":"chat.completion.chunk","created":1,"model":"glm","choices":[{"index":0,"delta":{"tool_calls":[{"id":"call_1","index":0,"type":"function","function":{"name":"Bash","arguments":"{\"command\":\"ls -la\"}"}}]}}]}
+
+data: {"id":"g1","object":"chat.completion.chunk","created":1,"model":"glm","choices":[{"index":0,"finish_reason":"tool_calls","delta":{"role":"assistant","content":""}}],"usage":{"prompt_tokens":161,"completion_tokens":14,"total_tokens":175,"prompt_tokens_details":{"cached_tokens":128}}}
+
+data: [DONE]
+
+`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(sseData))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(ClientConfig{Provider: ProviderOpenAI, APIKey: "k", BaseURL: server.URL}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := client.Stream(context.Background(), &MessageRequest{
+		Model:     "glm",
+		MaxTokens: 10,
+		Messages:  []MessageParam{{Role: "user", Content: json.RawMessage(`"hi"`)}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+
+	acc := &Accumulator{}
+	for {
+		ev, err := reader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ev == nil {
+			continue
+		}
+		if err := acc.Process(ev); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result := acc.Result()
+	if result.StopReason != "tool_use" {
+		t.Errorf("StopReason = %q, want tool_use", result.StopReason)
+	}
+	var toolUses int
+	for _, blk := range result.Content {
+		if blk.Type == "tool_use" {
+			toolUses++
+			if string(blk.Input) != `{"command":"ls -la"}` {
+				t.Errorf("tool input = %s, want {\"command\":\"ls -la\"}", blk.Input)
+			}
+		}
+	}
+	if toolUses != 1 {
+		t.Errorf("tool_use blocks = %d, want 1", toolUses)
+	}
+	if result.Usage.InputTokens != 33 || result.Usage.CacheReadInputTokens != 128 || result.Usage.OutputTokens != 14 {
+		t.Errorf("usage = %+v, want input 33 / cache 128 / output 14", result.Usage)
+	}
+}
