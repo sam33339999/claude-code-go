@@ -227,14 +227,13 @@ func (c *openaiClient) convertMessage(msg MessageParam) []openaiMessage {
 				}
 				combinedText += block.Text
 			case "tool_use":
-				inputJSON, _ := json.Marshal(block.Input)
 				toolCalls = append(toolCalls, openaiToolCall{
 					Index: len(toolCalls),
 					ID:    block.ID,
 					Type:  "function",
 					Function: openaiToolCallFunction{
 						Name:      block.Name,
-						Arguments: string(inputJSON),
+						Arguments: normalizeToolArguments(block.Input),
 					},
 				})
 			case "thinking":
@@ -500,4 +499,17 @@ func classifyOpenAIError(statusCode int, message string) APIErrorKind {
 		}
 		return ErrKindUnknown
 	}
+}
+
+// normalizeToolArguments renders a tool_use input as an OpenAI
+// function.arguments string. Strict OpenAI-compatible providers reject
+// anything but a JSON object with HTTP 400, so missing, null, non-object or
+// malformed input (a model may emit a tool call with no or truncated
+// arguments, which the stream accumulator stores verbatim) becomes "{}".
+func normalizeToolArguments(input json.RawMessage) string {
+	trimmed := bytes.TrimSpace(input)
+	if len(trimmed) == 0 || trimmed[0] != '{' || !json.Valid(trimmed) {
+		return "{}"
+	}
+	return string(trimmed)
 }
