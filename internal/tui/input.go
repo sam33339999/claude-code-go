@@ -41,7 +41,7 @@ type InputModel struct {
 // NewInput creates a new InputModel.
 func NewInput(vimEnabled bool) InputModel {
 	ta := textarea.New()
-	ta.Placeholder = "Type a message · / commands · @ files · alt+enter newline"
+	ta.Placeholder = "Type a message · / commands · @ files · shift+enter newline"
 	ta.ShowLineNumbers = false
 	ta.Prompt = "" // the "> " prompt is drawn once, beside the first row
 	// Grow with the content (1..inputMaxRows rows) instead of a fixed 3 rows.
@@ -89,8 +89,9 @@ func (m InputModel) SetWidth(totalWidth int) InputModel {
 	return m
 }
 
-// InsertNewline inserts a line break at the cursor (alt+enter). The textarea's
-// own InsertNewline binding is "enter", which the app reserves for submit.
+// InsertNewline inserts a line break at the cursor (shift+enter, alt+enter).
+// The textarea's own InsertNewline binding is "enter", which the app reserves
+// for submit.
 func (m InputModel) InsertNewline() InputModel {
 	m.textarea.InsertString("\n")
 	return m

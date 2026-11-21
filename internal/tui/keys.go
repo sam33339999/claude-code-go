@@ -200,6 +200,17 @@ func (m AppModel) handleExitKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// promptNewline reports Enter chords that break the line instead of sending.
+// Alt+Enter works in any terminal. Shift+Enter arrives as Enter+ModShift only
+// when the terminal honors key disambiguation (Kitty keyboard protocol or
+// modifyOtherKeys), which Bubble Tea v2 requests by default.
+func promptNewline(key tea.KeyPressMsg) bool {
+	if key.Code != tea.KeyEnter {
+		return false
+	}
+	return key.Mod.Contains(tea.ModAlt) || key.Mod.Contains(tea.ModShift)
+}
+
 // handleIdleKey handles keys when no dialog is open.
 //
 // Arrow keys follow the original Claude Code: ↑/↓ move the cursor inside a
@@ -232,7 +243,7 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.completion = completionState{dismissedFor: m.input.Value()}
 			popupClosed = true
 		case tea.KeyEnter:
-			if key.Mod.Contains(tea.ModAlt) {
+			if promptNewline(key) {
 				break
 			}
 			if m.completion.kind == completionFile {
@@ -295,8 +306,7 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.updateInput(key)
 
 	case tea.KeyEnter:
-		if key.Mod.Contains(tea.ModAlt) {
-			// Alt-Enter inserts a newline.
+		if promptNewline(key) {
 			m.input = m.input.InsertNewline()
 			return m, m.refreshCompletion()
 		}
