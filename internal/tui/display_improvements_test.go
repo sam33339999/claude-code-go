@@ -682,6 +682,33 @@ func TestAltEnter_InsertsNewline(t *testing.T) {
 	}
 }
 
+func TestShiftEnter_InsertsNewline(t *testing.T) {
+	m := typeText(newTestModel(), "line1")
+	m = applyMsg(m, tea.KeyPressMsg{Code: tea.KeyEnter, Mod: tea.ModShift})
+	m = typeText(m, "line2")
+	if m.input.Value() != "line1\nline2" {
+		t.Errorf("shift+enter should insert a newline, got %q", m.input.Value())
+	}
+	if len(m.messages) != 0 {
+		t.Error("shift+enter must not submit")
+	}
+}
+
+func TestShiftEnter_WithCompletionInsertsNewline(t *testing.T) {
+	m := typeText(newTestModel(), "/he")
+	if !m.completion.visible() {
+		t.Fatal("expected the slash completion popup")
+	}
+	before := len(m.messages)
+	m = applyMsg(m, tea.KeyPressMsg{Code: tea.KeyEnter, Mod: tea.ModShift})
+	if m.input.Value() != "/he\n" {
+		t.Errorf("shift+enter with the popup open should insert a newline, got %q", m.input.Value())
+	}
+	if len(m.messages) != before {
+		t.Error("shift+enter must not run the suggested command")
+	}
+}
+
 func TestInput_ContentNotCappedAtVisibleRows(t *testing.T) {
 	m := newTestModel()
 	for i := 0; i < 15; i++ {
