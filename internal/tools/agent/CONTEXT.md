@@ -2,22 +2,32 @@
 package: agent
 import_path: internal/tools/agent
 layer: tools
-generated_at: 2026-11-19T03:15:41Z
-source_files: [agent.go, doc.go, getagentstatus.go, sendmessage.go]
+generated_at: 2026-11-21T09:43:04Z
+source_files: [agent.go, doc.go, external.go, getagentstatus.go, sendmessage.go]
 ---
 
 # internal/tools/agent
 
-> Layer: **Tools** · Files: 4 · Interfaces: 0 · Structs: 6 · Functions: 0
+> Layer: **Tools** · Files: 5 · Interfaces: 0 · Structs: 7 · Functions: 1
 
 ## Structs
 
 - **AgentInput** — 8 fields: Prompt, SystemPrompt, AllowedTools, MaxTurns, AgentType, Background, AgentName, Model
 - **AgentOutput** — 2 fields: Response, AgentID
+- **ExternalAgentInfo** — 2 fields: Name, Description
 - **GetAgentStatusInput** — 1 fields: AgentID
 - **GetAgentStatusOutput** — 3 fields: AgentID, Status, Result
 - **SendMessageInput** — 3 fields: To, AgentID, Content
 - **SendMessageOutput** — 1 fields: Response
+
+## Functions
+
+- `SetExternalAgents(infos []ExternalAgentInfo)`
+
+## Change Impact
+
+**Exported type references (files that use types from this package):**
+- `ExternalAgentInfo` → `internal/bootstrap/acp.go`
 
 ## Dependencies
 

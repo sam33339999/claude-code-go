@@ -46,6 +46,7 @@ var layerMap = map[string]string{
 	"internal/memdir":      "services",
 	"internal/permissions": "services",
 	"internal/msgqueue":    "services",
+	"internal/acpclient":   "services",
 
 	// Infra layer
 	"internal/config":    "infra",

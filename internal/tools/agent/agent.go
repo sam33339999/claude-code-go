@@ -71,7 +71,7 @@ Usage notes:
 - The agent's final report is not shown to the user — relay what matters.
 - Set background: true to spawn without waiting for completion (forks always run in the background).
 - Use SendMessage with the agent's ID or name to continue a previously spawned agent with its context intact; a new Agent call starts fresh (except "fork", which inherits your context).
-- Set agent_name for human-readable routing with SendMessage.`
+- Set agent_name for human-readable routing with SendMessage.` + externalAgentsSection()
 }
 
 func (t *agentTool) InputSchema() tools.InputSchema {

@@ -2,13 +2,13 @@
 package: commands
 import_path: internal/commands
 layer: cli
-generated_at: 2026-11-20T06:16:03Z
-source_files: [builtins.go, mcp.go, modelswitch.go, registry.go, resume.go, setup.go, terminal_setup.go, tier.go]
+generated_at: 2026-11-21T09:43:04Z
+source_files: [builtins.go, external.go, mcp.go, modelswitch.go, registry.go, resume.go, setup.go, terminal_setup.go, tier.go]
 ---
 
 # internal/commands
 
-> Layer: **CLI** · Files: 8 · Interfaces: 4 · Structs: 12 · Functions: 5
+> Layer: **CLI** · Files: 9 · Interfaces: 4 · Structs: 13 · Functions: 6
 
 ## Interfaces
 
@@ -63,6 +63,7 @@ type TierManager interface {
 
 - **Command** — 3 fields: Name, Description, Execute
 - **CommandContext** — 10 fields: WorkingDir, Model, SessionID, DarkMode, VimEnabled, Effort, MessageCount, TokensInput, ...
+- **ExternalAgentCommand** — 2 fields: Name, Description
 - **ModelOption** — 8 fields: Name, Provider, Model, ContextWindow, MaxTokens, Available, Reason, Current
 - **Registry** — 2 fields
 - **Result** — 15 fields: Text, Display, ShouldExit, NewMessages, NewSessionID, NewTheme, NewModel, ModelRef, ...
@@ -74,6 +75,10 @@ type TierManager interface {
 - **SetupReport** — 5 fields: SettingsPath, ConfigPath, SettingsWritten, ConfigWritten, Warnings
 - **TerminalInfo** — 3 fields: Terminal, Shell, Term
 
+## Function Types
+
+- `ExternalAgentSpawner` — `func(name string, task string) (string, error)`
+
 ## Functions
 
 - `DetectTerminal(lookup func(string) string) TerminalInfo`
@@ -81,6 +86,7 @@ type TierManager interface {
 - `FormatTerminalSetup(info TerminalInfo) string`
 - `NewRegistry() *Registry`
 - `RegisterBuiltins(r *Registry)`
+- `RegisterExternalAgents(r *Registry, agents []ExternalAgentCommand, spawn ExternalAgentSpawner)`
 
 ## Constants
 
@@ -100,10 +106,11 @@ type TierManager interface {
 **Exported type references (files that use types from this package):**
 - `Command` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
 - `CommandContext` → `internal/tui/tui_test.go` (test), `internal/tui/update.go`
+- `ExternalAgentCommand` → `internal/bootstrap/acp.go`
 - `MCPServerLister` → `internal/tui/cmds.go`, `internal/tui/init.go`, `internal/tui/mcp_resume_test.go` (test), `internal/tui/model.go`
 - `ModelOption` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/modelswitch_test.go` (test), `internal/tui/model.go`, `internal/tui/modelpicker.go`, `internal/tui/modelpicker_test.go` (test)
 - `ModelSwitcher` → `internal/bootstrap/modelswitch.go`, `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`, `internal/tui/modelpicker_test.go` (test)
-- `Registry` → `internal/tui/completion.go`, `internal/tui/model.go`
+- `Registry` → `internal/bootstrap/acp.go`, `internal/tui/completion.go`, `internal/tui/init.go`, `internal/tui/model.go`
 - `Result` → `internal/tui/bashmode_test.go` (test), `internal/tui/btw_send_test.go` (test), `internal/tui/btw_test.go` (test), `internal/tui/mcp_resume_test.go` (test), `internal/tui/modelpicker_test.go` (test) + 4 more
 - `SessionSummary` → `internal/tui/mcp_resume_test.go` (test), `internal/tui/resumepicker.go`
 - `SetupBackend` → `internal/bootstrap/setup.go`, `internal/bootstrap/wire.go`, `internal/tui/init.go`, `internal/tui/model.go`, `internal/tui/setup_dialog.go` + 1 more

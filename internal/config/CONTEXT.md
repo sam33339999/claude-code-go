@@ -2,13 +2,13 @@
 package: config
 import_path: internal/config
 layer: infra
-generated_at: 2026-11-19T18:19:04Z
+generated_at: 2026-11-21T09:43:04Z
 source_files: [loader.go, mainmodel.go, mcpstore.go, orderedjson.go, pluginstore.go, settings.go, writer.go]
 ---
 
 # internal/config
 
-> Layer: **Infra** · Files: 7 · Interfaces: 1 · Structs: 19 · Functions: 21
+> Layer: **Infra** · Files: 7 · Interfaces: 1 · Structs: 20 · Functions: 22
 
 ## Interfaces
 
@@ -23,6 +23,7 @@ type ConfigLoader interface {
 
 ## Structs
 
+- **ACPAgentConfig** — 6 fields: Command, Args, Env, Model, Description, Disabled
 - **AttributionConfig** — 2 fields: Commit, PR
 - **EnvPair** — 2 fields: Key, Value
 - **InstalledPluginRecord** — 6 fields: Scope, InstallPath, Version, InstalledAt, LastUpdated, ProjectPath
@@ -40,7 +41,7 @@ type ConfigLoader interface {
 - **PermissionsConfig** — 6 fields: Allow, Deny, Ask, DefaultMode, DisableBypass, AdditionalDirs
 - **PluginManifest** — 4 fields: Name, Version, Description, HasAuthor
 - **PluginStore** — 2 fields
-- **SettingsJson** — 28 fields: Schema, APIKey, APIKeyHelper, BaseURL, Provider, AWSCredentialExport, AWSAuthRefresh, GCPAuthRefresh, ...
+- **SettingsJson** — 29 fields: Schema, APIKey, APIKeyHelper, BaseURL, Provider, AWSCredentialExport, AWSAuthRefresh, GCPAuthRefresh, ...
 - **WorktreeConfig** — 2 fields: SymlinkDirectories, SparsePaths
 
 ## Functions
@@ -53,6 +54,7 @@ type ConfigLoader interface {
 - `LoadOrderedJSON(path string) (*OrderedMap, error)`
 - `LoadPluginManifest(dir string) (*PluginManifest, error)`
 - `McpJsonPath(projectDir string) string`
+- `MergeACPAgentConfig(base ACPAgentConfig, over ACPAgentConfig) ACPAgentConfig`
 - `NewLoader(homeDir string, projectDir string) *Loader`
 - `NewMCPStore(homeDir string, projectDir string) *MCPStore`
 - `NewOrderedMap() *OrderedMap`
@@ -93,25 +95,27 @@ type ConfigLoader interface {
 ## Change Impact
 
 **Exported type references (files that use types from this package):**
+- `ACPAgentConfig` → `internal/acpclient/spec.go`, `internal/acpclient/spec_test.go` (test), `internal/bootstrap/acp.go`, `internal/bootstrap/acp_test.go` (test)
 - `EnvPair` → `internal/bootstrap/mcp_health.go`, `internal/bootstrap/mcp_render.go`, `internal/bootstrap/mcp_render_test.go` (test), `internal/bootstrap/mcp_run.go`
 - `InstalledPluginRecord` → `internal/bootstrap/plugin_install.go`, `internal/bootstrap/plugin_run.go`
 - `InstalledPlugins` → `internal/bootstrap/plugin_run.go`
 - `KnownMarketplace` → `internal/bootstrap/plugin_marketplace.go`
-- `LayeredSettings` → `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/modelswitch.go`, `internal/bootstrap/setup.go` + 2 more
+- `LayeredSettings` → `internal/bootstrap/acp.go`, `internal/bootstrap/acp_test.go` (test), `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/mcp_connect_test.go` (test) + 5 more
 - `MCPServerEntry` → `internal/bootstrap/mcp_health.go`, `internal/bootstrap/mcp_health_test.go` (test), `internal/bootstrap/mcp_list.go`, `internal/bootstrap/mcp_list_test.go` (test), `internal/bootstrap/mcp_render.go` + 2 more
 - `MCPStore` → `internal/bootstrap/mcp_cmd_test.go` (test), `internal/bootstrap/mcp_connect.go`, `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/mcp_list.go`, `internal/bootstrap/mcp_list_test.go` (test) + 2 more
 - `MainModelSettings` → `internal/bootstrap/setup.go`
 - `MarketplaceEntry` → `internal/bootstrap/plugin_install.go`
 - `MarketplaceManifest` → `internal/bootstrap/plugin_install.go`, `internal/bootstrap/plugin_marketplace.go`
 - `OrderedMap` → `internal/bootstrap/mcp_health_test.go` (test), `internal/bootstrap/mcp_list.go`, `internal/bootstrap/mcp_list_test.go` (test), `internal/bootstrap/mcp_render_test.go` (test), `internal/bootstrap/mcp_run.go`
+- `PermissionsConfig` → `internal/bootstrap/settings_permissions_test.go` (test)
 - `PluginStore` → `internal/bootstrap/plugin_cmd_test.go` (test), `internal/bootstrap/plugin_run.go`
-- `SettingsJson` → `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/setup.go`, `internal/bootstrap/setup_test.go` (test), `internal/state/store.go`
+- `SettingsJson` → `internal/bootstrap/acp_test.go` (test), `internal/bootstrap/bootstrap_test.go` (test), `internal/bootstrap/mcp_connect_test.go` (test), `internal/bootstrap/settings_permissions_test.go` (test), `internal/bootstrap/setup.go` + 3 more
 
 ## Dependencies
 
 **Imports:** `pkg/types`
 
-**Imported by:** `internal/bootstrap`, `internal/permissions`, `internal/state`
+**Imported by:** `internal/acpclient`, `internal/bootstrap`, `internal/permissions`, `internal/state`
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->
