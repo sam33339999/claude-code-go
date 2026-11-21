@@ -3,7 +3,6 @@ package memdir
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +23,9 @@ const (
 type AutoDreamConfig struct {
 	Store   *MemoryStore
 	Enabled bool
+	// Logf receives background failures (nil = discard); see
+	// ExtractMemoriesConfig.Logf.
+	Logf func(format string, args ...any)
 }
 
 // DefaultAutoDreamConfig returns the default auto-dream configuration.
@@ -48,7 +50,7 @@ func ExecuteAutoDream(ctx context.Context, hookCtx *engine.StopHookContext, cfg 
 
 	lockPath := filepath.Join(cfg.Store.Dir(), consolidateLockName)
 	if err := touchConsolidateLock(lockPath); err != nil {
-		log.Printf("memdir: auto dream lock: %v", err)
+		logf(cfg.Logf, "memdir: auto dream lock: %v", err)
 		return
 	}
 
@@ -68,7 +70,7 @@ func ExecuteAutoDream(ctx context.Context, hookCtx *engine.StopHookContext, cfg 
 	}
 
 	if _, err := engine.RunForkedAgent(ctx, hookCtx.Engine, forkedCfg); err != nil {
-		log.Printf("memdir: auto dream: %v", err)
+		logf(cfg.Logf, "memdir: auto dream: %v", err)
 	}
 }
 
@@ -135,4 +137,11 @@ Current MEMORY.md index:
 %s
 
 Use MemoryRead to inspect files, MemoryWrite/MemoryDelete to update. Be conservative — only change when clearly beneficial.`, MaxMemoryIndexLines, idx)
+}
+
+// logf reports a background failure through fn, dropping it when fn is nil.
+func logf(fn func(string, ...any), format string, args ...any) {
+	if fn != nil {
+		fn(format, args...)
+	}
 }

@@ -3,7 +3,6 @@ package memdir
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/tunsuy/glaude/internal/engine"
@@ -33,6 +32,10 @@ type ExtractMemoriesConfig struct {
 	MaxTurns int
 	// Enabled controls whether extraction runs. Default true.
 	Enabled bool
+	// Logf receives background failures (nil = discard). Bootstrap passes
+	// the --debug logger; the global logger would write to stderr and draw
+	// over the TUI.
+	Logf func(format string, args ...any)
 }
 
 // DefaultExtractConfig returns the default extraction configuration.
@@ -121,7 +124,7 @@ func ExecuteExtractMemories(
 	// extraction is best-effort and must not affect the main session.
 	_, err := engine.RunForkedAgent(ctx, hookCtx.Engine, forkedCfg)
 	if err != nil {
-		log.Printf("memdir: extract memories: %v", err)
+		logf(cfg.Logf, "memdir: extract memories: %v", err)
 	}
 }
 
