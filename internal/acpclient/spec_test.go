@@ -1,0 +1,59 @@
+package acpclient
+
+import (
+	"testing"
+
+	"github.com/tunsuy/glaude/internal/config"
+)
+
+func boolPtr(b bool) *bool { return &b }
+
+func TestBuiltins_KeepWorkInOneSession(t *testing.T) {
+	b := Builtins()
+	g := b["grok"]
+	if g.Env["GROK_SUBAGENTS"] != "0" || g.Env["GROK_WORKFLOWS"] != "0" {
+		t.Errorf("grok env = %v, want subagents and workflows off", g.Env)
+	}
+	if v, ok := g.SessionMeta["yoloMode"].(bool); !ok || v {
+		t.Errorf("grok meta = %v, want yoloMode=false so permissions reach glaude", g.SessionMeta)
+	}
+	if g.Model != "grok-4.7" {
+		t.Errorf("grok model = %q", g.Model)
+	}
+	o := b["opencode"]
+	if o.Env["OPENCODE_CONFIG_CONTENT"] != opencodePermissionConfig {
+		t.Errorf("opencode env = %v", o.Env)
+	}
+}
+
+func TestResolve(t *testing.T) {
+	specs := Resolve(map[string]config.ACPAgentConfig{
+		"grok":     {Model: "grok-4.7-build-fast", Env: map[string]string{"X": "1"}},
+		"opencode": {Disabled: boolPtr(true)},
+		"mine":     {Command: "my-acp", Args: []string{"--stdio"}},
+		"broken":   {Model: "m"},
+	})
+	g := specs["grok"]
+	if g.Model != "grok-4.7-build-fast" || g.Command != "grok" || g.Env["X"] != "1" || g.Env["GROK_SUBAGENTS"] != "0" {
+		t.Errorf("grok = %+v", g)
+	}
+	if g.SessionMeta["yoloMode"] != false {
+		t.Errorf("grok override lost builtin session meta: %v", g.SessionMeta)
+	}
+	if _, ok := specs["opencode"]; ok {
+		t.Error("disabled opencode still present")
+	}
+	if m := specs["mine"]; m.Command != "my-acp" || m.Name != "mine" || m.Description == "" || m.SessionMeta != nil {
+		t.Errorf("mine = %+v", m)
+	}
+	if _, ok := specs["broken"]; ok {
+		t.Error("entry without command should be ignored")
+	}
+	if names := SortedNames(specs); len(names) != 2 || names[0] != "grok" || names[1] != "mine" {
+		t.Errorf("names = %v", names)
+	}
+	// Resolve must not mutate the builtin presets.
+	if Builtins()["grok"].Env["X"] != "" {
+		t.Error("Resolve mutated builtin env")
+	}
+}

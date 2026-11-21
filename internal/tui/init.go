@@ -51,9 +51,17 @@ func New(
 	rec *transcript.Recorder,
 	questionAskCh <-chan types.QuestionRequest,
 	questionRespCh chan<- types.QuestionResponse,
+	extraCommands ...func(*commands.Registry),
 ) tea.Model {
 	reg := commands.NewRegistry()
 	commands.RegisterBuiltins(reg)
+	// Extra registrars (e.g. /grok for external ACP agents) run after the
+	// builtins so they cannot shadow them.
+	for _, register := range extraCommands {
+		if register != nil {
+			register(reg)
+		}
+	}
 
 	m := newAppModel(qe, appStore, vimEnabled, dark, reg, permAskCh, permRespCh, agentCoord, agentEventCh, mq, qg, memoryStore, mcpPool, tiers, setup, models, btwTarget, rec, questionAskCh, questionRespCh)
 	m.turnLogPath = defaultTurnLogPath()

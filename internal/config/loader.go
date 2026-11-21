@@ -65,6 +65,27 @@ type SettingsJson struct {
 	AllowManagedHooksOnly *bool                                     `json:"allowManagedHooksOnly,omitempty"`
 	AutoMemoryEnabled     *bool                                     `json:"autoMemoryEnabled,omitempty"`
 	AutoMemoryDirectory   string                                    `json:"autoMemoryDirectory,omitempty"`
+	// ACPAgents configures external coding agents reached over the Agent
+	// Client Protocol (keyed by agent name, e.g. "grok"). Entries override the
+	// built-in presets field by field; a new name adds a custom agent.
+	ACPAgents map[string]ACPAgentConfig `json:"acpAgents,omitempty"`
+}
+
+// ACPAgentConfig is one entry of settings.json "acpAgents". Empty fields keep
+// the value of the lower layer (or built-in preset); Env keys are merged.
+type ACPAgentConfig struct {
+	// Command is the executable to start (looked up in PATH).
+	Command string `json:"command,omitempty"`
+	// Args are the command-line arguments; a non-nil list replaces the preset.
+	Args []string `json:"args,omitempty"`
+	// Env adds or overrides environment variables for the agent process.
+	Env map[string]string `json:"env,omitempty"`
+	// Model is the agent-side model id applied via session config options.
+	Model string `json:"model,omitempty"`
+	// Description tells the main model when to delegate to this agent.
+	Description string `json:"description,omitempty"`
+	// Disabled removes the agent (including a built-in preset) when true.
+	Disabled *bool `json:"disabled,omitempty"`
 }
 
 // SettingSource identifies the configuration layer.
@@ -278,6 +299,15 @@ func applyLayer(dst, src *SettingsJson) {
 	dst.AvailableModels = uniqueAppend(dst.AvailableModels, src.AvailableModels...)
 	dst.EnabledMCPServers = uniqueAppend(dst.EnabledMCPServers, src.EnabledMCPServers...)
 	dst.DisabledMCPServers = uniqueAppend(dst.DisabledMCPServers, src.DisabledMCPServers...)
+	// acpAgents: per-agent field-level override.
+	if len(src.ACPAgents) > 0 {
+		if dst.ACPAgents == nil {
+			dst.ACPAgents = make(map[string]ACPAgentConfig, len(src.ACPAgents))
+		}
+		for name, a := range src.ACPAgents {
+			dst.ACPAgents[name] = MergeACPAgentConfig(dst.ACPAgents[name], a)
+		}
+	}
 	// permissions: merge sub-fields.
 	if src.Permissions != nil {
 		if dst.Permissions == nil {
@@ -340,6 +370,13 @@ func applyPolicyOverrides(base *SettingsJson, policy *SettingsJson) *SettingsJso
 	}
 	if policy.CleanupPeriodDays != nil {
 		base.CleanupPeriodDays = policy.CleanupPeriodDays
+	}
+	// acpAgents: policy entries win field by field (e.g. disabled=true).
+	for name, a := range policy.ACPAgents {
+		if base.ACPAgents == nil {
+			base.ACPAgents = make(map[string]ACPAgentConfig, len(policy.ACPAgents))
+		}
+		base.ACPAgents[name] = MergeACPAgentConfig(base.ACPAgents[name], a)
 	}
 	if policy.DisableAllHooks != nil {
 		base.DisableAllHooks = policy.DisableAllHooks
@@ -462,4 +499,36 @@ func uniqueAppend(dst []string, src ...string) []string {
 		}
 	}
 	return dst
+}
+
+// MergeACPAgentConfig overlays the non-empty fields of over onto base.
+// Env keys are merged (over wins); Args is replaced when over sets it.
+func MergeACPAgentConfig(base, over ACPAgentConfig) ACPAgentConfig {
+	if over.Command != "" {
+		base.Command = over.Command
+	}
+	if over.Args != nil {
+		base.Args = append([]string(nil), over.Args...)
+	}
+	if over.Model != "" {
+		base.Model = over.Model
+	}
+	if over.Description != "" {
+		base.Description = over.Description
+	}
+	if over.Disabled != nil {
+		v := *over.Disabled
+		base.Disabled = &v
+	}
+	if len(over.Env) > 0 {
+		env := make(map[string]string, len(base.Env)+len(over.Env))
+		for k, v := range base.Env {
+			env[k] = v
+		}
+		for k, v := range over.Env {
+			env[k] = v
+		}
+		base.Env = env
+	}
+	return base
 }

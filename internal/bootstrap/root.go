@@ -198,6 +198,8 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 	if err != nil {
 		return fmt.Errorf("bootstrap: build container: %w", err)
 	}
+	// Stop external ACP agent processes on exit.
+	defer container.Close() //nolint:errcheck
 
 	// Apply permission flags to the app state.
 	applyPermissionFlags(container, f)
@@ -245,6 +247,7 @@ func runInteractive(f *rootFlags, opts ContainerOptions) error {
 		rec,
 		container.QuestionAskCh,
 		container.QuestionRespCh,
+		externalAgentCommands(container),
 	)
 	// v2: alt-screen and mouse mode are set on the View (AppModel.screenView),
 	// not via program options.
@@ -263,6 +266,7 @@ func runHeadless(f *rootFlags, extraArgs []string, opts ContainerOptions) error 
 	if err != nil {
 		return fmt.Errorf("bootstrap: build headless container: %w", err)
 	}
+	defer container.Close() //nolint:errcheck
 
 	applyPermissionFlags(container, f)
 

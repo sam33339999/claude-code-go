@@ -1,7 +1,7 @@
 ---
 type: auto-generated-index
-generated_at: 2026-11-20T14:06:37Z
-package_count: 43
+generated_at: 2026-11-21T09:43:04Z
+package_count: 45
 ---
 
 # Package Index
@@ -20,11 +20,13 @@ package_count: 43
 | `pkg/utils/permission` | Types (zero-dep) | - | [CONTEXT](../../pkg/utils/permission/CONTEXT.md) |
 | `internal/agentctx` | Infra | - | [CONTEXT](../../internal/agentctx/CONTEXT.md) |
 | `internal/agenttype` | Infra | AgentProfile, Registry, ToolFilter | [CONTEXT](../../internal/agenttype/CONTEXT.md) |
-| `internal/config` | Infra | ConfigLoader(1m), AttributionConfig, EnvPair, InstalledPluginRecord, InstalledPlugins | [CONTEXT](../../internal/config/CONTEXT.md) |
+| `internal/config` | Infra | ConfigLoader(1m), ACPAgentConfig, AttributionConfig, EnvPair, InstalledPluginRecord | [CONTEXT](../../internal/config/CONTEXT.md) |
 | `internal/hooks` | Infra | Dispatcher | [CONTEXT](../../internal/hooks/CONTEXT.md) |
 | `internal/plugin` | Infra | Manager | [CONTEXT](../../internal/plugin/CONTEXT.md) |
 | `internal/session` | Infra | SessionStorer(3m), SessionManager, SessionStore | [CONTEXT](../../internal/session/CONTEXT.md) |
 | `internal/state` | Infra | AppState, ModelSetting, Store, TaskState, WorktreeState | [CONTEXT](../../internal/state/CONTEXT.md) |
+| `internal/acpclient` | Services | AgentSpec, Event, Manager, Options, PermissionQuery | [CONTEXT](../../internal/acpclient/CONTEXT.md) |
+| `internal/acpclient/acptest` | Services | Agent | [CONTEXT](../../internal/acpclient/acptest/CONTEXT.md) |
 | `internal/api` | Services | Client(2m), StreamReader(1m), APIError, APIErrorData, Accumulator | [CONTEXT](../../internal/api/CONTEXT.md) |
 | `internal/compact` | Services | Compressor(2m), AutoCompactTrackingState, AutoCompactor, CacheEdit, CompactionExtra | [CONTEXT](../../internal/compact/CONTEXT.md) |
 | `internal/mcp` | Services | MCPClient(7m), Transport(3m), HTTPTransportConfig, JSONRPCError, JSONRPCMessage | [CONTEXT](../../internal/mcp/CONTEXT.md) |
@@ -35,7 +37,7 @@ package_count: 43
 | `internal/coordinator` | Core | Coordinator(8m), AgentUsage, Config, Event, MCPClientInfo | [CONTEXT](../../internal/coordinator/CONTEXT.md) |
 | `internal/engine` | Core | QueryEngine(7m), BudgetTracker, CacheSafeParams, Config, ForkedAgentConfig | [CONTEXT](../../internal/engine/CONTEXT.md) |
 | `internal/tools` | Tools | AgentCoordinator(9m), MCPToolInfo(1m), PathTool(1m), PermissionContext(1m), SearchOrReadTool(1m), ... | [CONTEXT](../../internal/tools/CONTEXT.md) |
-| `internal/tools/agent` | Tools | AgentInput, AgentOutput, GetAgentStatusInput, GetAgentStatusOutput, SendMessageInput | [CONTEXT](../../internal/tools/agent/CONTEXT.md) |
+| `internal/tools/agent` | Tools | AgentInput, AgentOutput, ExternalAgentInfo, GetAgentStatusInput, GetAgentStatusOutput | [CONTEXT](../../internal/tools/agent/CONTEXT.md) |
 | `internal/tools/codemode` | Tools | - | [CONTEXT](../../internal/tools/codemode/CONTEXT.md) |
 | `internal/tools/fileops` | Tools | FileEditInput, FileReadInput, FileReadOutput, FileWriteInput, GlobInput | [CONTEXT](../../internal/tools/fileops/CONTEXT.md) |
 | `internal/tools/interact` | Tools | AskUserQuestionInput, EnterPlanModeInput, EnterWorktreeInput, ExitPlanModeInput, ExitWorktreeInput | [CONTEXT](../../internal/tools/interact/CONTEXT.md) |
@@ -50,4 +52,4 @@ package_count: 43
 | `internal/commands` | CLI | MCPServerLister(1m), ModelSwitcher(3m), SetupBackend(5m), TierManager(6m), Command | [CONTEXT](../../internal/commands/CONTEXT.md) |
 
 ---
-*43 packages across 8 layers.*
+*45 packages across 8 layers.*

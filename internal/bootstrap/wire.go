@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/tunsuy/glaude/internal/acpclient"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,6 +108,17 @@ type AppContainer struct {
 	Setup commands.SetupBackend
 	// ModelSwitcher serves /model (never nil).
 	ModelSwitcher commands.ModelSwitcher
+	// ACPAgents manages external ACP agents (nil when none configured).
+	// Close terminates their processes.
+	ACPAgents *acpclient.Manager
+}
+
+// Close releases resources owned by the container (external agent processes).
+func (c *AppContainer) Close() error {
+	if c == nil || c.ACPAgents == nil {
+		return nil
+	}
+	return c.ACPAgents.Close()
 }
 
 // defaultModel is used when no model override is provided for Anthropic
@@ -257,9 +269,13 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 	onProgress := buildOnProgressFn(agentEventCh)
 	onStatusChange := buildOnStatusChangeFn(agentEventCh)
 
+	// ACP external agents (grok, opencode, settings acpAgents): long-lived
+	// sessions; permission requests go through permChecker.
+	acpAgents := buildACPManager(opts, settings, agentProfiles, permChecker, store)
+
 	coord := coordinator.New(coordinator.Config{
 		CoordinatorMode:  true,
-		RunAgent:         buildRunAgentFn(eng, reg, store, onProgress, agentProfiles, router),
+		RunAgent:         withACPDispatch(acpAgents, store, onProgress, buildRunAgentFn(eng, reg, store, onProgress, agentProfiles, router)),
 		OnProgress:       onProgress,
 		OnStatusChange:   onStatusChange,
 		SummaryGenerator: coordinator.DefaultSummaryGenerator,
@@ -286,6 +302,7 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 		Tiers:            router.store,
 		Setup:            newSetupBackend(opts.HomeDir, settings, apiKey == "", hasOAuthToken()),
 		ModelSwitcher:    newModelSwitcher(eng, router, store, eng.MainTarget(), mainWireFormat(settings)),
+		ACPAgents:        acpAgents,
 	}, nil
 }
 
@@ -406,9 +423,11 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	onProgress := buildOnProgressFn(agentEventCh)
 	onStatusChange := buildOnStatusChangeFn(agentEventCh)
 
+	acpAgents := buildACPManager(opts, settings, agentProfilesTest, permChecker, store)
+
 	coord := coordinator.New(coordinator.Config{
 		CoordinatorMode:  true,
-		RunAgent:         buildRunAgentFn(eng, reg, store, onProgress, agentProfilesTest, router),
+		RunAgent:         withACPDispatch(acpAgents, store, onProgress, buildRunAgentFn(eng, reg, store, onProgress, agentProfilesTest, router)),
 		OnProgress:       onProgress,
 		OnStatusChange:   onStatusChange,
 		SummaryGenerator: coordinator.DefaultSummaryGenerator,
@@ -435,6 +454,7 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 		Tiers:            router.store,
 		Setup:            newSetupBackend(opts.HomeDir, settings, false, false),
 		ModelSwitcher:    newModelSwitcher(eng, router, store, eng.MainTarget(), mainWireFormat(settings)),
+		ACPAgents:        acpAgents,
 	}, nil
 }
 

@@ -18,6 +18,7 @@ require (
 	github.com/atotto/clipboard v0.1.4
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/charmbracelet/x/ansi v0.11.9
+	github.com/coder/acp-go-sdk v0.20.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/spf13/cobra v1.8.1
 	golang.org/x/image v0.44.0

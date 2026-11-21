@@ -720,3 +720,16 @@ func TestAgentTool_PassesCacheParams(t *testing.T) {
 		t.Error("Agent tool must forward ctx.CacheParams to the spawn request")
 	}
 }
+
+func TestAgentDescription_ListsExternalAgents(t *testing.T) {
+	t.Cleanup(func() { agent.SetExternalAgents(nil) })
+	base := agent.AgentTool.Description(nil, nil)
+	if strings.Contains(base, "External agents") {
+		t.Fatal("no external agents configured, but section present")
+	}
+	agent.SetExternalAgents([]agent.ExternalAgentInfo{{Name: "grok", Description: "Grok Build."}})
+	d := agent.AgentTool.Description(nil, nil)
+	if !strings.HasPrefix(d, base) || !strings.Contains(d, `"grok" — Grok Build.`) || !strings.Contains(d, "long-lived session") {
+		t.Fatalf("description = %q", d[len(base):])
+	}
+}

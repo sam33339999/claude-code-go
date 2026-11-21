@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/tunsuy/glaude/internal/acpclient/acptest"
 	"github.com/tunsuy/glaude/internal/config"
 
 	"github.com/tunsuy/glaude/internal/agenttype"
@@ -14,6 +15,12 @@ import (
 // We redirect HOME and XDG_CONFIG_HOME to a temp dir so no real
 // keychain / token files are touched during testing.
 func TestMain(m *testing.M) {
+	// The test binary doubles as a scripted ACP agent for the external-agent
+	// integration test (settings acpAgents → os.Args[0]).
+	if os.Getenv("GLAUDE_ACP_FAKE_AGENT") == "1" {
+		acptest.New().Serve(os.Stdin, os.Stdout, func() { os.Exit(3) })
+		os.Exit(0)
+	}
 	// Use a fresh temp dir as the home directory for all tests so that
 	// OAuth token stores and config files are isolated.
 	tmpHome, err := os.MkdirTemp("", "bootstrap-test-home-*")
