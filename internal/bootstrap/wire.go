@@ -1116,8 +1116,56 @@ func buildAppState(settings *config.LayeredSettings, opts ContainerOptions, mode
 	if settings.Merged != nil {
 		appState.Settings = *settings.Merged
 	}
+	applySettingsPermissions(&appState.ToolPermissionContext, settings)
 
 	return appState
+}
+
+// applySettingsPermissions loads settings.json permissions (allow/deny/ask
+// rules per layer, and defaultMode) into the permission context the checker
+// starts from. Rules keep their source layer so persisted "always allow"
+// rules (written to the project settings) apply again on the next start.
+func applySettingsPermissions(pc *types.ToolPermissionContext, settings *config.LayeredSettings) {
+	if pc == nil || settings == nil {
+		return
+	}
+	add := func(rules *types.ToolPermissionRulesBySource, src types.PermissionRuleSource, list []string) {
+		if len(list) == 0 {
+			return
+		}
+		if *rules == nil {
+			*rules = make(types.ToolPermissionRulesBySource)
+		}
+		(*rules)[src] = append((*rules)[src], list...)
+	}
+	layers := []struct {
+		s   *config.SettingsJson
+		src types.PermissionRuleSource
+	}{
+		{settings.User, types.RuleSourceUser},
+		{settings.Project, types.RuleSourceProject},
+		{settings.Local, types.RuleSourceLocal},
+		{settings.Policy, types.RuleSourcePolicy},
+	}
+	for _, l := range layers {
+		if l.s == nil || l.s.Permissions == nil {
+			continue
+		}
+		add(&pc.AlwaysAllowRules, l.src, l.s.Permissions.Allow)
+		add(&pc.AlwaysDenyRules, l.src, l.s.Permissions.Deny)
+		add(&pc.AlwaysAskRules, l.src, l.s.Permissions.Ask)
+	}
+	if settings.Merged != nil && settings.Merged.Permissions != nil {
+		m := settings.Merged.Permissions.DefaultMode
+		if m == types.PermissionModeBypassPermissions && settings.Merged.Permissions.DisableBypass == "disable" {
+			m = ""
+		}
+		switch m {
+		case types.PermissionModeDefault, types.PermissionModeAcceptEdits, types.PermissionModePlan,
+			types.PermissionModeDontAsk, types.PermissionModeBypassPermissions:
+			pc.Mode = m
+		}
+	}
 }
 
 // applyPermissionFlags applies rootFlags permission overrides to the AppStateStore.
