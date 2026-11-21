@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/glamour"
+	"github.com/tunsuy/glaude/internal/clipboard"
 	"github.com/tunsuy/glaude/internal/commands"
 	"github.com/tunsuy/glaude/internal/compact"
 	"github.com/tunsuy/glaude/internal/coordinator"
@@ -71,8 +72,19 @@ type AppModel struct {
 	// starts; startQueryCmd resets it before creating the new context.
 	messages  []types.Message
 	isLoading bool
-	abortFn   context.CancelFunc // nil when idle
-	abortCtx  context.Context    // current query context
+	// inflightBase is the m.messages index at turn start. While isLoading,
+	// bubbles from here on are not in GetMessages yet.
+	inflightBase int
+	// unsentUsers are queued user bubbles whose images are not in GetMessages
+	// yet. The running one stays until that query writes back.
+	unsentUsers []queuedBubble
+	// echoedUsers are StreamUserTurnMsg indices. Their marker text repeats a
+	// submission already on screen.
+	echoedUsers []int
+	// inflightUser is the unsent bubble index this query will write back, or -1.
+	inflightUser int
+	abortFn      context.CancelFunc // nil when idle
+	abortCtx     context.Context    // current query context
 
 	// --- UI sub-view state ---
 	activeDialog dialogKind
@@ -108,6 +120,12 @@ type AppModel struct {
 
 	// --- Input ---
 	input InputModel
+	// pastes is the session paste store. Created in newAppModel and not replaced, including on /clear.
+	pastes *pasteStore
+	// pasteNotice is a one-shot hint cleared by the next idle key.
+	pasteNotice string
+	// clip reads the system clipboard. newAppModel sets clipboard.New; tests replace it.
+	clip clipboardReader
 
 	// --- Style ---
 	theme    Theme
@@ -295,6 +313,8 @@ func newAppModel(
 		commandRegistry:     reg,
 		spinner:             newSpinner(),
 		input:               NewInput(vimEnabled),
+		pastes:              newPasteStore(),
+		clip:                clipboard.New(),
 		lastTickTime:        time.Now(),
 		expandedToolResults: make(map[string]bool),
 		surfacedMemories:    make(map[string]bool),
@@ -330,6 +350,7 @@ func newAppModel(
 	if setup != nil && setup.NeedsSetup() {
 		m.messages = append(m.messages, newSystemMessage(setupStartupNotice))
 	}
+	m.inflightUser = -1
 	return m
 }
 

@@ -2,7 +2,7 @@
 package: types
 import_path: pkg/types
 layer: types
-generated_at: 2026-11-20T09:48:07Z
+generated_at: 2026-11-20T14:06:37Z
 source_files: [command.go, hooks.go, ids.go, logs.go, message.go, permissions.go, plugin.go, question.go, todo.go, types.go]
 ---
 
@@ -163,14 +163,14 @@ type MCPConnection interface {
 - `AggregatedHookResult` → `internal/hooks/hooks.go`
 - `AppStateReader` → `internal/state/store.go`
 - `CacheControl` → `internal/engine/query.go`
-- `ContentBlock` → `internal/bootstrap/run.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/commands/resume_test.go` (test) + 38 more
+- `ContentBlock` → `internal/bootstrap/run.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test), `internal/commands/resume_test.go` (test) + 42 more
 - `EntryEnvelope` → `internal/commands/resume.go`, `internal/session/store.go`, `internal/session/store_test.go` (test)
 - `HookDefinition` → `internal/config/loader.go`, `internal/config/loader_test.go` (test), `internal/hooks/hooks.go`
 - `HookResult` → `internal/hooks/hooks.go`
-- `ImageSource` → `internal/compact/images_test.go` (test), `internal/engine/tool_images_test.go` (test)
+- `ImageSource` → `internal/compact/images_test.go` (test), `internal/engine/btw_test.go` (test), `internal/engine/tool_images_test.go` (test), `internal/tui/clipboard_paste.go`, `internal/tui/clipboard_paste_test.go` (test) + 4 more
 - `LoadedPlugin` → `internal/plugin/plugin.go`, `internal/state/store.go`
 - `MCPConnection` → `internal/state/store.go`
-- `Message` → `internal/bootstrap/run.go`, `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 55 more
+- `Message` → `internal/bootstrap/run.go`, `internal/bootstrap/session.go`, `internal/bootstrap/session_test.go` (test), `internal/bootstrap/wire.go`, `internal/bootstrap/wire_fork_test.go` (test) + 58 more
 - `PluginConfig` → `internal/plugin/plugin.go`
 - `PluginError` → `internal/plugin/plugin.go`
 - `QuestionRequest` → `internal/bootstrap/wire.go`, `internal/tools/interact/interact.go`, `internal/tools/interact/interact_test.go` (test), `internal/tui/init.go`, `internal/tui/model.go` + 1 more
@@ -183,7 +183,7 @@ type MCPConnection interface {
 
 **Imports:** *(none — zero-dependency)*
 
-**Imported by:** `internal/bootstrap`, `internal/commands`, `internal/compact`, `internal/config`, `internal/engine`, `internal/hooks`, `internal/memdir`, `internal/permissions`, `internal/plugin`, `internal/session`, `internal/state`, `internal/tools/interact`, `internal/transcript`, `internal/tui`, `pkg/utils/ids`
+**Imported by:** `internal/bootstrap`, `internal/commands`, `internal/compact`, `internal/config`, `internal/engine`, `internal/hooks`, `internal/memdir`, `internal/msgqueue`, `internal/permissions`, `internal/plugin`, `internal/session`, `internal/state`, `internal/tools/interact`, `internal/transcript`, `internal/tui`, `pkg/utils/ids`
 
 <!-- AUTO-GENERATED ABOVE — DO NOT EDIT -->
 <!-- MANUAL NOTES BELOW — preserved across regeneration -->

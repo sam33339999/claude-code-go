@@ -170,6 +170,7 @@ func (m AppModel) handleCompactKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.statusBar.contextTokens = 0
 		m.messages = nil
 		m.queryEngine.SetMessages(nil)
+		m = m.dropUnsentUsers()
 		sessionID := m.sessionID
 		store := m.memoryStore
 		return m, func() tea.Msg {
@@ -206,6 +207,8 @@ func (m AppModel) handleExitKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // navigate the completion popup while it is open. The conversation scrolls
 // with PgUp/PgDn, shift+↑/↓ and the mouse wheel.
 func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	m.clearPasteNotice()
+
 	// v2: shift+tab arrives as Tab with ModShift (no dedicated KeyShiftTab).
 	if key.Code == tea.KeyTab && key.Mod.Contains(tea.ModShift) {
 		return m.cyclePermissionMode()
@@ -255,6 +258,11 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case tea.KeyDown:
 			return m.scrollDown(3), nil
 		}
+	}
+
+	// ctrl+v reads the clipboard in a command. Builtin textarea paste is off.
+	if key.String() == "ctrl+v" {
+		return m.startClipboardPaste()
 	}
 
 	switch key.Code {
@@ -338,6 +346,11 @@ func (m AppModel) handleIdleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m.scrollDown(3), nil
 		}
 		return m.updateInput(key)
+	}
+
+	// A stored paste marker is one token for backspace, delete, word-delete, and vim x.
+	if updated, ok := m.tryDeleteToken(key); ok {
+		return updated, updated.refreshCompletion()
 	}
 
 	// Vim normal mode uses j/k for navigation when vim is enabled.
@@ -449,13 +462,17 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 		if cmd == "" {
 			return m, nil
 		}
-		return m.startBash(cmd)
+		expanded, dropped := m.pastes.expandTextOnly(cmd)
+		m.noticeDroppedImages(dropped)
+		return m.startBash(cmd, expanded)
 	}
 
 	// Check for # quick memory input.
 	if strings.HasPrefix(text, "# ") {
+		body, dropped := m.pastes.expandTextOnly(strings.TrimPrefix(text, "# "))
+		m.noticeDroppedImages(dropped)
 		m.input = m.input.SetValue("")
-		return m.handleQuickMemory(strings.TrimPrefix(text, "# "))
+		return m.handleQuickMemory(body)
 	}
 
 	// Check for slash commands.
@@ -472,22 +489,24 @@ func (m AppModel) handleSubmit() (tea.Model, tea.Cmd) {
 	// P1: If a query is active, enqueue instead of cancelling the current query.
 	if m.isLoading && m.msgQueue != nil {
 		cmd := msgqueue.NewCommand(text, msgqueue.ModePrompt, msgqueue.PriorityNext)
+		// Snapshot on this goroutine. The engine must not read the paste store.
+		// Value stays the marker for the bubble and the between-turn drain.
+		exp := m.pastes.expand(text)
+		cmd.Content = contentWithImages(exp.Images, exp.Text)
 		m.msgQueue.Enqueue(cmd)
 		// Show queued message in UI so the user sees their input was accepted.
 		m.messages = append(m.messages, newUserMessage(text))
+		m = m.noteQueuedUser(cmd.ID)
 		m.syncViewportContent()
 		return m, nil // No startQueryCmd — will drain later.
 	}
 
-	// Default: direct dispatch (existing behavior, backward compat if msgQueue==nil).
-	// Append user message to local display.
+	// Direct dispatch when msgQueue is nil. Open the turn window before the
+	// user bubble so its markers count while GetMessages is still the prior turn.
+	m = m.beginQuery()
 	m.messages = append(m.messages, newUserMessage(text))
 	m.syncViewportContent()
-
-	// Normal query.
-	m = m.beginQuery()
-	queryCmd := startQueryCmd(&m, text)
-	return m, queryCmd
+	return m, startQueryCmd(&m, text, true)
 }
 
 // handleQuickMemory saves a user preference via the # shortcut.

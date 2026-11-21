@@ -155,6 +155,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.FinalMessage != nil {
 			m.messages = append(m.messages, *msg.FinalMessage)
+			m = m.noteStreamUserTurn()
 		}
 		// A user turn after tool use carries the tool results: the tools ran.
 		m.activeTool = ""
@@ -398,9 +399,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.activeDialog != dialogNone {
 			return m, nil
 		}
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
-		return m, tea.Batch(cmd, m.refreshCompletion())
+		return m.insertPaste(msg.Content)
+
+	case clipboardImageMsg:
+		return m.onClipboardImage(msg)
+	case clipboardTextMsg:
+		return m.onClipboardText(msg)
+	case clipboardNoticeMsg:
+		return m.onClipboardNotice(msg)
 
 	// --- ! bash mode result ---
 	case bashResultMsg:
@@ -437,6 +443,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleSlashCommand executes a slash command and returns updated model + cmd.
 func (m AppModel) handleSlashCommand(text string) (AppModel, tea.Cmd) {
+	// Name comes from the raw line. Expanding first would turn "/" plus a
+	// marker whose body is "clear …" into a real /clear.
 	name, args := parseSlashInput(text)
 	if name == "" {
 		return m, nil
@@ -448,6 +456,10 @@ func (m AppModel) handleSlashCommand(text string) (AppModel, tea.Cmd) {
 		m.syncViewportContent()
 		return m, nil
 	}
+
+	var dropped bool
+	args, dropped = m.pastes.expandTextOnly(args)
+	m.noticeDroppedImages(dropped)
 
 	st := m.appState.GetState()
 	cmdCtx := commands.CommandContext{
@@ -503,19 +515,19 @@ func processQueueCmd(m *AppModel) tea.Cmd {
 			return queuedSlashMsg{Text: text}
 		}
 	case msgqueue.ModePrompt:
-		// The user message was already appended to m.messages when enqueued
-		// (in handleSubmit), so we don't append again. Just start the query.
-		*m = m.beginQuery()
-		return startQueryCmd(m, cmd.Value)
+		// The user message was already appended when enqueued. Every queued
+		// bubble stays unsent until its own query writes back.
+		*m = m.beginQuery().claimQueuedUser()
+		return startQueryCmd(m, cmd.Value, cmd.Origin == "")
 	case msgqueue.ModeExternalPrompt:
 		// EV-01: externally injected event (e.g. MCP server notification).
-		// The display message was NOT appended at enqueue time — do it here,
-		// then start the query so the agent reacts to the event.
+		// Open the window first, then append the display message, so this
+		// turn's bubble is counted before GetMessages includes it.
+		*m = m.beginQuery()
 		m.messages = append(m.messages, newUserMessage(cmd.Value))
 		m.pinnedToBottom = true
 		m.syncViewportContent()
-		*m = m.beginQuery()
-		return startQueryCmd(m, cmd.Value)
+		return startQueryCmd(m, cmd.Value, false)
 	}
 	return nil
 }
@@ -601,6 +613,7 @@ func (m AppModel) applyCommandResult(result commands.Result, name string) (AppMo
 		m.bashGen++
 		m.messages = nil
 		m.queryEngine.SetMessages(nil)
+		m = m.dropUnsentUsers()
 		m.statusBar.contextTokens = 0
 		m.streamingText = ""
 		m.streamingHasMsg = false
@@ -657,6 +670,7 @@ func (m AppModel) applyResumeResult(result commands.Result) (AppModel, bool) {
 	}
 	m.messages = msgs
 	m.queryEngine.SetMessages(msgs)
+	m = m.dropUnsentUsers()
 	// Shell output from the old session must not leak into the resumed one.
 	m = m.cancelBash()
 	m.bashPending = nil
@@ -688,7 +702,7 @@ func (m AppModel) applyDisplayResult(result commands.Result) (AppModel, tea.Cmd)
 	case commands.DisplayNone:
 		if result.Text != "" {
 			m = m.beginQuery()
-			return m, startQueryCmd(&m, result.Text)
+			return m, startQueryCmd(&m, result.Text, false)
 		}
 	}
 	return m, nil
@@ -712,5 +726,6 @@ func (m AppModel) resetQueryFeedback() AppModel {
 	m.activeTool = ""
 	m.streamedChars = 0
 	m.queryOutputTokens = 0
-	return m
+	// The loop has exited, so this turn's user bubble is in GetMessages.
+	return m.releaseWrittenUser()
 }
