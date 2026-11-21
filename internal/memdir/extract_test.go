@@ -2,6 +2,7 @@ package memdir
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -383,4 +384,46 @@ func textBlock(text string) types.ContentBlock {
 		Type: types.ContentTypeText,
 		Text: strPtr(text),
 	}
+}
+
+// TestExecuteExtractMemories_ErrorGoesToLogf verifies a failed extraction is
+// reported through cfg.Logf (the --debug logger) rather than the global
+// logger, whose stderr output would draw over the TUI.
+func TestExecuteExtractMemories_ErrorGoesToLogf(t *testing.T) {
+	t.Parallel()
+
+	var got []string
+	cfg := ExtractMemoriesConfig{
+		Enabled: true,
+		Store:   NewMemoryStoreWithPath(t.TempDir()),
+		Logf: func(format string, args ...any) {
+			got = append(got, fmt.Sprintf(format, args...))
+		},
+	}
+	hookCtx := &engine.StopHookContext{
+		QuerySource: foregroundQuerySource,
+		Messages: []types.Message{
+			{Role: types.RoleUser, Content: []types.ContentBlock{textBlock("remember I use fnm")}},
+			{Role: types.RoleAssistant, Content: []types.ContentBlock{textBlock("ok")}},
+		},
+		// Engine nil: RunForkedAgent returns an error.
+	}
+	ExecuteExtractMemories(context.Background(), hookCtx, cfg)
+
+	if len(got) != 1 || !strings.Contains(got[0], "extract memories") {
+		t.Fatalf("Logf calls = %q, want one extract-memories error", got)
+	}
+}
+
+// TestExecuteExtractMemories_NilLogfIsSilent verifies extraction errors are
+// dropped (not printed) when no debug logger is configured.
+func TestExecuteExtractMemories_NilLogfIsSilent(t *testing.T) {
+	t.Parallel()
+
+	cfg := ExtractMemoriesConfig{Enabled: true, Store: NewMemoryStoreWithPath(t.TempDir())}
+	hookCtx := &engine.StopHookContext{
+		QuerySource: foregroundQuerySource,
+		Messages:    []types.Message{{Role: types.RoleUser, Content: []types.ContentBlock{textBlock("hi")}}},
+	}
+	ExecuteExtractMemories(context.Background(), hookCtx, cfg) // must not panic
 }

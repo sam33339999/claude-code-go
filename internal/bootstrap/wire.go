@@ -236,7 +236,7 @@ func BuildContainer(opts ContainerOptions) (*AppContainer, error) {
 
 	// Register memory stop hooks (extract + auto dream).
 	memoryStore := buildMemoryStore(settings, opts.WorkingDir)
-	registerMemoryStopHooks(stopHooks, settings, memoryStore)
+	registerMemoryStopHooks(stopHooks, settings, memoryStore, engineDebugLogf(opts))
 
 	// ── Phase 8: Engine construction ─────────────────────────────────────────
 	router := wireTiers(opts, apiClient)
@@ -375,7 +375,7 @@ func BuildContainerWithClient(opts ContainerOptions, client api.Client) (*AppCon
 	// ── Phase 7.5: StopHook registry ─────────────────────────────────────────
 	stopHooksTest := engine.NewStopHookRegistry()
 	testMemoryStore := buildMemoryStore(settings, opts.WorkingDir)
-	registerMemoryStopHooks(stopHooksTest, settings, testMemoryStore)
+	registerMemoryStopHooks(stopHooksTest, settings, testMemoryStore, engineDebugLogf(opts))
 
 	// ── Phase 7.6: Message queue + query guard (mid-session messaging) ───────
 	mqTest := msgqueue.NewMessageQueue()
@@ -461,11 +461,13 @@ func registerMemoryStopHooks(
 	stopHooks *engine.StopHookRegistry,
 	settings *config.LayeredSettings,
 	store *memdir.MemoryStore,
+	debugLogf func(string, ...any),
 ) {
 	enabled := memdir.IsAutoMemoryEnabled(false, settingsAutoMemoryEnabled(settings))
 
 	extractCfg := memdir.DefaultExtractConfig()
 	extractCfg.Store = store
+	extractCfg.Logf = debugLogf
 	extractCfg.Enabled = memdir.IsExtractMemoriesEnabled(false, settingsAutoMemoryEnabled(settings))
 	stopHooks.Register("extract_memories", func(ctx context.Context, hookCtx *engine.StopHookContext) {
 		if !enabled {
@@ -476,6 +478,7 @@ func registerMemoryStopHooks(
 
 	dreamCfg := memdir.DefaultAutoDreamConfig()
 	dreamCfg.Store = store
+	dreamCfg.Logf = debugLogf
 	dreamCfg.Enabled = memdir.IsAutoDreamEnabled(false, settingsAutoMemoryEnabled(settings))
 	stopHooks.Register("auto_dream", func(ctx context.Context, hookCtx *engine.StopHookContext) {
 		if !enabled {
