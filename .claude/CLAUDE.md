@@ -21,6 +21,10 @@
 
 关闭欠账后运行 `scripts/debt-check.sh --update` 刷新基线并随 PR 提交。
 
+### 待处理问题（改相关代码前先看）
+
+- **记忆萃取每轮重送整段历史（token 成本）**：`extract_memories` stop hook 每个 `end_turn` 都跑，fork 带完整 `ContextMessages`、最多 3 回合、无节流。临时缓解 `autoMemoryEnabled: false`。详见 [`docs/project/discussions/2026-11-21-memory-extract-token-cost.md`](docs/project/discussions/2026-11-21-memory-extract-token-cost.md)（另开分支处理）。
+
 ## Environment Setup
 
 ```bash
